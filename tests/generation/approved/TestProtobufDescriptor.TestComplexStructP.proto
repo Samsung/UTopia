@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+message TestComplexStructP {
+  .TestStruct Data = 1;
+}
+
+message TestStruct {
+  .NestedStruct Field = 1;
+}
+
+message NestedStruct {
+  int32 Field = 1;
+}
+

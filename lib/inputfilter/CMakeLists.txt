@@ -1,0 +1,14 @@
+add_library(ftgInputFilter
+  ArrayGroupFilter.cpp
+  CompileConstantFilter.cpp
+  ConstIntArrayLenFilter.cpp
+  ExternalFilter.cpp
+  GroupFilter.cpp
+  InaccessibleGlobalFilter.cpp
+  InputFilter.cpp
+  InvalidLocationFilter.cpp
+  NullPointerFilter.cpp
+  RawStringFilter.cpp
+  TypeUnavailableFilter.cpp
+  UnsupportTypeFilter.cpp
+)

@@ -1,0 +1,28 @@
+{
+	"Constant" : 
+	{
+		"DoubleConst" : 
+		{
+			"array" : false,
+			"values" : 
+			[
+				{
+					"type" : 1,
+					"value" : "1.500000"
+				}
+			]
+		},
+		"IntConst" : 
+		{
+			"array" : false,
+			"values" : 
+			[
+				{
+					"type" : 0,
+					"value" : "1"
+				}
+			]
+		}
+	}
+}
+

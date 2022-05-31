@@ -1,0 +1,10 @@
+{
+	"exported_funcs": {
+		"library_test": [
+			"TestAPI1",
+			"TestAPI2",
+			"TestAPI3",
+			"TestAPI4"
+		]
+	}
+}

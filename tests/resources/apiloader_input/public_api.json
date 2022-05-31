@@ -1,0 +1,7 @@
+{
+	"library_test": [
+		"TestAPI1",
+		"TestAPI2",
+		"TestAPI3"
+	]
+}

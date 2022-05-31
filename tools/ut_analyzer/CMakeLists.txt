@@ -1,0 +1,46 @@
+add_executable(ut_analyzer
+  main.cpp
+)
+
+target_link_libraries(ut_analyzer
+  -Wl,--start-group
+  ftgAPILoader
+  ftgInputAnalysis
+  ftgInputFilter
+  ftgRootDefAnalysis
+  ftgUTAnalysis
+  ftgASTIRMap
+  ftgTargetAnalysis
+  ftgPropAnalysis
+  ftgTargetAnalysis
+  ftgTCAnalysis
+  ftgType
+  ftgSourceAnalysis
+  ftgSourceLoader
+  ftgConstantAnalysis
+  ftgGeneration
+  ftgUtils
+  -Wl,--end-group
+)
+
+target_link_libraries(ut_analyzer
+  -Wl,--start-group
+  clangBasic
+  clangFrontend
+  clangFormat
+  clangCodeGen
+  clangSerialization
+  clangDriver
+  clangParse
+  clangSema
+  clangAnalysis
+  clangAST
+  clangASTMatchers
+  clangEdit
+  clangLex
+  clangRewrite
+  clangToolingCore
+  clangTooling
+  ${REQ_LLVM_LIBRARIES}
+  -Wl,--end-group
+)

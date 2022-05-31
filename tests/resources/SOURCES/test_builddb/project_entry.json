@@ -1,0 +1,13 @@
+{
+  "binary_info": {
+    "foo": {
+      "bc_command": "/usr/bin/llvm-link /foo/src/src1.c.bc /foo/src/src2.c.bc -o /foo/src/foo.bc",
+      "bc_file": "/foo/src/foo.bc",
+      "directory": "/foo/src",
+      "out_command": "/usr/bin/gcc -o /foo/src/foo /foo/src/src2.c.o /foo/src/src1.c.o",
+      "out_file": "/foo/src/foo"
+    }
+  },
+  "project_dir": "/foo",
+  "project_name": "foo"
+}

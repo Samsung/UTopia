@@ -1,0 +1,15 @@
+add_library(ftgTCAnalysis
+    APICall.cpp
+    TCExtractor.cpp
+    GoogleTestExtractor.cpp
+    TCTExtractor.cpp
+    BoostExtractor.cpp
+    FunctionNode.cpp
+    GoogleTestCallWriter.cpp
+    TCTCallWriter.cpp
+    BoostCallWriter.cpp
+    NamedDeclCallback.cpp
+    TCAnalyzerFactory.cpp
+    Unittest.cpp
+    UTInfo.cpp
+)

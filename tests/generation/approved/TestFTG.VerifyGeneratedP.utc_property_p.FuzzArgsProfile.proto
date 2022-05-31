@@ -1,0 +1,7 @@
+syntax = "proto3";
+
+message FuzzArgsProfile {
+  bytes fuzzvar32 = 1;
+  int32 fuzzvar33 = 2;
+}
+

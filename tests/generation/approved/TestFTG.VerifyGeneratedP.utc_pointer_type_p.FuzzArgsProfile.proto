@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+enum _e1 {
+  _e1_A = 0;
+  _e1_B = 1;
+  _e1_C = 2;
+}
+
+message FuzzArgsProfile {
+  int32 fuzzvar29 = 1;
+  ._e1 fuzzvar31 = 2;
+}
+

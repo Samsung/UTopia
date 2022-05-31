@@ -1,0 +1,22 @@
+include_directories(
+  ${CMAKE_SOURCE_DIR}/include/ftg/propanalysis
+)
+
+add_library(ftgPropAnalysis
+  ArgFlow.cpp
+  ArgFlowAnalyzer.cpp
+  AllocAnalyzer.cpp
+  AllocAnalysisReport.cpp
+  DirectionAnalyzer.cpp
+  DirectionAnalysisReport.cpp
+  FieldInfo.cpp
+  ArrayAnalyzer.cpp
+  ArrayAnalysisReport.cpp
+  FilePathAnalysisReport.cpp
+  FilePathAnalyzer.cpp
+  LoopAnalysisReport.cpp
+  LoopAnalyzer.cpp
+  PropAnalysisCommon.cpp
+  StackFrame.cpp
+  StructInfo.cpp
+)

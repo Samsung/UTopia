@@ -1,0 +1,28 @@
+{
+  "test": [
+    "inputInt",
+    "inputUInt",
+    "inputChar",
+    "inputFloat",
+    "inputDouble",
+    "inputCStr",
+    "inputIntPtr",
+    "inputStructPtr",
+    "inputEnumPtr",
+    "outputPtr",
+    "inputVoidPtr",
+    "inputCallBackPtr",
+    "inputCStrStrLen",
+    "inputArr",
+    "inputStringArr",
+    "inputStructArr",
+    "inputArrArrLen",
+    "inputVoidArrArrLen",
+    "outputArrArrLen",
+    "inputEnum",
+    "inputStruct",
+    "inputUnion",
+    "inputUnsupportedStruct",
+    "noop"
+  ]
+}

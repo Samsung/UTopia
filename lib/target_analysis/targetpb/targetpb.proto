@@ -1,0 +1,287 @@
+syntax = "proto3";
+
+package targetpb;
+
+// TODO: change some of uint32 to uint64
+
+/*
+/bin/protoc ../lib/target_analysis/targetpb/targetpb.proto -I=../lib/target_analysis/targetpb/ --cpp_out=../lib/target_analysis/targetpb/
+*/
+
+message TargetLib {
+    repeated GlobalDef Functions = 1;
+    repeated GlobalDef Structs = 2;
+    repeated GlobalDef Enums = 3;
+    repeated FunctionReport FunctionReports = 4;
+    map<string, string> TypedefMap = 10;
+    Stats Stats = 11;
+}
+
+message Type {
+    enum TypeID {
+        VoidType = 0;
+        PrimitiveType = 1;
+        PointerType = 2;
+        DefinedType = 3;
+    };
+
+    TypeID m_typeID = 1;
+    uint32 m_id = 2;
+    uint32 m_typeSize = 3;
+    // repeated Attr m_attrs = 4;
+    string m_typeName_AST = 5;
+    string m_namespace = 6;
+    
+    oneof child {
+        VoidType voidType = 10;
+        PrimitiveType primitiveType = 11;
+        PointerType pointerType = 12;
+        DefinedType definedType = 13;
+    }
+}
+
+message VoidType {}
+
+message PrimitiveType {
+    enum TypeID {
+        IntegerType = 0;
+        FloatType = 1;
+    };
+
+    TypeID m_typeID = 1;
+    Range m_valueRange = 2;
+
+    oneof child {
+        IntegerType integerType = 10;
+        FloatType floatType = 11;
+    }
+}
+
+message IntegerType {
+    bool IsUnsigned = 1;
+    bool IsBoolean = 2;
+    bool IsCharacter = 3;
+}
+
+message FloatType {}
+
+message PointerType {
+    enum PtrKind {
+        PtrKind_SinglePtr = 0;
+        PtrKind_Array = 1;
+        PtrKind_Buffer = 2;
+        PtrKind_String = 3;
+    };
+
+    Type m_pointeeType = 1;
+    PtrKind Kind = 2;
+    ArrayInfo ArrInfo = 11;
+}
+
+message ArrayInfo {
+    enum LengthType { UNLIMITED=0; VARIABLE=1; FIXED=2; }
+
+    LengthType m_lengthType = 2;
+    uint32 m_maxLength = 3;
+    
+    bool m_isIncomplete = 4;
+    bool m_isDependentSized = 5;
+}
+
+
+
+message DefinedType {
+    enum TypeID {
+        Struct = 0;
+        Union = 1;
+        Class = 2;
+        Function = 3;
+        Enum = 4;
+    };
+
+    TypeID m_typeID = 1;
+    string m_typeName = 2;
+    bool m_isTyped = 3;
+    
+    oneof child {
+        StructType structType = 10;
+        UnionType unionType = 11;
+        ClassType classType = 12;
+        FunctionType functionType = 13;
+        EnumType enumType = 14;
+    };
+}
+
+message StructType {}
+
+message UnionType {}
+
+message ClassType {}
+
+message FunctionType {}
+
+message EnumType {
+    bool IsUnsigned = 1;
+    bool IsBoolean = 2;
+}
+
+
+message TypedElem {
+    enum TypeID {
+        Param = 0;
+        Field = 1;
+    };
+
+    TypeID m_typeID = 1;
+    Type ElemType = 2;
+    uint32 m_index = 3;
+    string m_varName_AST = 4;
+
+    oneof child {
+        Param param = 10;
+        Field field = 11;
+    };
+}
+
+message Param {
+    uint64 PtrDepth = 9;
+}
+
+message Field {
+    uint32 m_offset = 1;
+}
+
+message GlobalDef {
+    enum TypeID {
+        Function = 0;
+        Struct = 1;
+        Union = 2;
+        Class = 3;
+        Enum = 4;
+    };
+
+    TypeID m_typeID = 1;
+    string m_name = 2;
+    string m_nameDemangled = 3;
+
+    oneof child {
+        Function function = 10;
+        Struct struct = 11;
+        Enum enum = 12;
+    };
+}
+
+message Function {
+    repeated TypedElem m_args = 1;
+    Type m_retType = 2;
+    bool m_isVariadic = 4;
+}
+
+message Struct {
+    repeated TypedElem m_fields = 1;
+    bool m_isPacked = 2;
+    bool m_isLiteral = 3;
+    bool m_isOpaque = 4;
+    bool m_hasPadding = 5;
+    uint32 m_alignment = 6;
+}
+
+message Enum {
+    repeated EnumConst m_consts = 1;
+    bool m_isScoped = 2;
+    bool m_isScopedUsingClassTag = 3;
+}
+
+
+
+message Const {
+    enum TypeID {
+        EnumConst = 0;
+        DefineConst = 1;
+        StaticConst = 2;
+    }
+    TypeID typeID = 1;
+    string name = 2;
+
+    oneof child {
+        EnumConst enumConst = 10;
+    };
+}
+
+message EnumConst {
+    string name = 1;
+    int64 value = 2;
+}
+
+
+message Range {
+    enum TypeID {
+        BIT = 0;
+        BYTE = 1;
+        OFFSET = 2;
+    }
+
+    TypeID typeID = 1;
+    uint64 unitSize = 2;
+    uint64 begin = 3;
+    uint64 end = 4;
+}
+
+
+message Attr {
+    enum TypeID {
+        ENUM = 0;
+        CONST = 1;
+        MACRO = 2;
+        LENGTH = 3;
+        SIZE = 4;
+        INDEX = 5;
+    }
+
+    TypeID typeID = 1;
+    string key = 2;
+}
+
+
+message Stats {
+    uint32 APICount_Total = 1;
+    uint32 APICount_TargetLibAnalyzed = 2;
+    uint32 ParamCount_Total = 10;
+    uint32 ParamCount_Array = 11;
+    uint32 ParamCount_ArrayLen = 12;
+    uint32 ParamCount_InputOnly = 13;
+    uint32 ParamCount_OutputOnly = 14;
+    uint32 ParamCount_Unidentified = 15;
+    uint32 ParamCount_InOut = 16;
+    uint32 ParamCount_InUnidentified = 17;
+    uint32 ParamCount_OutUnidentified = 18;
+    uint32 APICount_ICallSolver_Total = 19;
+    uint32 APICount_ICallSolver_Solved = 20;
+    uint32 ParamCount_AllocSize = 21;
+    uint32 ParamCount_AllocAddr = 22;
+    uint32 ParamCount_FreeAddr = 23;
+    uint32 ParamCount_AllocAndFree = 24;
+    uint32 ParamCount_NoAlloc = 25;
+    uint32 ParamCount_StrangeAlloc = 26;
+}
+
+message FunctionReport {
+    string FunctionName = 1;
+    bool IsPublicAPI = 2;
+    bool HasCoercedParam = 3;
+    uint32 BeginArgIndex = 4;
+    repeated ParamReport Params = 5;
+}
+
+message ParamReport {
+    uint32 Direction = 1;
+    bool IsArray = 2;
+    bool IsArrayLength = 3;
+    uint32 ParamIndex = 4;
+    bool HasLengthRelatedArg = 5;
+    uint32 LenRelatedArgNo = 6;
+    bool IsFilePath = 7;
+    string FunctionName = 8;
+    uint32 Allocation = 9;
+    repeated ParamReport ChildParams = 10;
+}

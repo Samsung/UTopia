@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+enum EnumWithZero {
+  EnumWithZero_Val0 = 0;
+  EnumWithZero_Val1 = 1;
+  EnumWithZero_Val2 = 2;
+}
+
+enum EnumWithoutZero {
+  EnumWithoutZero_UNKNOWN = 0;
+  EnumWithoutZero_Val1 = 1;
+  EnumWithoutZero_Val2 = 2;
+}
+
+message TestEnumP {
+  .EnumWithZero Flag1 = 1;
+  .EnumWithoutZero Flag2 = 2;
+  .EnumWithoutZero Flag3 = 3;
+}
+

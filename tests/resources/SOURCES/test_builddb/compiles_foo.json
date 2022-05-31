@@ -1,0 +1,22 @@
+[
+  {
+    "ast_command": "/usr/bin/gcc -emit-ast -I /foo/include -o /foo/src/src1.c.ast -c /foo/src/src1.c",
+    "ast_file": "/foo/src/src1.c.ast",
+    "bc_command": "/usr/bin/gcc -emit-llvm -Xclang -disable-llvm-passes -I /foo/include -o /foo/src/CMakeFiles/asp.dir/src1.c.bc -c /foo/src/src1.c",
+    "bc_file": "/foo/src/src1.c.bc",
+    "directory": "/foo/src",
+    "out_command": "/usr/bin/gcc -I /foo/include -o /foo/src/src1.c.o -c /foo/src/src1.c",
+    "out_file": "/foo/src/src1.c.o",
+    "src_file": "/foo/src/src1.c"
+  },
+  {
+    "ast_command": "/usr/bin/gcc -emit-ast -I /foo/include -o /foo/src/src2.c.ast -c /foo/src/src2.c",
+    "ast_file": "/foo/src/src2.c.ast",
+    "bc_command": "/usr/bin/gcc -emit-llvm -Xclang -disable-llvm-passes -I /foo/include -o /foo/src/src2.c.bc -c /foo/src/src2.c",
+    "bc_file": "/foo/src/src2.c.bc",
+    "directory": "/foo/src",
+    "out_command": "/usr/bin/gcc -I /foo/include -o /foo/src/src2.c.o -c /foo/src/src2.c",
+    "out_file": "/foo/src/src2.c.o",
+    "src_file": "/foo/src/src2.c"
+  }
+]

@@ -1,0 +1,10 @@
+syntax = "proto3";
+
+message TestStructP {
+  .TestStruct Data = 1;
+}
+
+message TestStruct {
+  int32 Field1 = 1;
+}
+
