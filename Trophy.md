@@ -10,7 +10,51 @@ Note that the merged fuzz drivers are different from the original ones generated
 Project | Bugs or CVEs | Category | Fuzzer
 ----- | ----------- | ------ | ---------
 [OpenCV](https://github.com/opencv/opencv) | [#21947](https://github.com/opencv/opencv/issues/21947) | `bof` | [readnetfromtensorflow_fuzzer.cc](https://github.com/google/oss-fuzz/pull/7781)
-
+[OpenCV](https://github.com/opencv/opencv) | [#21852](https://github.com/opencv/opencv/issues/21852) | `bof` | [readnetfromtensorflow_fuzzer.cc](https://github.com/google/oss-fuzz/pull/7781)
+[OpenCV](https://github.com/opencv/opencv) | [#21851](https://github.com/opencv/opencv/issues/21851) | `bof` |
+[libaom](https://aomedia.googlesource.com/aom/) | [CVE-2021-30473](https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2021-30473) | `free` |
+[libaom](https://aomedia.googlesource.com/aom/) | [CVE-2021-30474](https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2021-30474) | `bof` |
+[libaom](https://aomedia.googlesource.com/aom/) | [CVE-2021-30475](https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2021-30475) | `nullchk` |
+[uriparser](https://github.com/uriparser/uriparser) | [CVE-2021-46141](https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2021-46141) | `nullchk` |
+[uriparser](https://github.com/uriparser/uriparser) | [CVE-2021-46142](https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2021-46142) | `nullchk` |
+[assimp](https://github.com/assimp/assimp) | [#4105](https://github.com/assimp/assimp/issues/4105) | `loop` |
+[assimp](https://github.com/assimp/assimp) | [#4254](https://github.com/assimp/assimp/issues/4254) | `nullchk` |
+[assimp](https://github.com/assimp/assimp) | [#4273](https://github.com/assimp/assimp/issues/4273) | `nullchk` |
+[assimp](https://github.com/assimp/assimp) | [#4274](https://github.com/assimp/assimp/issues/4274) | `nullchk` |
+[assimp](https://github.com/assimp/assimp) | [#4275](https://github.com/assimp/assimp/issues/4275) | `nullchk` |
+[assimp](https://github.com/assimp/assimp) | [#4280](https://github.com/assimp/assimp/issues/4280) | `nullchk` |
+[assimp](https://github.com/assimp/assimp) | [#4281](https://github.com/assimp/assimp/issues/4281) | `nullchk` |
+[assimp](https://github.com/assimp/assimp) | [#4294](https://github.com/assimp/assimp/issues/4294) | `nullchk` |
+[assimp](https://github.com/assimp/assimp) | [#4295](https://github.com/assimp/assimp/issues/4295) | `nullchk` |
+[assimp](https://github.com/assimp/assimp) | [#4296](https://github.com/assimp/assimp/issues/4296) | `free` |
+[assimp](https://github.com/assimp/assimp) | [#4297](https://github.com/assimp/assimp/issues/4297) | `free` |
+[assimp](https://github.com/assimp/assimp) | [#4298](https://github.com/assimp/assimp/issues/4298) | `free` |
+[assimp](https://github.com/assimp/assimp) | [#4299](https://github.com/assimp/assimp/issues/4299) | `free` |
+[assimp](https://github.com/assimp/assimp) | [#4300](https://github.com/assimp/assimp/issues/4300) | `free` |
+[assimp](https://github.com/assimp/assimp) | [#4301](https://github.com/assimp/assimp/issues/4301) | `free` |
+[assimp](https://github.com/assimp/assimp) | [#4302](https://github.com/assimp/assimp/issues/4302) | `free` |
+[assimp](https://github.com/assimp/assimp) | [#4303](https://github.com/assimp/assimp/issues/4303) | `free` |
+[assimp](https://github.com/assimp/assimp) | [#4304](https://github.com/assimp/assimp/issues/4304) | `free` |
+[assimp](https://github.com/assimp/assimp) | [#4305](https://github.com/assimp/assimp/issues/4305) | `free` |
+[assimp](https://github.com/assimp/assimp) | [#4306](https://github.com/assimp/assimp/issues/4306) | `free` |
+[assimp](https://github.com/assimp/assimp) | [#4307](https://github.com/assimp/assimp/issues/4307) | `nullchk` |
+[assimp](https://github.com/assimp/assimp) | [#4308](https://github.com/assimp/assimp/issues/4308) | `nullchk` |
+[assimp](https://github.com/assimp/assimp) | [#4309](https://github.com/assimp/assimp/issues/4309) | `nullchk` |
+[assimp](https://github.com/assimp/assimp) | [#4310](https://github.com/assimp/assimp/issues/4310) | `nullchk` |
+[libaom](https://aomedia.googlesource.com/aom/) | [#3187](https://bugs.chromium.org/p/aomedia/issues/detail?id=3187) | `arith` |
+[libaom](https://aomedia.googlesource.com/aom/) | [#3188](https://bugs.chromium.org/p/aomedia/issues/detail?id=3188) | `bof` |
+[libaom](https://aomedia.googlesource.com/aom/) | [#3190](https://bugs.chromium.org/p/aomedia/issues/detail?id=3190) | `nullchk` |
+[libaom](https://aomedia.googlesource.com/aom/) | [#3191](https://bugs.chromium.org/p/aomedia/issues/detail?id=3191) | `nullchk` |
+[libaom](https://aomedia.googlesource.com/aom/) | [#3192](https://bugs.chromium.org/p/aomedia/issues/detail?id=3192) | `nullchk` |
+[libaom](https://aomedia.googlesource.com/aom/) | [#3195](https://bugs.chromium.org/p/aomedia/issues/detail?id=3195) | `bof` |
+[libaom](https://aomedia.googlesource.com/aom/) | [#3197](https://bugs.chromium.org/p/aomedia/issues/detail?id=3197) | `nullchk` |
+[libaom](https://aomedia.googlesource.com/aom/) | [#3206](https://bugs.chromium.org/p/aomedia/issues/detail?id=3206) | `arith` |
+[libaom](https://aomedia.googlesource.com/aom/) | [#3215](https://bugs.chromium.org/p/aomedia/issues/detail?id=3215) | `bof` |
+[libaom](https://aomedia.googlesource.com/aom/) | [#3216](https://bugs.chromium.org/p/aomedia/issues/detail?id=3216) | `nullchk` |
+[libaom](https://aomedia.googlesource.com/aom/) | [#3217](https://bugs.chromium.org/p/aomedia/issues/detail?id=3217) | `nullchk` |
+[libaom](https://aomedia.googlesource.com/aom/) | [#3218](https://bugs.chromium.org/p/aomedia/issues/detail?id=3218) | `nullchk` |
+[libaom](https://aomedia.googlesource.com/aom/) | [#3220](https://bugs.chromium.org/p/aomedia/issues/detail?id=3220) | `bof` |
+[libaom](https://aomedia.googlesource.com/aom/) | [#3221](https://bugs.chromium.org/p/aomedia/issues/detail?id=3221) | `bof` |
 
 
 
