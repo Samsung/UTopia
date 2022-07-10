@@ -55,6 +55,7 @@ Project | Bugs or CVEs | Category | Fuzzer
 [libaom](https://aomedia.googlesource.com/aom/) | [#3218](https://bugs.chromium.org/p/aomedia/issues/detail?id=3218) | `nullchk` |
 [libaom](https://aomedia.googlesource.com/aom/) | [#3220](https://bugs.chromium.org/p/aomedia/issues/detail?id=3220) | `bof` |
 [libaom](https://aomedia.googlesource.com/aom/) | [#3221](https://bugs.chromium.org/p/aomedia/issues/detail?id=3221) | `bof` |
+[libwebsockets](https://github.com/warmcat/libwebsockets) | [#2687](https://github.com/warmcat/libwebsockets/issues/2687) | `segfault` | [lws_upng_inflate_fuzzer.cpp](https://github.com/google/oss-fuzz/pull/7977)
 
 
 
