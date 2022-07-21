@@ -77,12 +77,10 @@ Project | Bugs or CVEs | Category | Fuzzer
 [tizen/libmm-fileinfo](https://review.tizen.org/gerrit/#/admin/projects/platform/core/multimedia/libmm-fileinfo) | [#255012](https://review.tizen.org/gerrit/#/c/platform/core/multimedia/libmm-fileinfo/+/255012/) | `bof` |
 [tizen/alarm-manager](https://review.tizen.org/gerrit/#/admin/projects/platform/core/appfw/alarm-manager) | [#255345](https://review.tizen.org/gerrit/#/c/platform/core/appfw/alarm-manager/+/255345/) | `nullchk` |
 [tizen/context](https://review.tizen.org/gerrit/#/admin/projects/platform/core/api/context) | [#255046](https://review.tizen.org/gerrit/#/c/platform/core/api/context/+/255046/) | `other` |
-[tizen/context](https://review.tizen.org/gerrit/#/admin/projects/platform/core/api/context) | [#255046(2)](https://review.tizen.org/gerrit/#/c/platform/core/api/context/+/255046/) | `other` |
 [tizen/context](https://review.tizen.org/gerrit/#/admin/projects/platform/core/api/context) | [#256732](https://review.tizen.org/gerrit/#/c/platform/core/api/context/+/256732/) | `free` |
 [tizen/mediatool](https://review.tizen.org/gerrit/#/admin/projects/platform/core/api/mediatool) | [#257660](https://review.tizen.org/gerrit/#/c/platform/core/api/mediatool/+/257660/) | `bof` |
 [tizen/pkgmgr-info](https://review.tizen.org/gerrit/#/admin/projects/platform/core/appfw/pkgmgr-info) | [#257518](https://review.tizen.org/gerrit/#/c/platform/core/appfw/pkgmgr-info/+/257518/) | `nullchk` |
 [tizen/system-settings](https://review.tizen.org/gerrit/#/admin/projects/platform/core/api/system-settings) | [#258170](https://review.tizen.org/gerrit/#/c/platform/core/api/system-settings/+/258170/) | `nullchk` |
-[tizen/system-settings](https://review.tizen.org/gerrit/#/admin/projects/platform/core/api/system-settings) | [#258170(2)](https://review.tizen.org/gerrit/#/c/platform/core/api/system-settings/+/258170/) | `nullchk` |
 [tizen/mime-type](https://review.tizen.org/gerrit/#/admin/projects/platform/core/api/mime-type) | [#262491](https://review.tizen.org/gerrit/#/c/platform/core/api/mime-type/+/262491/) | `other` |
 [tizen/sensor](https://review.tizen.org/gerrit/#/admin/projects/platform/core/api/sensor) | [#262766](https://review.tizen.org/gerrit/#/c/platform/core/api/sensor/+/262766/) | `nullchk` |
 
