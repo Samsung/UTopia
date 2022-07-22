@@ -1,5 +1,3 @@
-# UTopia
-
 <p align="center">
   <img src="res/UTopia.png">
 </p>
