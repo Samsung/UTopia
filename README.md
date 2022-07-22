@@ -1,5 +1,9 @@
 # UTopia
 
+<p align="center">
+  <img src="res/UTopia.png">
+</p>
+
 ## Introduction
 
 *UTopia* is a tool for automatically generating fuzz drivers from unit tests.
