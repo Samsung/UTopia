@@ -56,6 +56,33 @@ Project | Bugs or CVEs | Category | Fuzzer
 [libaom](https://aomedia.googlesource.com/aom/) | [#3220](https://bugs.chromium.org/p/aomedia/issues/detail?id=3220) | `bof` |
 [libaom](https://aomedia.googlesource.com/aom/) | [#3221](https://bugs.chromium.org/p/aomedia/issues/detail?id=3221) | `bof` |
 [libwebsockets](https://github.com/warmcat/libwebsockets) | [#2687](https://github.com/warmcat/libwebsockets/issues/2687) | `segfault` | [lws_upng_inflate_fuzzer.cpp](https://github.com/google/oss-fuzz/pull/7977)
+[libhtp](https://github.com/OISF/libhtp) | [#342](https://github.com/OISF/libhtp/issues/342) | `segfault` |
+[libhtp](https://github.com/OISF/libhtp) | [#343](https://github.com/OISF/libhtp/issues/343) | `segfault` |
+[libphonenumber](https://github.com/google/libphonenumber) | [#201466814](https://issuetracker.google.com/issues/201466814) | `nullchk` |
+[libphonenumber](https://github.com/google/libphonenumber) | [#201470539](https://issuetracker.google.com/issues/201470539) | `segfault` |
+[libvpx](https://github.com/webmproject/libvpx) | [#1742](https://bugs.chromium.org/p/webm/issues/detail?id=1742#c3) | `arith` |
+[libvpx](https://github.com/webmproject/libvpx) | [#1722](https://bugs.chromium.org/p/webm/issues/detail?id=1722#c11) | `free` |
+[tesseract](https://github.com/tesseract-ocr/tesseract) | [#3583](https://github.com/tesseract-ocr/tesseract/issues/3583) | `bof` |
+[tesseract](https://github.com/tesseract-ocr/tesseract) | [#3584](https://github.com/tesseract-ocr/tesseract/issues/3584) | `bof` |
+[tesseract](https://github.com/tesseract-ocr/tesseract) | [#3586](https://github.com/tesseract-ocr/tesseract/issues/3586) | `segfault` |
+[tesseract](https://github.com/tesseract-ocr/tesseract) | [#3694](https://github.com/tesseract-ocr/tesseract/issues/3694) | `arith` |
+[vowpal-webbit](https://github.com/VowpalWabbit/vowpal_wabbit) | [#3542](https://github.com/VowpalWabbit/vowpal_wabbit/issues/3542) | `arith` |
+[vowpal-webbit](https://github.com/VowpalWabbit/vowpal_wabbit) | [#3543](https://github.com/VowpalWabbit/vowpal_wabbit/issues/3543) | `arith` |
+[wabt](https://github.com/WebAssembly/wabt) | [#1793](https://github.com/WebAssembly/wabt/issues/1793) | `segfault` |
+[wabt](https://github.com/WebAssembly/wabt) | [#1794](https://github.com/WebAssembly/wabt/issues/1794) | `oom` |
+[aosp/audio_utils](https://issuetracker.google.com/issues/206677585) | [#206677585](https://issuetracker.google.com/action/issues/206677585/attachments/35499109?download=true) | `arith` |
+[tizen/libtbm](https://review.tizen.org/gerrit/#/admin/projects/platform/core/uifw/libtbm) | [#254382](https://review.tizen.org/gerrit/#/c/platform/core/uifw/libtbm/+/254382/) | `nullchk` |
+[tizen/yaca](https://review.tizen.org/gerrit/#/admin/projects/platform/core/security/yaca) | [#255163](https://review.tizen.org/gerrit/#/c/platform/core/security/yaca/+/255163/) | `oor` |
+[tizen/privilege-info](https://review.tizen.org/gerrit/#/admin/projects/platform/core/security/privilege-info) | [#255010](https://review.tizen.org/gerrit/#/c/platform/core/security/privilege-info/+/255010/) | `nullchk` |
+[tizen/libmm-fileinfo](https://review.tizen.org/gerrit/#/admin/projects/platform/core/multimedia/libmm-fileinfo) | [#255012](https://review.tizen.org/gerrit/#/c/platform/core/multimedia/libmm-fileinfo/+/255012/) | `bof` |
+[tizen/alarm-manager](https://review.tizen.org/gerrit/#/admin/projects/platform/core/appfw/alarm-manager) | [#255345](https://review.tizen.org/gerrit/#/c/platform/core/appfw/alarm-manager/+/255345/) | `nullchk` |
+[tizen/context](https://review.tizen.org/gerrit/#/admin/projects/platform/core/api/context) | [#255046](https://review.tizen.org/gerrit/#/c/platform/core/api/context/+/255046/) | `other` |
+[tizen/context](https://review.tizen.org/gerrit/#/admin/projects/platform/core/api/context) | [#256732](https://review.tizen.org/gerrit/#/c/platform/core/api/context/+/256732/) | `free` |
+[tizen/mediatool](https://review.tizen.org/gerrit/#/admin/projects/platform/core/api/mediatool) | [#257660](https://review.tizen.org/gerrit/#/c/platform/core/api/mediatool/+/257660/) | `bof` |
+[tizen/pkgmgr-info](https://review.tizen.org/gerrit/#/admin/projects/platform/core/appfw/pkgmgr-info) | [#257518](https://review.tizen.org/gerrit/#/c/platform/core/appfw/pkgmgr-info/+/257518/) | `nullchk` |
+[tizen/system-settings](https://review.tizen.org/gerrit/#/admin/projects/platform/core/api/system-settings) | [#258170](https://review.tizen.org/gerrit/#/c/platform/core/api/system-settings/+/258170/) | `nullchk` |
+[tizen/mime-type](https://review.tizen.org/gerrit/#/admin/projects/platform/core/api/mime-type) | [#262491](https://review.tizen.org/gerrit/#/c/platform/core/api/mime-type/+/262491/) | `other` |
+[tizen/sensor](https://review.tizen.org/gerrit/#/admin/projects/platform/core/api/sensor) | [#262766](https://review.tizen.org/gerrit/#/c/platform/core/api/sensor/+/262766/) | `nullchk` |
 
 
 
