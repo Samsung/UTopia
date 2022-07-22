@@ -205,6 +205,7 @@ TEST_F(TestInputFilter, ExternalFilterP) {
       "void API_2(int P);\n"
       "void API_3(int *P);\n"
       "ST API_4();\n"
+      "void API_5(int, ...);\n"
       "void test_method_call() {\n"
       "  CLS().M();\n"
       "}\n"
@@ -218,7 +219,10 @@ TEST_F(TestInputFilter, ExternalFilterP) {
       "  int L;\n"
       "  API_3(&L);\n"
       "}\n"
-      "}\n";
+      "void test_vararg() {\n"
+      "  API_5(0, 1, 2);\n"
+      "}\n"
+      "}";
 
   ASSERT_TRUE(load(Code));
 
@@ -227,16 +231,24 @@ TEST_F(TestInputFilter, ExternalFilterP) {
   ASSERT_TRUE(Arg);
 
   Report.set(*Arg, Dir_Out);
+
+  Arg = argument("API_5", 0);
+  ASSERT_TRUE(Arg);
+
+  Report.set(*Arg, Dir_Out);
+
   ExternalFilter Filter(Report);
   ASSERT_TRUE(check("test_method_call", 0, 1, 0, Filter));
   ASSERT_TRUE(check("test_return", 0, 1, 0, Filter));
   ASSERT_TRUE(check("test_structret", 0, 2, 0, Filter));
+  ASSERT_TRUE(check("test_vararg", 0, 0, 0, Filter));
 }
 
 TEST_F(TestInputFilter, ExternalFilterN) {
   const std::string Code = "extern \"C\" {\n"
                            "class CLS { public: void M(int); };\n"
                            "void API_1(int);\n"
+                           "void API_2(int, ...);\n"
                            "void test_method_call() {\n"
                            "  CLS().M(10);\n"
                            "}\n"
@@ -245,6 +257,9 @@ TEST_F(TestInputFilter, ExternalFilterN) {
                            "}\n"
                            "void test_memset() {\n"
                            "  int Var[] = { 0, 1, 2 };\n"
+                           "}\n"
+                           "void test_vararg() {\n"
+                           "  API_2(0, 1, 2);\n"
                            "}\n"
                            "}\n";
 
@@ -255,6 +270,8 @@ TEST_F(TestInputFilter, ExternalFilterN) {
   ASSERT_TRUE(checkNone("test_method_call", 0, 1, 1, Filter));
   ASSERT_TRUE(checkNone("test_func", 0, 0, 0, Filter));
   ASSERT_TRUE(checkNone("test_memset", 0, 3, -1, Filter));
+  ASSERT_TRUE(checkNone("test_vararg", 0, 0, 1, Filter));
+  ASSERT_TRUE(checkNone("test_vararg", 0, 0, 2, Filter));
 }
 
 TEST_F(TestInputFilter, AvailableTypeFilterP) {
@@ -460,6 +477,7 @@ TEST_F(TestInputFilter, UnsupportTypeP) {
       "class CLS {\n"
       "  public: CLS() : F(10) {}\n"
       "  private: int F; };\n"
+      "void API(const void *);\n"
       "void pointer() {\n"
       "  int *Var;\n"
       "}\n"
@@ -487,6 +505,9 @@ TEST_F(TestInputFilter, UnsupportTypeP) {
       "void anonymous_enum() {\n"
       "  E1 Var;\n"
       "}\n"
+      "void void_pointer() {\n"
+      "  API(nullptr);\n"
+      "}\n"
       "}";
   SourceFileManager SFM;
   SFM.createFile("source.cpp", SourceCode);
@@ -506,12 +527,14 @@ TEST_F(TestInputFilter, UnsupportTypeP) {
   ASSERT_TRUE(check("struct_const_field", 0, 0, -1, Filter));
   ASSERT_TRUE(check("struct_unsupport", 0, 0, -1, Filter));
   ASSERT_TRUE(check("anonymous_enum", 0, 0, -1, Filter));
+  ASSERT_TRUE(check("void_pointer", 0, 0, 0, Filter));
 }
 
 TEST_F(TestInputFilter, UnsupportTypeN) {
   const std::string SourceCode = "#include <string>\n"
                                  "struct ST1 { int F; };\n"
                                  "extern \"C\" {\n"
+                                 "void API(const void *);\n"
                                  "void integer_types() {\n"
                                  "  char Var1;\n"
                                  "  unsigned char Var2;\n"

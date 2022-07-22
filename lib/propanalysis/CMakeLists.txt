@@ -9,7 +9,6 @@ add_library(ftgPropAnalysis
   AllocAnalysisReport.cpp
   DirectionAnalyzer.cpp
   DirectionAnalysisReport.cpp
-  FieldInfo.cpp
   ArrayAnalyzer.cpp
   ArrayAnalysisReport.cpp
   FilePathAnalysisReport.cpp
@@ -18,5 +17,4 @@ add_library(ftgPropAnalysis
   LoopAnalyzer.cpp
   PropAnalysisCommon.cpp
   StackFrame.cpp
-  StructInfo.cpp
 )

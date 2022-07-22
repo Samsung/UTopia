@@ -216,11 +216,18 @@ std::shared_ptr<Type> DefMapGenerator::generateType(ASTDefNode &Node) const {
   const auto &T = AN->getType();
   assert((T.getTypePtrOrNull() != nullptr) && "Unexpected Program State");
 
-  auto Result = Type::createType(T, AN->getASTUnit().getASTContext());
+  auto &Ctx = AN->getASTUnit().getASTContext();
+  if (T->isVoidPointerType()) {
+    if (const auto *E = AN->getNode().get<Expr>()) {
+      E = E->IgnoreCasts();
+      if (isa<StringLiteral>(E))
+        return Type::createCharPointerType();
+    }
+  }
+
+  auto Result = Type::createType(T, Ctx);
   if (!Result)
     return nullptr;
-
-  Type::updateArrayInfoFromAST(*Result, T);
   return Result;
 }
 

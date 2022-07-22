@@ -38,6 +38,9 @@ bool ExternalFilter::check(const ASTIRNode &Node) const {
   if (!F)
     return false;
 
+  if (F->isVarArg() && (unsigned)Def.second >= F->arg_size())
+    return false;
+
   auto *A = F->getArg(Def.second);
   if (!A)
     return false;

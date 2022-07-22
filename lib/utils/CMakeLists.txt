@@ -4,7 +4,6 @@ add_library(ftgUtils
     BuildDBParser.cpp
     FileUtil.cpp
     StringUtil.cpp
-    PublicAPI.cpp
     json/jsoncpp.cpp
     IRUtil.cpp
 )

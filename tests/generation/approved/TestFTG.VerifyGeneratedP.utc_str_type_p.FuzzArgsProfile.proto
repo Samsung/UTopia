@@ -1,7 +1,10 @@
 syntax = "proto3";
 
+package AutoFuzz;
+
 message FuzzArgsProfile {
-  bytes fuzzvar27 = 1;
-  bytes fuzzvar28 = 2;
+  bytes fuzzvar32 = 1;
+  bytes fuzzvar33 = 2;
+  bytes fuzzvar35 = 3;
 }
 

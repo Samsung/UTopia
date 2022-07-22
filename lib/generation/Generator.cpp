@@ -1,8 +1,6 @@
 #include "ftg/generation/Generator.h"
 #include "ftg/generation/CorpusGenerator.h"
 #include "ftg/generation/FuzzerSrcGenerator.h"
-#include "ftg/targetanalysis/FunctionReport.h"
-#include "ftg/targetanalysis/ParamReport.h"
 #include "ftg/targetanalysis/TargetLibLoadUtil.h"
 #include "ftg/utils/FileUtil.h"
 #include "ftg/utils/StringUtil.h"

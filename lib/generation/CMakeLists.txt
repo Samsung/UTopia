@@ -14,10 +14,6 @@ SET(SRCS
     SrcGenerator.cpp
 )
 
-if (DEFINED INCLUDE_NOT_FUZZABLE_TC)
-   add_compile_options("-DINCLUDE_NOT_FUZZABLE_TC")
-endif()
-
 add_library(ftgGeneration ${SRCS})
 
 target_link_libraries(ftgGeneration

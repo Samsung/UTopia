@@ -49,8 +49,8 @@ public:
   void setValueFromJson(Json::Value root);
 
 private:
-  static int getRangeSize(const clang::SourceManager &Sources,
-                          const clang::CharSourceRange &Range);
+  static unsigned getRangeSize(const clang::SourceManager &Sources,
+                               const clang::CharSourceRange &Range);
   size_t m_offset;
   size_t m_length;
   size_t m_line;

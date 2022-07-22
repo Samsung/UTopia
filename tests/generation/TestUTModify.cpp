@@ -41,6 +41,10 @@ protected:
       "#ifdef __cplusplus\n"
       "}\n"
       "#endif // __cplusplus\n"
+      "// Redefine access modifier to public\n"
+      "// to access private/protected Testbody or Setup/Teardown\n"
+      "#define private public\n"
+      "#define protected public\n"
       "#endif // AUTOFUZZ_H\n";
 
   std::shared_ptr<Fuzzer> createFuzzer(const GenLoader &Loader) {
@@ -66,27 +70,34 @@ protected:
     return true;
   }
 
-  bool checkMod(std::vector<Replacement> Expect,
-                const std::map<std::string, Replacements> &Result) {
-    for (const auto &Iter1 : Result) {
-      for (const auto &Iter2 : Iter1.second) {
-        auto FindResult =
-            std::find_if(Expect.begin(), Expect.end(), [&Iter2](const auto &R) {
-              return fs::path(Iter2.getFilePath()).filename().string() ==
-                         R.getFilePath() &&
-                     Iter2.getOffset() == R.getOffset() &&
-                     Iter2.getLength() == R.getLength() &&
-                     Iter2.getReplacementText() == R.getReplacementText();
-            });
-        if (FindResult == Expect.end()) {
-          return false;
-        }
-        Expect.erase(FindResult);
-      }
-    }
-    if (Expect.size() != 0)
+  bool checkModAll(const std::vector<Replacement> &Expect,
+                   const std::map<std::string, Replacements> &Result) {
+    unsigned ResultSize = 0;
+    for (auto Iter : Result)
+      ResultSize += Iter.second.size();
+    if (Expect.size() != ResultSize)
       return false;
+
+    for (const auto &ExpectReplace : Expect) {
+      if (!checkModOne(ExpectReplace, Result))
+        return false;
+    }
+
     return true;
+  }
+
+  bool checkModOne(const Replacement &Expect,
+                   const std::map<std::string, Replacements> &Result) {
+    auto Iter = Result.find(Expect.getFilePath());
+    if (Iter == Result.end())
+      return false;
+
+    for (const auto &ResultReplace : Iter->second) {
+      if (ResultReplace == Expect)
+        return true;
+    }
+
+    return false;
   }
 
   std::unique_ptr<GenLoader>
@@ -207,7 +218,7 @@ TEST_F(TestUTModify, ModifyP) {
   ASSERT_TRUE(F);
 
   const std::vector<Replacement> ModAnswers = {
-      {"ut-1.cpp", 0, 0,
+      {SFM.getFilePath("ut-1.cpp"), 0, 0,
        "#ifdef __cplusplus\n"
        "extern \"C\" {\n"
        "#endif\n"
@@ -217,10 +228,10 @@ TEST_F(TestUTModify, ModifyP) {
        "#ifdef __cplusplus\n"
        "}\n"
        "#endif\n"},
-      {"ut-1.cpp", 41, 0,
+      {SFM.getFilePath("ut-1.cpp"), 41, 0,
        " if (autofuzz0_flag) { autofuzz0_flag = 0; Var = autofuzz0; }"},
-      {"ut-1.cpp", 78, 2, "autofuzz1"},
-      {"ut.cpp", 0, 0,
+      {SFM.getFilePath("ut-1.cpp"), 78, 2, "autofuzz1"},
+      {SFM.getFilePath("ut.cpp"), 0, 0,
        "#include \"library.h\"\n"
        "#include \"gtest/gtest.h\"\n"
        "#include \"autofuzz.h\"\n"
@@ -254,23 +265,24 @@ TEST_F(TestUTModify, ModifyP) {
        "#ifdef __cplusplus\n"
        "}\n"
        "#endif\n"},
-      {"ut.cpp", 133, 10, "int "},
-      {"ut.cpp", 183, 0, " = autofuzz7"},
-      {"ut.cpp", 210, 0, " = autofuzz9"},
-      {"ut.cpp", 229, 10, "int "},
-      {"ut.cpp", 246, 1, "autofuzz11"},
-      {"ut.cpp", 264, 0,
+      {SFM.getFilePath("ut.cpp"), 133, 10, "int "},
+      {SFM.getFilePath("ut.cpp"), 183, 0, " = autofuzz7"},
+      {SFM.getFilePath("ut.cpp"), 210, 0, " = autofuzz9"},
+      {SFM.getFilePath("ut.cpp"), 229, 10, "int "},
+      {SFM.getFilePath("ut.cpp"), 246, 1, "autofuzz11"},
+      {SFM.getFilePath("ut.cpp"), 264, 0,
        " { for (unsigned i=0; i<autofuzz12size; ++i) "
        "{ Var6[i] = autofuzz12[i]; } }"},
-      {"ut.cpp", 278, 2, "autofuzz13"},
-      {"ut.cpp", 310, 0,
+      {SFM.getFilePath("ut.cpp"), 278, 2, "autofuzz13"},
+      {SFM.getFilePath("ut.cpp"), 310, 0,
        " { for (unsigned i=0; i<autofuzz14size; ++i) "
        "{ Var8[i] = autofuzz14[i]; } }"},
-      {"ut.cpp", 334, 0,
+      {SFM.getFilePath("ut.cpp"), 334, 0,
        " if (autofuzz15_flag) { autofuzz15_flag = 0; Var9 = autofuzz15; }"},
-      {"ut.cpp", 566, 2, "autofuzz16"},
-      {"ut.cpp", 596, 103, ""},
-      {"ut.cpp", 700, 0,
+      {SFM.getFilePath("ut.cpp"), 566, 2, "autofuzz16"},
+      {SFM.getFilePath("ut.cpp"), 596, 103, ""},
+      {SFM.getFilePath("ut.cpp"), 700, 0,
+       "\n"
        "#ifdef __cplusplus\n"
        "extern \"C\" {\n"
        "#endif\n"
@@ -331,7 +343,7 @@ TEST_F(TestUTModify, ModifyP) {
       {UTModify::HeaderName, HeaderContent}};
 
   UTModify Modifier(*F, Loader->getSourceReport());
-  ASSERT_TRUE(checkMod(ModAnswers, Modifier.getReplacements()));
+  ASSERT_TRUE(checkModAll(ModAnswers, Modifier.getReplacements()));
   ASSERT_TRUE(checkNew(NewAnswers, Modifier.getNewFiles()));
 }
 
@@ -358,7 +370,12 @@ TEST_F(TestUTModify, NoInputN) {
   ASSERT_TRUE(F);
 
   const std::vector<Replacement> ModAnswers = {
-      {"ut.cpp", 67, 0,
+      {SFM.getFilePath("ut.cpp"), 0, 0,
+       "#include \"library.h\"\n"
+       "#include \"gtest/gtest.h\"\n"
+       "#include \"autofuzz.h\"\n"},
+      {SFM.getFilePath("ut.cpp"), 67, 0,
+       "\n"
        "#ifdef __cplusplus\n"
        "extern \"C\" {\n"
        "#endif\n"
@@ -393,6 +410,51 @@ TEST_F(TestUTModify, NoInputN) {
       {UTModify::HeaderName, HeaderContent}};
 
   UTModify Modifier(*F, Loader->getSourceReport());
-  ASSERT_TRUE(checkMod(ModAnswers, Modifier.getReplacements()));
+  ASSERT_TRUE(checkModAll(ModAnswers, Modifier.getReplacements()));
   ASSERT_TRUE(checkNew(NewAnswers, Modifier.getNewFiles()));
+}
+
+TEST_F(TestUTModify, NoInputOnlyInUTCodeP) {
+  SourceFileManager SFM;
+  ASSERT_TRUE(SFM.createFile("library.h", "extern \"C\" {\n"
+                                          "void API_1(int);\n"
+                                          "}"));
+  ASSERT_TRUE(SFM.createFile("library.cpp", "#include \"library.h\"\n"
+                                            "extern \"C\" {\n"
+                                            "void EXTERN_1(int);\n"
+                                            "void API_1(int P) {\n"
+                                            "  EXTERN_1(P);\n"
+                                            "}\n"
+                                            "}"));
+  ASSERT_TRUE(SFM.createFile("ut.cpp", "#include \"gtest/gtest.h\"\n"
+                                       "extern \"C\" {\n"
+                                       "void sub();\n"
+                                       "TEST(Test, Test) {\n"
+                                       "  sub();\n"
+                                       "}}\n"));
+  ASSERT_TRUE(SFM.createFile("sub.cpp", "#include \"library.h\"\n"
+                                        "extern \"C\" {\n"
+                                        "int G = 10;\n"
+                                        "void sub() {\n"
+                                        "  API_1(G);\n"
+                                        "}}\n"));
+  auto Loader =
+      createLoader(SFM, {"API_1"}, "library.cpp", {"ut.cpp", "sub.cpp"});
+  ASSERT_TRUE(Loader);
+
+  auto F = createFuzzer(*Loader);
+  ASSERT_TRUE(F);
+
+  UTModify Modifier(*F, Loader->getSourceReport());
+  Replacement Expect(SFM.getFilePath("ut.cpp"), 0, 0,
+                     "#include \"gtest/gtest.h\"\n"
+                     "#include \"autofuzz.h\"\n"
+                     "#ifdef __cplusplus\n"
+                     "extern \"C\" {\n"
+                     "#endif\n"
+                     "void assign_fuzz_input_to_global_autofuzz0();\n"
+                     "#ifdef __cplusplus\n"
+                     "}\n"
+                     "#endif\n");
+  ASSERT_TRUE(checkModOne(Expect, Modifier.getReplacements()));
 }

@@ -32,7 +32,6 @@ protected:
       ASSERT_TRUE(TALibHelper->addExternal(TAPreHelper));
     }
     ASSERT_TRUE(TALibHelper->analyze());
-    TALibHelper->dumpReport("target.json");
 
     std::vector<std::string> APINames = {"inputInt",
                                          "inputUInt",
@@ -72,6 +71,7 @@ protected:
     }
     ASSERT_TRUE(UAHelper->analyze(std::make_shared<APIManualLoader>(
         std::set<std::string>(APINames.begin(), APINames.end()))));
+    UAHelper->dumpReport("ut.json");
 
     Helper = std::make_unique<GenTestHelper>(UAHelper);
     ASSERT_TRUE(Helper);
@@ -83,7 +83,6 @@ protected:
 std::unique_ptr<GenTestHelper> TestFTG::Helper = nullptr;
 const std::string TestFTG::ProjectName = "test_ftg";
 
-#ifndef INCLUDE_NOT_FUZZABLE_TC
 TEST_F(TestFTG, DefinedTypeP) {
 
   std::set<std::pair<std::string, FuzzStatus>> APIAnswers = {
@@ -132,7 +131,6 @@ TEST_F(TestFTG, VariableLengthArrayN) {
 // Do this verification only if ARM compiler is not used.
 TEST_F(TestFTG, VerifyGeneratedP) { Helper->verifyGenerated(ProjectName); }
 #endif // ARM compiler
-#endif // INCLUDE_NOT_FUZZABLE_TC
 
 TEST_F(TestFTG, FixedLengthArrayP) {
   ASSERT_TRUE(Helper);
@@ -142,10 +140,9 @@ TEST_F(TestFTG, FixedLengthArrayP) {
     auto APIReport = Reporter.getAPIReport(APIName);
     EXPECT_EQ(FUZZABLE_SRC_GENERATED, APIReport->APIStatus.second);
   }
-#ifndef INCLUDE_NOT_FUZZABLE_TC
+
   auto UTReport = Reporter.getUTReport("utc_fixed_length_array_p");
   EXPECT_EQ(FUZZABLE_SRC_GENERATED, UTReport->Status);
-#endif
 }
 
 TEST_F(TestFTG, FixedLengthArrayN) {
@@ -156,10 +153,9 @@ TEST_F(TestFTG, FixedLengthArrayN) {
     auto APIReport = Reporter.getAPIReport(APIName);
     EXPECT_EQ(NOT_FUZZABLE_UNIDENTIFIED, APIReport->APIStatus.second);
   }
-#ifndef INCLUDE_NOT_FUZZABLE_TC
+
   auto UTReport = Reporter.getUTReport("utc_fixed_length_array_n");
   EXPECT_EQ(NOT_FUZZABLE_UNIDENTIFIED, UTReport->Status);
-#endif
 }
 
 TEST_F(TestFTG, PrimitiveTypeP) {
@@ -240,9 +236,9 @@ TEST_F(TestFTG, PointerTypeP) {
 
 TEST_F(TestFTG, UnsupportedTypeN) {
 
-  std::set<std::string> TestAPISet{"inputVoidPtr", "inputUnion",
-                                   "inputUnsupportedStruct", "inputCallBackPtr",
-                                   "inputVoidArrArrLen"};
+  std::set<std::string> TestAPISet{"inputUnion",
+                                   "inputUnsupportedStruct",
+                                   "inputCallBackPtr"};
 
   ASSERT_TRUE(Helper);
   auto &Reporter = Helper->getGenerator().getFuzzGenReporter();
@@ -250,7 +246,6 @@ TEST_F(TestFTG, UnsupportedTypeN) {
     if (TestAPISet.find(APIReportPair.first) == TestAPISet.end())
       continue;
     auto APIReport = APIReportPair.second;
-
     EXPECT_EQ(NOT_FUZZABLE_UNIDENTIFIED, APIReport->APIStatus.second);
   }
 }

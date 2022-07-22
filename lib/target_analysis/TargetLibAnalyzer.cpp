@@ -172,26 +172,7 @@ void TargetLibAnalyzer::parseTypes(std::vector<clang::ASTUnit *> &ASTUnits) {
       if (!Record)
         continue;
 
-      AnalyzedTargetLib->addEnum(
-          createEnum(*const_cast<clang::EnumDecl *>(Record)));
-    }
-
-    for (const auto &Node :
-         match(recordDecl().bind(Tag), ASTUnit->getASTContext())) {
-      const auto *Record = Node.getNodeAs<clang::RecordDecl>(Tag);
-      if (!Record)
-        continue;
-
-      auto Name = util::getTypeName(*Record);
-      if (Name.empty())
-        continue;
-
-      if (!Record->isCompleteDefinition() || !util::isCStyleStruct(*Record) ||
-          AnalyzedTargetLib->getStruct(Name))
-        continue;
-
-      AnalyzedTargetLib->addStruct(
-          createStruct(*const_cast<clang::RecordDecl *>(Record)));
+      AnalyzedTargetLib->addEnum(std::make_shared<Enum>(*Record));
     }
 
     for (const auto &Node :
@@ -244,39 +225,6 @@ void TargetLibAnalyzer::prepareLLVMAnalysis(llvm::Module &M) {
   Solver = std::make_shared<IndCallSolverImpl>();
   assert(Solver && "Unexpected Program State");
   Solver->solve(M);
-}
-
-std::shared_ptr<Struct>
-TargetLibAnalyzer::createStruct(clang::RecordDecl &clangS) {
-  std::shared_ptr<Struct> ret = std::make_shared<Struct>();
-  ret->setName(util::getTypeName(clangS));
-  for (clang::FieldDecl *clangF : clangS.fields()) {
-    ret->addField(createField(*clangF, &*ret));
-  }
-  return ret;
-}
-
-std::shared_ptr<Enum> TargetLibAnalyzer::createEnum(clang::EnumDecl &clangE) {
-  std::shared_ptr<Enum> ret = std::make_shared<Enum>();
-  ret->setName(clangE.getQualifiedNameAsString());
-  ret->setScoped(clangE.isScoped());
-  ret->setScopedUsingClassTag(clangE.isScopedUsingClassTag());
-  for (clang::EnumConstantDecl *field : clangE.enumerators()) {
-    ret->addElement(std::make_shared<EnumConst>(
-        field->getNameAsString(), field->getInitVal().getExtValue(), &*ret));
-  }
-  return ret;
-}
-
-std::shared_ptr<Field> TargetLibAnalyzer::createField(clang::FieldDecl &FD,
-                                                      Struct *S) {
-  std::shared_ptr<Field> Result = std::make_shared<Field>(S);
-  Result->setVarName(FD.getNameAsString());
-  Result->setType(Type::createType(FD.getType(), FD.getASTContext(),
-                                   Result.get(), nullptr, nullptr,
-                                   AnalyzedTargetLib.get()));
-  Result->setIndex(FD.getFieldIndex());
-  return Result;
 }
 
 } // namespace ftg

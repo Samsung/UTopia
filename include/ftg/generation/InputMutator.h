@@ -37,7 +37,12 @@ public:
                       const SourceAnalysisReport &SourceReport);
 
 protected:
-  std::set<std::string> Headers = {'"' + UTModify::HeaderName + '"'};
+  std::vector<std::string> getHeaders() const;
+  void addHeader(const std::string &Header);
+
+private:
+  std::vector<std::string> DependentHeaders;
+  std::set<std::string> AdditionalHeaders;
 };
 } // namespace ftg
 

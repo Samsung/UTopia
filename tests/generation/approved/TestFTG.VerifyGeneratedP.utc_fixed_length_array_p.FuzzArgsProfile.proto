@@ -1,15 +1,20 @@
 syntax = "proto3";
 
+package AutoFuzz;
+
 message FuzzArgsProfile {
-  repeated int32 fuzzvar0 = 1;
-  repeated int32 fuzzvar1 = 2;
-  repeated int32 fuzzvar2 = 3;
-  repeated int32 fuzzvar3 = 4;
-  repeated int32 fuzzvar13 = 5;
-  repeated int32 fuzzvar14 = 6;
-  repeated int32 fuzzvar15 = 7;
+  repeated sint32 fuzzvar0 = 1;
+  repeated sint32 fuzzvar1 = 2;
+  repeated sint32 fuzzvar2 = 3;
+  repeated sint32 fuzzvar3 = 4;
+  repeated sint32 fuzzvar13 = 5;
+  repeated sint32 fuzzvar14 = 6;
+  repeated sint32 fuzzvar15 = 7;
   bytes fuzzvar16 = 8;
   bytes fuzzvar17 = 9;
-  repeated int32 fuzzvar18 = 10;
+  repeated sint32 fuzzvar18 = 10;
+  bytes fuzzvar20 = 11;
+  repeated sint32 fuzzvar22 = 12;
+  repeated sint32 fuzzvar23 = 13;
 }
 

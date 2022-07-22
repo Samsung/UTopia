@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+package AutoFuzz;
+
+enum EnumT {
+  EnumT_E1 = 0;
+}
+
+message FuzzArgsProfile {
+  repeated .AutoFuzz.EnumT fuzzvar0 = 1;
+}
+

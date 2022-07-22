@@ -1,13 +1,16 @@
 #include "ftg/utanalysis/Location.h"
+#include "ftg/utils/FileUtil.h"
 #include "ftg/utils/json/json.h"
 #include "clang/Lex/Lexer.h"
+
+using namespace clang;
 
 namespace ftg {
 
 Location::Location(Json::Value root) {
   m_offset = root["Offset"].asUInt();
   m_length = root["Length"].asUInt();
-  m_line = root["Line"].asInt();
+  m_line = root["Line"].asUInt();
 }
 
 Location::Location(const clang::SourceManager &SM, const clang::Stmt &node) {
@@ -45,7 +48,8 @@ void Location::setLocation(const clang::SourceManager &SM,
   m_offset = DecomposedLocation.second;
   m_length = getRangeSize(SM, srcExpansionSrcrange);
   m_line = SM.getPresumedLoc(srcRange.getBegin()).getLine();
-  m_filePath = SM.getFileEntryForID(SM.getMainFileID())->getName();
+  m_filePath =
+      util::getNormalizedPath(SM.getFilename(srcExpansionSrcrange.getBegin()));
 }
 
 void Location::setLocation(Json::Value root) {
@@ -54,25 +58,30 @@ void Location::setLocation(Json::Value root) {
   m_line = root["Line"].asUInt();
 }
 
-void Location::setFullLocationFromFunctionDecl(
-    const clang::FunctionDecl *functionDecl) {
-  clang::ASTContext *TUDeclContext = &functionDecl->getASTContext();
-  clang::SourceManager &SM = TUDeclContext->getSourceManager();
+void Location::setFullLocationFromFunctionDecl(const clang::FunctionDecl *FD) {
+  auto &Ctx = FD->getASTContext();
+  auto &SM = Ctx.getSourceManager();
+  auto BeginLoc = SM.getExpansionLoc(FD->getBeginLoc());
+  SourceLocation EndLoc;
+  if (!FD->getBody())
+    EndLoc = FD->getEndLoc();
+  else
+    EndLoc = FD->getBody()->getEndLoc();
+  EndLoc = SM.getExpansionLoc(EndLoc);
+  auto BeginOffset = SM.getDecomposedLoc(BeginLoc).second;
+  auto EndOffset = SM.getDecomposedLoc(EndLoc).second;
+  assert(BeginOffset <= EndOffset && "Invalid location for main function");
 
-  if (!functionDecl->getBody()) {
-    clang::SourceRange funcRange(functionDecl->getBeginLoc(),
-                                 functionDecl->getEndLoc());
-    setLocation(SM, funcRange);
-  } else {
-    clang::SourceRange funcRange(functionDecl->getBeginLoc(),
-                                 functionDecl->getBody()->getEndLoc());
-    setLocation(SM, funcRange);
-  }
+  m_offset = BeginOffset;
+  m_length = (EndOffset - BeginOffset +
+              Lexer::MeasureTokenLength(EndLoc, SM, LangOptions()));
+  m_line = SM.getPresumedLoc(BeginLoc).getLine();
+  m_filePath = util::getNormalizedPath(SM.getFilename(BeginLoc));
 }
 
 // // Ref : lib/Tooling/Core/Replacement.cpp#L122
-int Location::getRangeSize(const clang::SourceManager &Sources,
-                           const clang::CharSourceRange &Range) {
+unsigned Location::getRangeSize(const clang::SourceManager &Sources,
+                                const clang::CharSourceRange &Range) {
   const clang::LangOptions &LangOpts = clang::LangOptions();
   clang::SourceLocation SpellingBegin =
       Sources.getSpellingLoc(Range.getBegin());
@@ -81,11 +90,11 @@ int Location::getRangeSize(const clang::SourceManager &Sources,
       Sources.getDecomposedLoc(SpellingBegin);
   std::pair<clang::FileID, unsigned> End =
       Sources.getDecomposedLoc(SpellingEnd);
-  if (Start.first != End.first)
-    return -1;
   if (Range.isTokenRange())
     End.second +=
         clang::Lexer::MeasureTokenLength(SpellingEnd, Sources, LangOpts);
+  assert(Start.first == End.first && End.second >= Start.second &&
+         "Invalid source range");
   return End.second - Start.second;
 }
 

@@ -1,5 +1,4 @@
 #include "ftg/propanalysis/ArgFlow.h"
-#include "ftg/propanalysis/FieldInfo.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/Support/raw_ostream.h"
 #include <list>
@@ -186,9 +185,9 @@ unsigned ArgFlow::getLenRelatedArgNo() {
                            : (*ArrayArgs.begin())->getArgNo();
 }
 
-std::shared_ptr<StructInfo> ArgFlow::getStructInfo() { return STInfo; }
+std::shared_ptr<ArgFlow::StructInfo> ArgFlow::getStructInfo() { return STInfo; }
 
-std::shared_ptr<FieldInfo> ArgFlow::getFieldInfo() { return FDInfo; }
+std::shared_ptr<ArgFlow::FieldInfo> ArgFlow::getFieldInfo() { return FDInfo; }
 
 ArgFlow &ArgFlow::getOrCreateFieldFlow(unsigned FieldNum) {
   if (STInfo->FieldResults[FieldNum]) {
@@ -433,5 +432,14 @@ int ArgFlow::findRelatedField(Value &V, SmallSet<Value *, 8> &VisitedValues,
 
   return RelatedField;
 }
+
+ArgFlow::FieldInfo::FieldInfo(unsigned FieldNum, ArgFlow &Parent)
+    : FieldNum(FieldNum), Parent(Parent) {}
+
+bool ArgFlow::FieldInfo::hasLenRelatedField() {
+  return (!SizeFields.empty() || !ArrayFields.empty());
+}
+
+ArgFlow::StructInfo::StructInfo(llvm::StructType *ST) : StructType(ST) {}
 
 } // namespace ftg

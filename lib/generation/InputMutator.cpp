@@ -13,7 +13,20 @@ void InputMutator::initFromFuzzer(const Fuzzer &F,
     auto FuzzingInput = IDInput.second;
     addInput(*FuzzingInput);
   }
-  auto DependentHeaders =
-      SourceReport.getIncludedHeaders(F.getUT().getFilePath());
-  Headers.insert(DependentHeaders.begin(), DependentHeaders.end());
+  auto UTHeaders = SourceReport.getIncludedHeaders(F.getUT().getFilePath());
+  DependentHeaders.insert(DependentHeaders.end(), UTHeaders.begin(),
+                          UTHeaders.end());
+}
+
+std::vector<std::string> InputMutator::getHeaders() const {
+  auto Result = DependentHeaders;
+  Result.insert(Result.end(), AdditionalHeaders.begin(),
+                AdditionalHeaders.end());
+  // autofuzz header should be included in last to minimize side effects
+  Result.emplace_back('"' + UTModify::HeaderName + '"');
+  return Result;
+}
+
+void InputMutator::addHeader(const std::string &Header) {
+  AdditionalHeaders.emplace(Header);
 }

@@ -20,7 +20,10 @@ bool Definition::fromJson(const Json::Value &Root, TargetLib &TargetReport) {
       ArrayLenIDs.emplace(ArrayLenID.asUInt());
     AssignOperatorRequired = Root["AssignOperatorRequired"].asBool();
     BufferAllocSize = Root["BufferAllocSize"].asBool();
-    DataType = typeFromJson(Root["DataType"].toStyledString(), &TargetReport);
+    if (Root["DataType"].isNull())
+      DataType = nullptr;
+    else
+      DataType = typeFromJson(Root["DataType"].toStyledString(), &TargetReport);
     Declaration = (Definition::DeclType)Root["Declaration"].asUInt();
     EndOffset = Root["EndOffset"].asUInt();
     FilePath = Root["FilePath"].asBool();
@@ -34,7 +37,7 @@ bool Definition::fromJson(const Json::Value &Root, TargetLib &TargetReport) {
     LoopExit = Root["LoopExit"].asBool();
     TypeOffset = Root["TypeOffset"].asUInt();
     TypeString = Root["TypeString"].asString();
-    Value = ASTValue(Root["Value"].toStyledString());
+    Value = ASTValue(Root["Value"]);
     VarName = Root["VarName"].asString();
   } catch (Json::Exception &E) {
     return false;
@@ -66,12 +69,7 @@ Json::Value Definition::toJson() const {
 
   Result["LoopExit"] = LoopExit;
 
-  Json::Value TypeJson;
-  assert(DataType && "Unexpected Program State");
-  auto Serialized = toJsonString(*DataType);
-  std::istringstream StrStream(Serialized);
-  StrStream >> TypeJson;
-  Result["DataType"] = TypeJson;
+  Result["DataType"] = typeToJson(DataType.get());
   Result["Declaration"] = Declaration;
   Result["AssignOperatorRequired"] = AssignOperatorRequired;
   Result["TypeOffset"] = TypeOffset;

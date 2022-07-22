@@ -87,7 +87,7 @@ void DefAnalyzer::initializeRDAnalyzer(
     Extension.addNonStaticClassMethod(MN);
   }
 
-  Analyzer = std::make_unique<RDAnalyzer>(0, &Extension);
+  Analyzer = std::make_unique<RDAnalyzer>(30, &Extension);
 }
 
 std::map<Unittest *, std::vector<DefAnalyzer::FuncDef>>

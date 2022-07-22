@@ -1,5 +1,7 @@
 syntax = "proto3";
 
+package AutoFuzz;
+
 enum _e1 {
   _e1_A = 0;
   _e1_B = 1;
@@ -7,9 +9,9 @@ enum _e1 {
 }
 
 message FuzzArgsProfile {
-  ._e1 fuzzvar4 = 1;
-  ._e1 fuzzvar5 = 2;
-  repeated int32 fuzzvar6 = 3;
-  int32 fuzzvar8 = 4;
+  .AutoFuzz._e1 fuzzvar4 = 1;
+  .AutoFuzz._e1 fuzzvar5 = 2;
+  repeated sint32 fuzzvar6 = 3;
+  sint32 fuzzvar8 = 4;
 }
 

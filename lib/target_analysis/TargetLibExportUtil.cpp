@@ -1,5 +1,4 @@
 #include "ftg/targetanalysis/TargetLibExportUtil.h"
-#include "ftg/targetanalysis/ParamReport.h"
 #include "ftg/type/Type.h"
 #include "google/protobuf/util/json_util.h"
 #include "targetpb/targetpb.pb.h"
@@ -9,131 +8,72 @@ namespace ftg {
 namespace {
 
 targetpb::TargetLib toProtobuf(TargetLib &Src);
-targetpb::GlobalDef toProtobuf(GlobalDef &Src);
-targetpb::GlobalDef toProtobuf(Function &Src);
-targetpb::GlobalDef toProtobuf(Struct &Src);
 targetpb::GlobalDef toProtobuf(Enum &Src);
-targetpb::TypedElem toProtobuf(TypedElem &Src);
-targetpb::TypedElem toProtobuf(Param &Src);
 targetpb::Type toProtobuf(const Type &Src);
-targetpb::PrimitiveType toProtobuf(const PrimitiveType &Src);
-targetpb::IntegerType toProtobuf(const IntegerType &Src);
-targetpb::PointerType toProtobuf(const PointerType &Src);
+targetpb::PrimitiveType toProtobufPrimitiveType(const Type &Src);
+targetpb::IntegerType toProtobufIntegerType(const Type &Src);
+targetpb::PointerType toProtobufPointerType(const Type &Src);
 targetpb::ArrayInfo toProtobuf(const ArrayInfo &Src);
-targetpb::DefinedType toProtobuf(const DefinedType &Src);
-targetpb::EnumType toProtobuf(const EnumType &Src);
-targetpb::FunctionReport toProtobuf(FunctionReport &Report);
-targetpb::ParamReport toProtobuf(ParamReport &Report);
+targetpb::DefinedType toProtobufEnumType(const Type &Src);
 targetpb::Stats toProtobuf(TargetLib &Src, std::set<std::string> APIs);
+targetpb::Type_TypeID toProtobufType(Type::TypeID TypeID);
+targetpb::DefinedType_TypeID toProtobufDefinedType(Type::TypeID TypeID);
+targetpb::PrimitiveType_TypeID toProtobufPrimitiveType(Type::TypeID TypeID);
+targetpb::PointerType_PtrKind toProtobufPointerKind(const Type &PT);
 
 targetpb::TargetLib toProtobuf(TargetLib &Src) {
   targetpb::TargetLib Result;
-  for (auto Struct : Src.getStructMap())
-    Result.add_structs()->CopyFrom(toProtobuf(*Struct.second));
   for (auto Enum : Src.getEnumMap())
     Result.add_enums()->CopyFrom(toProtobuf(*Enum.second));
-  for (auto Function : Src.getFunctionMap())
-    Result.add_functions()->CopyFrom(toProtobuf(*Function.second));
   for (auto typedefPair : Src.getTypedefMap())
     Result.mutable_typedefmap()->insert(
         {typedefPair.first, typedefPair.second});
-  for (auto FunctionReport : Src.getFunctionReportMap())
-    Result.add_functionreports()->CopyFrom(toProtobuf(*FunctionReport.second));
   Result.mutable_stats()->CopyFrom(toProtobuf(Src, Src.getAPIs()));
   return Result;
 }
 
-targetpb::GlobalDef toProtobuf(GlobalDef &Src) {
-  targetpb::GlobalDef Result;
-  Result.set_m_typeid(static_cast<targetpb::GlobalDef_TypeID>(Src.getKind()));
-  Result.set_m_name(Src.getName());
-  Result.set_m_namedemangled(Src.getNameDemangled());
-  return Result;
-}
-
-targetpb::GlobalDef toProtobuf(Function &Src) {
-  auto Result = toProtobuf(llvm::cast<GlobalDef>(Src));
-  auto *Func = Result.mutable_function();
-  assert(Func && "Unexpected Program State");
-  Func->set_m_isvariadic(Src.isVariadic());
-  for (auto &Param : Src.getParams()) {
-    assert(Param && "Unexpected Program State");
-    auto *AddArg = Func->add_m_args();
-    assert(AddArg && "Unexpected Program State");
-    AddArg->CopyFrom(toProtobuf(*Param));
-  }
-  return Result;
-}
-
-targetpb::GlobalDef toProtobuf(Struct &Src) {
-  targetpb::GlobalDef Result = toProtobuf(llvm::cast<GlobalDef>(Src));
-  targetpb::Struct *S = Result.mutable_struct_();
-  assert(S && "Unexpected Program State");
-  for (auto &Field : Src.getFields()) {
-    assert(Field && "Unexpected Program State");
-    auto *AddField = S->add_m_fields();
-    assert(AddField && "Unexpected Program State");
-    AddField->CopyFrom(toProtobuf(*Field));
-  }
-  return Result;
-}
-
 targetpb::GlobalDef toProtobuf(Enum &Src) {
-  targetpb::GlobalDef Result = toProtobuf(llvm::cast<GlobalDef>(Src));
+  targetpb::GlobalDef Result;
+  Result.set_m_typeid(targetpb::GlobalDef_TypeID::GlobalDef_TypeID_Enum);
+  Result.set_m_name(Src.getName());
+  Result.set_m_namedemangled("");
   targetpb::Enum *E = Result.mutable_enum_();
   assert(E && "Unexpected Program State");
   for (auto Element : Src.getElements()) {
-    assert(Element && "Unexpected Program State");
     auto *AddEnum = E->add_m_consts();
     assert(AddEnum && "Unexpected Program State");
-    AddEnum->set_name(Element->getName());
-    AddEnum->set_value(Element->getType());
+    AddEnum->set_name(Element.getName());
+    AddEnum->set_value(Element.getValue());
   }
-  return Result;
-}
-
-targetpb::TypedElem toProtobuf(TypedElem &Src) {
-  targetpb::TypedElem Result;
-  Result.set_m_typeid(static_cast<targetpb::TypedElem_TypeID>(Src.getKind()));
-  Result.set_m_index(Src.getIndex());
-  Result.set_m_varname_ast(Src.getVarName());
-  Result.mutable_elemtype()->CopyFrom(toProtobuf(Src.getType()));
-  return Result;
-}
-
-targetpb::TypedElem toProtobuf(Param &Src) {
-  targetpb::TypedElem Result = toProtobuf(llvm::cast<TypedElem>(Src));
-  targetpb::Param *P = Result.mutable_param();
-  assert(P && "Unexpected Program State");
-  P->set_ptrdepth(Src.getPtrDepth());
   return Result;
 }
 
 targetpb::Type toProtobuf(const Type &Src) {
   targetpb::Type Result;
-  Result.set_m_typeid(static_cast<targetpb::Type_TypeID>(Src.getKind()));
+  Result.set_m_typeid(toProtobufType(Src.getKind()));
   Result.set_m_typename_ast(Src.getASTTypeName());
   Result.set_m_namespace(Src.getNameSpace());
   Result.set_m_typesize(Src.getTypeSize());
-  if (auto V = llvm::dyn_cast<PrimitiveType>(&Src))
-    Result.mutable_primitivetype()->CopyFrom(toProtobuf(*V));
-  else if (auto V = llvm::dyn_cast<PointerType>(&Src))
-    Result.mutable_pointertype()->CopyFrom(toProtobuf(*V));
-  else if (auto V = llvm::dyn_cast<DefinedType>(&Src))
-    Result.mutable_definedtype()->CopyFrom(toProtobuf(*V));
+  if (Src.isPrimitiveType())
+    Result.mutable_primitivetype()->CopyFrom(toProtobufPrimitiveType(Src));
+  else if (Src.isPointerType())
+    Result.mutable_pointertype()->CopyFrom(toProtobufPointerType(Src));
+  else if (Src.getKind() == Type::TypeID_Enum)
+    Result.mutable_definedtype()->CopyFrom(toProtobufEnumType(Src));
   return Result;
 }
 
-targetpb::PrimitiveType toProtobuf(const PrimitiveType &Src) {
+targetpb::PrimitiveType toProtobufPrimitiveType(const Type &Src) {
+  assert(Src.isPrimitiveType() && "Unexpected Program State");
   targetpb::PrimitiveType Result;
-  Result.set_m_typeid(
-      static_cast<targetpb::PrimitiveType_TypeID>(Src.getKind()));
-  if (auto *V = llvm::dyn_cast<IntegerType>(&Src))
-    Result.mutable_integertype()->CopyFrom(toProtobuf(*V));
+  Result.set_m_typeid(toProtobufPrimitiveType(Src.getKind()));
+  if (Src.isIntegerType())
+    Result.mutable_integertype()->CopyFrom(toProtobufIntegerType(Src));
   return Result;
 }
 
-targetpb::IntegerType toProtobuf(const IntegerType &Src) {
+targetpb::IntegerType toProtobufIntegerType(const Type &Src) {
+  assert(Src.isIntegerType() && "Unexpected Program State");
   targetpb::IntegerType Rseult;
   Rseult.set_isunsigned(Src.isUnsigned());
   Rseult.set_isboolean(Src.isBoolean());
@@ -141,12 +81,15 @@ targetpb::IntegerType toProtobuf(const IntegerType &Src) {
   return Rseult;
 }
 
-targetpb::PointerType toProtobuf(const PointerType &Src) {
+targetpb::PointerType toProtobufPointerType(const Type &Src) {
+  assert(Src.isPointerType() && "Unexpected Program State");
   targetpb::PointerType Result;
   const auto *PointeeT = Src.getPointeeType();
-  assert(PointeeT && "Unexpected Program State");
-  Result.mutable_m_pointeetype()->CopyFrom(toProtobuf(*PointeeT));
-  Result.set_kind(static_cast<targetpb::PointerType_PtrKind>(Src.getPtrKind()));
+  if (PointeeT)
+    Result.mutable_m_pointeetype()->CopyFrom(toProtobuf(*PointeeT));
+  else
+    Result.mutable_m_pointeetype()->CopyFrom(targetpb::Type());
+  Result.set_kind(toProtobufPointerKind(Src));
   if (const auto *ArrInfo = Src.getArrayInfo())
     Result.mutable_arrinfo()->CopyFrom(toProtobuf(*ArrInfo));
   return Result;
@@ -161,53 +104,16 @@ targetpb::ArrayInfo toProtobuf(const ArrayInfo &Src) {
   return Result;
 }
 
-targetpb::DefinedType toProtobuf(const DefinedType &Src) {
+targetpb::DefinedType toProtobufEnumType(const Type &Src) {
+  assert(Src.isEnumType() && "Unexpected Program State");
   targetpb::DefinedType Result;
-  Result.set_m_typeid(static_cast<targetpb::DefinedType_TypeID>(Src.getKind()));
+  Result.set_m_typeid(toProtobufDefinedType(Src.getKind()));
   Result.set_m_typename(Src.getTypeName());
-  Result.set_m_istyped(Src.isTyped());
-  if (auto V = llvm::dyn_cast<EnumType>(&Src))
-    Result.mutable_enumtype()->CopyFrom(toProtobuf(*V));
-  return Result;
-}
 
-targetpb::EnumType toProtobuf(const EnumType &Src) {
-  targetpb::EnumType Result;
-  Result.set_isunsigned(Src.isUnsigned());
-  Result.set_isboolean(Src.isBoolean());
-  return Result;
-}
-
-targetpb::FunctionReport toProtobuf(FunctionReport &Report) {
-  targetpb::FunctionReport Result;
-  Result.set_functionname(Report.getDefinition().getName());
-  Result.set_ispublicapi(Report.isPublicAPI());
-  Result.set_hascoercedparam(Report.hasCoercedParam());
-  Result.set_beginargindex(Report.getBeginArgIndex());
-  for (auto Param : Report.getParams()) {
-    auto *P = Result.add_params();
-    assert(P && "Unexpected Program State");
-    P->CopyFrom(toProtobuf(*Param));
-  }
-  return Result;
-}
-
-targetpb::ParamReport toProtobuf(ParamReport &Report) {
-  targetpb::ParamReport Result;
-  Result.set_direction(Report.getDirection());
-  Result.set_isarray(Report.isArray());
-  Result.set_isarraylength(Report.isArrayLen());
-  Result.set_allocation(Report.getAllocation());
-  Result.set_paramindex(Report.getParamIndex());
-  Result.set_haslengthrelatedarg(Report.hasLenRelatedArg());
-  Result.set_lenrelatedargno(Report.getLenRelatedArgNo());
-  Result.set_isfilepath(Report.isFilePathString());
-  Result.set_functionname(Report.getFunctionName());
-  for (auto Param : Report.getChildParams()) {
-    auto *P = Result.add_childparams();
-    assert(P && "Unexpected Program State");
-    P->CopyFrom(toProtobuf(*Param));
-  }
+  targetpb::EnumType EnumResult;
+  EnumResult.set_isunsigned(Src.isUnsigned());
+  EnumResult.set_isboolean(Src.isBoolean());
+  Result.mutable_enumtype()->CopyFrom(EnumResult);
   return Result;
 }
 
@@ -229,54 +135,6 @@ targetpb::Stats toProtobuf(TargetLib &Src, std::set<std::string> APIs) {
   unsigned ParamCount_InOut = 0;
   unsigned ParamCount_InUnidentified = 0;
   unsigned ParamCount_OutUnidentified = 0;
-
-  for (auto &funcMap : Src.getFunctionReportMap()) {
-    if (!funcMap.second->isPublicAPI()) {
-      continue;
-    }
-    APICount_Analyzed++;
-    for (auto &param : funcMap.second->getParams()) {
-      ParamCount_Total++;
-      if (param->isArray()) {
-        ParamCount_Array++;
-      }
-      if (param->isArrayLen()) {
-        ParamCount_ArrayLen++;
-      }
-      ArgDir argDir = param->getDirection();
-      unsigned InOut = (Dir::Dir_In | Dir::Dir_Out);
-      if (argDir == Dir::Dir_In) {
-        ParamCount_InputOnly++;
-      } else if (argDir == Dir::Dir_Out) {
-        ParamCount_OutputOnly++;
-      } else if (argDir == Dir::Dir_Unidentified) {
-        ParamCount_Unidentified++;
-      } else if (InOut == (argDir & InOut)) {
-        ParamCount_InOut++;
-      } else if (argDir == (Dir::Dir_In | Dir::Dir_Unidentified)) {
-        ParamCount_InUnidentified++;
-      } else if (argDir == (Dir::Dir_Out | Dir::Dir_Unidentified)) {
-        ParamCount_OutUnidentified++;
-      } else { // (argDir == Dir::::Dir_NoOp)
-        ParamCount_Unidentified++;
-      }
-      ArgAlloc argAlloc = param->getAllocation();
-      unsigned AllocAndFree = (Alloc::Alloc_Address | Alloc::Alloc_Free);
-      if (argAlloc == Alloc::Alloc_Size) {
-        ParamCount_AllocSize++;
-      } else if (argAlloc == Alloc::Alloc_Address) {
-        ParamCount_AllocAddr++;
-      } else if (argAlloc == Alloc::Alloc_Free) {
-        ParamCount_FreeAddr++;
-      } else if (argAlloc == AllocAndFree) {
-        ParamCount_AllocAndFree++;
-      } else if (argAlloc == Alloc::Alloc_None) {
-        ParamCount_NoAlloc++;
-      } else {
-        ParamCount_StrangeAlloc++;
-      }
-    }
-  }
 
   targetpb::Stats ret;
   ret.set_apicount_total(APICount_Total);
@@ -311,10 +169,55 @@ template <typename T> std::string getAsString(T &Src) {
   return Result;
 }
 
+targetpb::Type_TypeID toProtobufType(Type::TypeID TypeID) {
+  if (TypeID == Type::TypeID_Integer || TypeID == Type::TypeID_Float)
+    return targetpb::Type_TypeID::Type_TypeID_PrimitiveType;
+  if (TypeID == Type::TypeID_Pointer)
+    return targetpb::Type_TypeID::Type_TypeID_PointerType;
+  if (TypeID == Type::TypeID_Enum)
+    return targetpb::Type_TypeID::Type_TypeID_DefinedType;
+  assert(false && "Unexpected Program State");
+}
+
+targetpb::DefinedType_TypeID toProtobufDefinedType(Type::TypeID TypeID) {
+  if (TypeID == Type::TypeID_Enum)
+    return targetpb::DefinedType_TypeID::DefinedType_TypeID_Enum;
+  assert(false && "Unexpected Program State");
+}
+
+targetpb::PrimitiveType_TypeID toProtobufPrimitiveType(Type::TypeID TypeID) {
+  if (TypeID == Type::TypeID_Integer)
+    return targetpb::PrimitiveType_TypeID::PrimitiveType_TypeID_IntegerType;
+  if (TypeID == Type::TypeID_Float)
+    return targetpb::PrimitiveType_TypeID::PrimitiveType_TypeID_FloatType;
+  assert(false && "Unexpected Program State");
+}
+
+targetpb::PointerType_PtrKind toProtobufPointerKind(const Type &PT) {
+  if (PT.isNormalPtr())
+    return targetpb::PointerType_PtrKind::PointerType_PtrKind_PtrKind_SinglePtr;
+  if (PT.isArrayPtr())
+    return targetpb::PointerType_PtrKind::PointerType_PtrKind_PtrKind_Array;
+  if (PT.isStringType())
+    return targetpb::PointerType_PtrKind::PointerType_PtrKind_PtrKind_String;
+
+  assert(false && "Unexpected Program State");
+}
+
 } // namespace
 
 std::string toJsonString(TargetLib &Src) { return getAsString(Src); }
 
 std::string toJsonString(Type &Src) { return getAsString(Src); }
+
+Json::Value typeToJson(Type *T) {
+  Json::Value TypeJson;
+  if (!T)
+    return Json::Value::null;
+  std::string Serialized = toJsonString(*T);
+  std::istringstream StrStream(Serialized);
+  StrStream >> TypeJson;
+  return TypeJson;
+}
 
 } // namespace ftg

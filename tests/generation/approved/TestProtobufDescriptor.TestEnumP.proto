@@ -1,9 +1,9 @@
 syntax = "proto3";
 
-enum EnumWithZero {
-  EnumWithZero_Val0 = 0;
-  EnumWithZero_Val1 = 1;
-  EnumWithZero_Val2 = 2;
+enum Namespace__Class__EnumWithZero {
+  Namespace__Class__EnumWithZero_Val0 = 0;
+  Namespace__Class__EnumWithZero_Val1 = 1;
+  Namespace__Class__EnumWithZero_Val2 = 2;
 }
 
 enum EnumWithoutZero {
@@ -13,7 +13,7 @@ enum EnumWithoutZero {
 }
 
 message TestEnumP {
-  .EnumWithZero Flag1 = 1;
+  .Namespace__Class__EnumWithZero Flag1 = 1;
   .EnumWithoutZero Flag2 = 2;
   .EnumWithoutZero Flag3 = 3;
 }

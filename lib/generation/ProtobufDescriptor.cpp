@@ -3,6 +3,7 @@
 #include "ftg/generation/ProtobufDescriptor.h"
 #include "ftg/utils/StringUtil.h"
 
+#include <algorithm>
 #include <experimental/filesystem>
 #include <fstream>
 #include <google/protobuf/compiler/command_line_interface.h>
@@ -12,10 +13,13 @@ namespace fs = std::experimental::filesystem;
 
 using namespace ftg;
 
-ProtobufDescriptor::ProtobufDescriptor(std::string Name)
+ProtobufDescriptor::ProtobufDescriptor(const std::string &Name,
+                                       const std::string &PackageName)
     : Name(Name), FuzzInputDescriptor(*ProtoFile.add_message_type()) {
   ProtoFile.set_name(Name + ".proto");
   ProtoFile.set_syntax("proto3");
+  if (!PackageName.empty())
+    ProtoFile.set_package(PackageName);
   FuzzInputDescriptor.set_name(Name);
 }
 
@@ -61,20 +65,18 @@ ProtobufDescriptor::addFieldToDescriptor(
     google::protobuf::DescriptorProto &Desc, const std::string &FieldName,
     const Type &T) {
   bool Array = false;
-  auto *BaseType = &T;
+  const auto *BaseType = &T;
   if (BaseType->isFixedLengthArrayPtr() && !BaseType->isStringType()) {
     Array = true;
-    BaseType = &BaseType->getPointeeType();
+    BaseType = BaseType->getPointeeType();
   }
   google::protobuf::FieldDescriptorProto *Field = nullptr;
-  if (auto *Ptr = llvm::dyn_cast<PointerType>(BaseType)) {
-    Field = addFieldToDescriptor(Desc, FieldName, *Ptr);
-  } else if (auto *S = llvm::dyn_cast<StructType>(BaseType)) {
-    Field = addFieldToDescriptor(Desc, FieldName, *S);
-  } else if (auto *E = llvm::dyn_cast<EnumType>(BaseType)) {
-    Field = addFieldToDescriptor(Desc, FieldName, *E);
-  } else if (auto *P = llvm::dyn_cast<PrimitiveType>(BaseType)) {
-    Field = addFieldToDescriptor(Desc, FieldName, *P);
+  if (BaseType->isPointerType()) {
+    Field = addFieldToDescriptorPointerType(Desc, FieldName, *BaseType);
+  } else if (BaseType->isEnumType()) {
+    Field = addFieldToDescriptorEnumType(Desc, FieldName, *BaseType);
+  } else if (BaseType->isPrimitiveType()) {
+    Field = addFieldToDescriptorPrimitiveType(Desc, FieldName, *BaseType);
   }
   if (Field && Array)
     Field->set_label(google::protobuf::FieldDescriptorProto::LABEL_REPEATED);
@@ -82,24 +84,25 @@ ProtobufDescriptor::addFieldToDescriptor(
 }
 
 google::protobuf::FieldDescriptorProto *
-ProtobufDescriptor::addFieldToDescriptor(
+ProtobufDescriptor::addFieldToDescriptorPrimitiveType(
     google::protobuf::DescriptorProto &Desc, const std::string &FieldName,
-    const PrimitiveType &T) {
+    const Type &T) {
+  assert(T.isPrimitiveType() && "Unexpected Program State");
   google::protobuf::FieldDescriptorProto_Type FieldType;
-  if (auto *IT = llvm::dyn_cast<IntegerType>(&T)) {
-    if (IT->isBoolean())
+  if (T.isIntegerType()) {
+    if (T.isBoolean())
       FieldType = google::protobuf::FieldDescriptorProto::TYPE_BOOL;
-    else if (IT->getTypeSize() == 8) {
-      FieldType = IT->isUnsigned()
+    else if (T.getTypeSize() == 8) {
+      FieldType = T.isUnsigned()
                       ? google::protobuf::FieldDescriptorProto::TYPE_UINT64
-                      : google::protobuf::FieldDescriptorProto::TYPE_INT64;
+                      : google::protobuf::FieldDescriptorProto::TYPE_SINT64;
     } else {
-      FieldType = IT->isUnsigned()
+      FieldType = T.isUnsigned()
                       ? google::protobuf::FieldDescriptorProto::TYPE_UINT32
-                      : google::protobuf::FieldDescriptorProto::TYPE_INT32;
+                      : google::protobuf::FieldDescriptorProto::TYPE_SINT32;
     }
-  } else if (auto *FT = llvm::dyn_cast<FloatType>(&T)) {
-    FieldType = FT->getTypeSize() == 8
+  } else if (T.isFloatType()) {
+    FieldType = T.getTypeSize() == 8
                     ? google::protobuf::FieldDescriptorProto::TYPE_DOUBLE
                     : google::protobuf::FieldDescriptorProto::TYPE_FLOAT;
   } else { // Unknown Type
@@ -108,15 +111,17 @@ ProtobufDescriptor::addFieldToDescriptor(
   return addFieldToDescriptor(Desc, FieldName, FieldType);
 }
 
-// TODO: Check if name of struct/enum is unique
-//  and doesn't containing invalid char
 google::protobuf::FieldDescriptorProto *
-ProtobufDescriptor::addFieldToDescriptor(
+ProtobufDescriptor::addFieldToDescriptorEnumType(
     google::protobuf::DescriptorProto &Desc, const std::string &FieldName,
-    const EnumType &T) {
+    const Type &T) {
+  assert(T.isEnumType() && "Unexpected Program State");
   auto EnumName = T.getTypeName();
+  // TypeName might contain ':' due to namespace or nested.
+  // Replacing them as ':' is not valid character for identifier
+  std::replace(EnumName.begin(), EnumName.end(), ':', '_');
   if (Enums.find(EnumName) == Enums.end()) {
-    auto *EnumDef = T.getGlobalDef();
+    const auto *EnumDef = T.getGlobalDef();
     if (EnumDef == nullptr)
       return nullptr;
     auto *EnumDesc = ProtoFile.add_enum_type();
@@ -128,12 +133,22 @@ ProtobufDescriptor::addFieldToDescriptor(
     auto *DefaultVal = EnumDesc->add_value();
     DefaultVal->set_name(EnumName + "_UNKNOWN");
     DefaultVal->set_number(0);
+    std::set<int64_t> EnumValues;
+    bool HaveAlias = false;
     for (auto EnumVal : EnumDef->getElements()) {
-      auto *ValDesc = EnumVal->getType() == 0 ? EnumDesc->mutable_value(0)
-                                              : EnumDesc->add_value();
-      ValDesc->set_name(EnumName + "_" + EnumVal->getName());
-      ValDesc->set_number(EnumVal->getType());
+      auto ElemVal = EnumVal.getValue();
+      auto *ValDesc =
+          ElemVal == 0 && EnumDesc->value(0).name() == EnumName + "_UNKNOWN"
+              ? EnumDesc->mutable_value(0)
+              : EnumDesc->add_value();
+      ValDesc->set_name(EnumName + "_" + EnumVal.getName());
+      ValDesc->set_number(ElemVal);
+      auto Result = EnumValues.insert(ElemVal);
+      if (!Result.second)
+        HaveAlias = true;
     }
+    if (HaveAlias)
+      EnumDesc->mutable_options()->set_allow_alias(true);
     Enums.emplace(EnumName);
   }
   return addFieldToDescriptor(Desc, FieldName,
@@ -142,30 +157,10 @@ ProtobufDescriptor::addFieldToDescriptor(
 }
 
 google::protobuf::FieldDescriptorProto *
-ProtobufDescriptor::addFieldToDescriptor(
+ProtobufDescriptor::addFieldToDescriptorPointerType(
     google::protobuf::DescriptorProto &Desc, const std::string &FieldName,
-    const StructType &T) {
-  auto StructName = T.getTypeName();
-  if (Structs.find(StructName) == Structs.end()) {
-    auto *StructDef = T.getGlobalDef();
-    if (StructDef == nullptr)
-      return nullptr;
-    auto *StructDesc = ProtoFile.add_message_type();
-    StructDesc->set_name(StructName);
-    for (auto StructField : StructDef->getFields())
-      addFieldToDescriptor(*StructDesc, StructField->getVarName(),
-                           StructField->getType());
-    Structs.emplace(StructName);
-  }
-  return addFieldToDescriptor(
-      Desc, FieldName, google::protobuf::FieldDescriptorProto::TYPE_MESSAGE,
-      StructName);
-}
-
-google::protobuf::FieldDescriptorProto *
-ProtobufDescriptor::addFieldToDescriptor(
-    google::protobuf::DescriptorProto &Desc, const std::string &FieldName,
-    const PointerType &T) {
+    const Type &T) {
+  assert(T.isPointerType() && "Unexpected Program State");
   if (!T.isStringType())
     return nullptr;
   return addFieldToDescriptor(

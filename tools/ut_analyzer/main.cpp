@@ -80,16 +80,20 @@ int main(int argc, const char **argv) {
     return 0;
   }
 
-  UTAnalyzer Analyzer(
-      std::make_shared<BuildDBLoader>(ProjectEntryPath, BinaryName),
-      std::make_shared<APIJsonLoader>(LibraryAPIPath), TargetPath, ExternPath,
-      UTType);
+  try {
+    UTAnalyzer Analyzer(
+        std::make_shared<BuildDBLoader>(ProjectEntryPath, BinaryName),
+        std::make_shared<APIJsonLoader>(LibraryAPIPath), TargetPath, ExternPath,
+        UTType);
 
-  if (!Analyzer.analyze())
-    return 1;
+    if (!Analyzer.analyze())
+      return 1;
 
-  if (!Analyzer.dump(OutputPath))
+    if (!Analyzer.dump(OutputPath))
+      return 1;
+  } catch (...) {
     return 1;
+  }
 
   return 0;
 }

@@ -52,14 +52,18 @@ int main(int argc, const char **argv) {
   else
     AL = std::make_shared<APIJsonLoader>(PublicAPIJsonPath);
 
-  TargetLibAnalyzer Analyzer(
-      std::make_shared<BuildDBLoader>(ProjectEntryPath, LibraryName), AL,
-      ExternLibDir);
-  if (!Analyzer.analyze())
-    return 1;
+  try {
+    TargetLibAnalyzer Analyzer(
+        std::make_shared<BuildDBLoader>(ProjectEntryPath, LibraryName), AL,
+        ExternLibDir);
+    if (!Analyzer.analyze())
+      return 1;
 
-  if (!Analyzer.dump(OutFilePath))
+    if (!Analyzer.dump(OutFilePath))
+      return 1;
+  } catch (...) {
     return 1;
+  }
 
   return 0;
 }

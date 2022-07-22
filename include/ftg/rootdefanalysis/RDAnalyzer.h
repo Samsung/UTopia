@@ -38,6 +38,7 @@ private:
   std::set<RDNode> traceLink(RDNode &, llvm::Function &);
   std::set<RDNode> pass(RDNode &);
   std::set<RDNode> handleRegister(RDNode &Node, llvm::CallBase &CB);
+  std::set<RDNode> handleRegisterInternal(RDNode &Node, llvm::CallBase &CB);
   std::set<RDNode> handleStoreInst(RDNode &, llvm::StoreInst &);
   std::set<RDNode> handleMemoryCall(RDNode &, llvm::CallBase &);
   std::set<RDNode> handleExternalCall(RDNode &Node, llvm::CallBase &CB);

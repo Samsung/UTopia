@@ -26,10 +26,6 @@ protected:
     if (!M)
       return nullptr;
 
-    auto IRAccess = std::make_unique<IRAccessHelper>(*M);
-    if (!IRAccess)
-      return nullptr;
-
     llvm::PassBuilder PB;
     llvm::LoopAnalysisManager LAM;
     llvm::CGSCCAnalysisManager CGAM;
@@ -53,6 +49,11 @@ protected:
     MPM.run(*M, MAM);
 
     CHs.emplace_back(CH);
+
+    auto IRAccess = std::make_unique<IRAccessHelper>(*M);
+    if (!IRAccess)
+      return nullptr;
+
     return IRAccess;
   }
 

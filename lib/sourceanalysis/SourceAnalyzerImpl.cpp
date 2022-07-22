@@ -1,4 +1,6 @@
 #include "ftg/sourceanalysis/SourceAnalyzerImpl.h"
+#include "ftg/utils/FileUtil.h"
+#include "ftg/utils/StringUtil.h"
 #include "clang/ASTMatchers/ASTMatchFinder.h"
 #include "clang/ASTMatchers/ASTMatchers.h"
 #include "clang/Rewrite/Core/Rewriter.h"
@@ -16,11 +18,17 @@ SourceAnalyzerImpl::SourceAnalyzerImpl(const SourceCollection &SC) {
     if (MainFD) {
       Location MainFuncLoc;
       MainFuncLoc.setFullLocationFromFunctionDecl(MainFD);
+
+      if (util::getRelativePath(MainFuncLoc.getFilePath(), SC.getBaseDir())
+              .empty())
+        continue;
+
       Report.setMainFuncLoc(MainFuncLoc);
     }
 
-    Report.addSourceInfo(ASTUnit->getOriginalSourceFileName(),
-                         getEndOffset(*ASTUnit), getIncludes(*ASTUnit));
+    Report.addSourceInfo(
+        util::getNormalizedPath(ASTUnit->getOriginalSourceFileName()),
+        getEndOffset(*ASTUnit), getIncludes(*ASTUnit));
   }
   Report.setSrcBaseDir(SC.getBaseDir());
 }
@@ -97,7 +105,8 @@ SourceAnalyzerImpl::getIncludes(const ASTUnit &AST) const {
 const clang::FunctionDecl *
 SourceAnalyzerImpl::getMainFuncDecl(const clang::ASTUnit &U) const {
   const std::string Tag = "Tag";
-  auto Matcher = functionDecl(isMain()).bind(Tag);
+  auto Matcher =
+      functionDecl(isMain(), unless(isExpansionInSystemHeader())).bind(Tag);
   for (auto &Node :
        match(Matcher, *const_cast<clang::ASTContext *>(&U.getASTContext()))) {
     auto *Record = Node.getNodeAs<FunctionDecl>(Tag);

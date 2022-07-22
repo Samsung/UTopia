@@ -5,11 +5,11 @@ using namespace llvm;
 
 namespace ftg {
 
-void RDCache::cache(RDNode Key, std::set<RDNode> Value) {
-
-  Key.clearVisit();
-  if (Cache.find(Key) != Cache.end()) {
-    outs() << "Error Key: " << Key << "\n";
+void RDCache::cache(const RDNode &Key, std::set<RDNode> Value) {
+  RDNode CopiedKey = Key;
+  CopiedKey.clearVisit();
+  if (Cache.find(CopiedKey) != Cache.end()) {
+    outs() << "Error Key: " << CopiedKey << "\n";
     assert(false && "Unexpected Program State");
   }
 
@@ -17,7 +17,7 @@ void RDCache::cache(RDNode Key, std::set<RDNode> Value) {
     auto &Node = *const_cast<RDNode *>(&V);
     Node.clearVisit();
   }
-  Cache.insert(std::make_pair(Key, Value));
+  Cache.insert(std::make_pair(CopiedKey, Value));
 }
 
 bool RDCache::has(const RDNode &Key) const {

@@ -38,7 +38,6 @@ protected:
       if (!Result)
         continue;
 
-      Type::updateArrayInfoFromAST(*Result, *Record);
       return Result;
     }
     return nullptr;
@@ -62,13 +61,9 @@ private:
 TEST_F(TestType, TypeP) {
   const std::string Code =
       "extern \"C\" {\n"
-      "struct ST1 { int F1; };\n"
-      "union U1 { int F1; float F2; };\n"
-      "class C1 { public: C1(int P1):F1(P1) {}; private: int F1; };\n"
       "enum E1 { Enum0, Enum1 };\n"
-      "void test_defined(ST1 *P1, U1 *P2, C1 *P3, E1 P4);\n"
+      "void test_defined(E1 P4);\n"
       "void test_primitive(int P1, float P2);\n"
-      "void test_void();\n"
       "void test_ptr(int *P1, char *P2, int P3[10], int P4) {\n"
       "  int Var[P4];\n"
       "}\n"
@@ -76,57 +71,36 @@ TEST_F(TestType, TypeP) {
   ASSERT_TRUE(load(Code));
   std::shared_ptr<Type> T;
 
-  T = create("void");
-  ASSERT_TRUE(T);
-  ASSERT_TRUE(isa<VoidType>(T.get()));
-
   T = create("int");
   ASSERT_TRUE(T);
-  ASSERT_TRUE(isa<IntegerType>(T.get()));
+  ASSERT_TRUE(T->isIntegerType());
 
   T = create("float");
   ASSERT_TRUE(T);
-  ASSERT_TRUE(isa<FloatType>(T.get()));
-
-  T = create("struct ST1");
-  ASSERT_TRUE(T);
-  ASSERT_TRUE(isa<StructType>(T.get()));
-
-  T = create("union U1");
-  ASSERT_TRUE(T);
-  ASSERT_TRUE(isa<UnionType>(T.get()));
-
-  T = create("class C1");
-  ASSERT_TRUE(T);
-  ASSERT_TRUE(isa<ClassType>(T.get()));
-
-  T = create("void (void)");
-  ASSERT_TRUE(T);
-  ASSERT_TRUE(isa<FunctionType>(T.get()));
+  ASSERT_TRUE(T->isFloatType());
 
   T = create("enum E1");
   ASSERT_TRUE(T);
-  ASSERT_TRUE(isa<EnumType>(T.get()));
+  ASSERT_TRUE(T->getKind() == Type::TypeID_Enum);
 
   T = create("int *");
   ASSERT_TRUE(T);
-  ASSERT_TRUE(isa<PointerType>(T.get()));
-  ASSERT_TRUE(T->isSinglePtr());
+  ASSERT_TRUE(T->isPointerType());
+  ASSERT_TRUE(T->isNormalPtr());
 
   T = create("char *");
   ASSERT_TRUE(T);
-  ASSERT_TRUE(isa<PointerType>(T.get()));
+  ASSERT_TRUE(T->isPointerType());
   ASSERT_TRUE(T->isStringType());
 
   T = create("int [10]");
   ASSERT_TRUE(T);
-  ASSERT_TRUE(isa<PointerType>(T.get()));
+  ASSERT_TRUE(T->isPointerType());
   ASSERT_TRUE(T->isFixedLengthArrayPtr());
 
   T = create("int [P4]");
   ASSERT_TRUE(T);
-  ASSERT_TRUE(isa<PointerType>(T.get()));
-  ASSERT_TRUE(T->isVariableLengthArrayPtr());
+  ASSERT_TRUE(T->isPointerType());
 }
 
 TEST_F(TestType, TypeN) {
@@ -138,8 +112,48 @@ TEST_F(TestType, TypeN) {
 
   T = create("int []");
   ASSERT_TRUE(T);
-  ASSERT_TRUE(isa<PointerType>(T.get()));
-  ASSERT_TRUE(!T->isFixedLengthArrayPtr() && !T->isVariableLengthArrayPtr());
+  ASSERT_TRUE(T->isPointerType());
+  ASSERT_TRUE(!T->isFixedLengthArrayPtr());
+}
+
+TEST_F(TestType, UnknownTypeN) {
+  const std::string Code =
+      "extern \"C\" {\n"
+      "struct ST1 { int F1; };\n"
+      "union U1 { int F1; float F2; };\n"
+      "class C1 { public: C1(int P1):F1(P1) {}; private: int F1; };\n"
+      "void test_defined(ST1 *P1, U1 *P2, C1 *P3);\n"
+      "void test_void();\n"
+      "}";
+  ASSERT_TRUE(load(Code));
+  std::shared_ptr<Type> T;
+
+  T = create("void");
+  ASSERT_FALSE(T);
+
+  T = create("struct ST1");
+  ASSERT_FALSE(T);
+
+  T = create("union U1");
+  ASSERT_FALSE(T);
+
+  T = create("class C1");
+  ASSERT_FALSE(T);
+
+  T = create("void (void)");
+  ASSERT_FALSE(T);
+}
+
+TEST_F(TestType, CreateCharPointerTypeP) {
+  auto T = Type::createCharPointerType();
+  ASSERT_TRUE(T);
+  ASSERT_TRUE(T->isStringType());
+}
+
+TEST_F(TestType, CreateCharPointerTypeN) {
+  auto T = Type::createCharPointerType();
+  ASSERT_TRUE(T);
+  ASSERT_FALSE(T->isArrayPtr());
 }
 
 } // namespace ftg

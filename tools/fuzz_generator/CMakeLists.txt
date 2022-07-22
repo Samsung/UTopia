@@ -19,6 +19,7 @@ target_link_libraries(fuzz_generator
   ftgType
   ftgUTAnalysis
   ftgUtils
+  ftgAPILoader
   spdlog::spdlog
   clangBasic
   clangFormat

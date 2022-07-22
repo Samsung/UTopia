@@ -1,0 +1,697 @@
+assimp:
+  name: assimp
+  prjdir: assimp
+  libs:
+    libassimp.a:
+      buildkey: ../lib/libassimp.a
+  uts:
+    unit:
+      libalias: libassimp.a
+      srcpath: test/unit
+      buildkey: ../bin/unit
+
+bsdiff:
+  name: bsdiff
+  prjdir: bsdiff
+  builddir: bsdiff
+  libs:
+    libbsdiff.a:
+    libbspatch.a:
+  uts:
+    bsdiff_unittest:
+      libalias: libbsdiff.a libbspatch.a
+      srcpath: bsdiff
+      buildkey: bsdiff_unittest
+
+cpu_features:
+  name: cpu_features
+  prjdir: cpu_features
+  builddir: build
+  libs:
+    libstring_view.a:
+    libfilesystem_for_testing.a:
+    libstack_line_reader.a:
+    libhwcaps_for_testing.a:
+    liball_libraries.a:
+    libstack_line_reader_for_test.a:
+  uts:
+    stack_line_reader_test:
+      libalias: libstack_line_reader_for_test.a libstring_view.a libfilesystem_for_testing.a
+      srcpath: test
+      builddir: test
+    string_view_test:
+      libalias: libstring_view.a
+      srcpath: test
+      builddir: test
+    cpuinfo_x86_test:
+      libalias: liball_libraries.a libhwcaps_for_testing.a libfilesystem_for_testing.a libstack_line_reader.a libstring_view.a
+      srcpath: test
+      buildkey: cpuinfo_x86_test
+
+cpuinfo:
+  name: cpuinfo
+  prjdir: cpuinfo
+  builddir: build
+  libs:
+    libcpuinfo.a:
+    libcpuinfo_internals.a:
+  uts:
+    get-current-test:
+      libalias: libcpuinfo.a
+      srcpath: test
+    init-test:
+      libalias: libcpuinfo.a
+      srcpath: test
+    brand-string-test:
+      libalias: libcpuinfo_internals.a
+      srcpath: test
+
+jsonnet:
+  name: jsonnet
+  prjdir: jsonnet
+  builddir: build
+  libs:
+    libjsonnet.a:
+      buildkey: ../libjsonnet.a
+      builddir: core
+#    libjsonnet++:
+#      libname: libjsonnet++.a
+#      buildkey: ../libjsonnet++.a
+  uts:
+    lexer_test:
+      libalias: libjsonnet.a
+      srcpath: core
+      builddir: core
+      buildkey: ../lexer_test
+    libjsonnet_test:
+      libalias: libjsonnet.a
+      srcpath: core
+      builddir: core
+      buildkey: ../libjsonnet_test
+    parser_test:
+      libalias: libjsonnet.a
+      srcpath: core
+      builddir: core
+      buildkey: ../parser_test
+#    libjsonnet++_test:
+#      libalias: libjsonnet++
+#      srcpath: core
+#      buildkey: ../libjsonnet++_test
+
+ledger:
+  name: ledger
+  prjdir: ledger
+  builddir: build
+  framework: boost
+  libs:
+    libledger.a:
+      srcpath: src
+      builddir: src
+  uts:
+    MathTests:
+      libalias: libledger.a
+      srcpath: test/unit
+      builddir: test/unit
+      buildkey: ../../MathTests
+    UtilTests:
+      libalias: libledger.a
+      srcpath: test/unit
+      builddir: test/unit
+      buildkey: ../../UtilTests
+
+leveldb:
+  name: leveldb
+  prjdir: leveldb
+  builddir: build
+  libs:
+    libleveldb.a:
+  uts:
+    corruption_test:
+      libalias: libleveldb.a
+      srcpath: src
+    write_batch_test:
+      libalias: libleveldb.a
+      srcpath: src
+    autocompact_test:
+      libalias: libleveldb.a
+      srcpath: src
+    coding_test:
+      libalias: libleveldb.a
+      srcpath: src
+    version_set_test:
+      libalias: libleveldb.a
+      srcpath: src
+    no_destructor_test:
+      libalias: libleveldb.a
+      srcpath: src
+    log_test:
+      libalias: libleveldb.a
+      srcpath: src
+    issue320_test:
+      libalias: libleveldb.a
+      srcpath: src
+    arena_test:
+      libalias: libleveldb.a
+      srcpath: src
+    hash_test:
+      libalias: libleveldb.a
+      srcpath: src
+    env_test:
+      libalias: libleveldb.a
+      srcpath: src
+    filename_test:
+      libalias: libleveldb.a
+      srcpath: src
+    db_test:
+      libalias: libleveldb.a
+      srcpath: src
+    dbformat_test:
+      libalias: libleveldb.a
+      srcpath: src
+    memenv_test:
+      libalias: libleveldb.a
+      srcpath: src
+    issue178_test:
+      libalias: libleveldb.a
+      srcpath: src
+    fault_injection_test:
+      libalias: libleveldb.a
+      srcpath: src
+    logging_test:
+      libalias: libleveldb.a
+      srcpath: src
+    env_posix_test:
+      libalias: libleveldb.a
+      srcpath: src
+    skiplist_test:
+      libalias: libleveldb.a
+      srcpath: src
+# NO GOOGLE TEST
+#    c_test:
+#      libalias: libleveldb.a
+#      srcpath: src
+    table_test:
+      libalias: libleveldb.a
+      srcpath: src
+    bloom_test:
+      libalias: libleveldb.a
+      srcpath: src
+    filter_block_test:
+      libalias: libleveldb.a
+      srcpath: src
+    version_edit_test:
+      libalias: libleveldb.a
+      srcpath: src
+    status_test:
+      libalias: libleveldb.a
+      srcpath: src
+    recovery_test:
+      libalias: libleveldb.a
+      srcpath: src
+    crc32c_test:
+      libalias: libleveldb.a
+      srcpath: src
+
+libaom:
+  name: libaom
+  prjdir: libaom
+  libs:
+    libaom.a:
+  uts:
+    test_libaom:
+      libalias: libaom.a
+      srcpath: test
+
+libhtp:
+  name: libhtp
+  prjdir: libhtp
+  libs:
+    libhtp.a:
+      buildkey: .libs/libhtp.a
+      builddir: htp
+  uts:
+    test_all:
+      libalias: libhtp.a
+      srcpath: test
+      buildkey: .libs/test_all
+      builddir: test
+
+libphonenumber:
+  name: libphonenumber
+  prjdir: libphonenumber
+  builddir: cpp/build
+  libs:
+    libphonenumber_testing.a:
+  uts:
+    libphonenumber_test:
+      libalias: libphonenumber_testing.a
+      srcpath: cpp/test/phonenumbers
+
+libvpx:
+  name: libvpx
+  prjdir: libvpx
+  libs:
+    libvpx.a:
+      buildkey: libvpx_g.a
+    libvp9rc.a:
+      buildkey: libvp9rc_g.a
+  uts:
+    test_intra_pred_speed:
+      libalias: libvpx.a
+      srcpath: test
+    test_rc_interface:
+      libalias: libvpx.a libvp9rc.a
+      srcpath: test
+    test_libvpx:
+      libalias: libvpx.a
+      srcpath: test
+
+minijail:
+    name: minijail
+    prjdir: minijail
+    libs:
+        libminijail.pic.a:
+    uts:
+        libminijail_unittest:
+            libalias: libminijail.pic.a
+            srcpath: minijail
+        util_unittest:
+            libalias: libminijail.pic.a
+            srcpath:  minijail
+        minijail0_cli_unittest:
+            libalias: libminijail.pic.a
+            srcpath: minijail
+        syscall_filter_unittest:
+            libalias: libminijail.pic.a
+            srcpath: minijail
+        system_unittest:
+            libalias: libminijail.pic.a
+            srcpath: minijail
+
+muduo:
+  name: muduo
+  prjdir: muduo
+  builddir: build
+  framework: boost
+  libs:
+    libmuduo_net.a:
+      buildkey: ../../lib/libmuduo_net.a
+      builddir: muduo/net
+    libmuduo_base.a:
+      buildkey: ../../lib/libmuduo_base.a
+      builddir: muduo/base
+    libmuduo_http.a:
+      buildkey: ../../../lib/libmuduo_http.a
+      builddir: muduo/net/http
+  uts:
+    buffer_unittest:
+      libalias: libmuduo_net.a libmuduo_base.a
+      buildkey: ../../../bin/buffer_unittest
+      builddir: muduo/net/tests
+      srcpath: muduo/net/tests
+    inetaddress_unittest:
+      libalias: libmuduo_net.a libmuduo_base.a
+      buildkey: ../../../bin/inetaddress_unittest
+      builddir: muduo/net/tests
+      srcpath: muduo/net/tests
+    zlibstream_unittest:
+      libalias: libmuduo_net.a libmuduo_base.a
+      buildkey: ../../../bin/zlibstream_unittest
+      builddir: muduo/net/tests
+      srcpath: muduo/net/tests
+    httprequest_unittest:
+      libalias: libmuduo_http.a libmuduo_net.a libmuduo_base.a
+      buildkey: ../../../bin/httprequest_unittest
+      builddir: muduo/net/http
+      srcpath: muduo/net/http
+    logstream_test:
+      libalias: libmuduo_base.a
+      buildkey: ../../../bin/logstream_test
+      builddir: muduo/base/tests
+      srcpath: muduo/base/tests
+
+node:
+  name: node
+  prjdir: node
+  builddir: .
+  libs:
+    libnode.a:
+      buildkey: /root/fuzz-test-generation/exp/node/out/Release/obj.target/libnode.a
+  uts:
+    cctest:
+      libalias: libnode.a
+      buildkey: /root/fuzz-test-generation/exp/node/out/Release/cctest
+      srcpath: test/cctest
+
+openh264:
+  name: openh264
+  prjdir: openh264
+  libs:
+    libdecoder.a:
+    libencoder.a:
+    libprocessing.a:
+    libcommon.a:
+  uts:
+    codec_unittest:
+      libalias: libdecoder.a libencoder.a libprocessing.a libcommon.a
+      srcpath: test
+
+pthreadpool:
+  name: pthreadpool
+  prjdir: pthreadpool
+  builddir: build
+  libs:
+    libpthreadpool.a:
+  uts:
+    pthreadpool-test:
+      libalias: libpthreadpool.a
+      srcpath: test
+
+puffin:
+  name: puffin
+  prjdir: puffin
+  libs:
+    libpuffin.a:
+  uts:
+    puffin_unittests:
+      libalias: libpuffin.a
+      srcpath: src
+
+sfntly:
+  name: sfntly
+  prjdir: sfntly
+  builddir: build
+  libs:
+    libsfntly.a:
+      buildkey: lib/libsfntly.a
+  uts:
+    unit_test:
+      libalias: libsfntly.a
+      srcpath: cpp
+      buildkey: bin/unit_test
+
+snappy:
+  name: snappy
+  prjdir: snappy
+  builddir: build
+  libs:
+    libsnappy.a:
+  uts:
+    snappy_unittest:
+      libalias: libsnappy.a
+      srcpath: src
+      buildkey: snappy_unittest
+
+tesseract:
+  name: tesseract
+  prjdir: tesseract
+  libs:
+    libtesseract.a:
+      buildkey: .libs/libtesseract.a
+    libtesseract_training.a:
+      buildkey: .libs/libtesseract_training.a
+  uts:
+    apiexample_test:
+      libalias: libtesseract.a
+      srcpath: unittest
+      buildkey: apiexample_test
+    applybox_test:
+      libalias: libtesseract.a libtesseract_training.a
+      srcpath: unittest
+      buildkey: applybox_test
+    baseapi_thread_test:
+      libalias: libtesseract.a
+      srcpath: unittest
+      buildkey: baseapi_thread_test
+    bitvector_test:
+      libalias: libtesseract.a libtesseract_training.a
+      srcpath: unittest
+      buildkey: bitvector_test
+    cleanapi_test:
+      libalias: libtesseract.a
+      srcpath: unittest
+      buildkey: cleanapi_test
+    colpartition_test:
+      libalias: libtesseract.a
+      srcpath: unittest
+      buildkey: colpartition_test
+    commandlineflags_test:
+      libalias: libtesseract.a libtesseract_training.a
+      srcpath: unittest
+      buildkey: commandlineflags_test
+    dawg_test:
+      libalias: libtesseract.a libtesseract_training.a
+      srcpath: unittest
+      buildkey: dawg_test
+    denorm_test:
+      libalias: libtesseract.a
+      srcpath: unittest
+      buildkey: denorm_test
+    equationdetect_test:
+      libalias: libtesseract.a
+      srcpath: unittest
+      buildkey: equationdetect_test
+    fileio_test:
+      libalias: libtesseract.a libtesseract_training.a
+      srcpath: unittest
+      buildkey: fileio_test
+    heap_test:
+      libalias: libtesseract.a
+      srcpath: unittest
+      buildkey: heap_test
+    imagedata_test:
+      libalias: libtesseract.a libtesseract_training.a
+      srcpath: unittest
+      buildkey: imagedata_test
+    indexmapbidi_test:
+      libalias: libtesseract.a libtesseract_training.a
+      srcpath: unittest
+      buildkey: indexmapbidi_test
+    intfeaturemap_test:
+      libalias: libtesseract.a libtesseract_training.a
+      srcpath: unittest
+      buildkey: intfeaturemap_test
+    intsimdmatrix_test:
+      libalias: libtesseract.a
+      srcpath: unittest
+      buildkey: intsimdmatrix_test
+    lang_model_test:
+      libalias: libtesseract.a libtesseract_training.a
+      srcpath: unittest
+      buildkey: lang_model_test
+    layout_test:
+      libalias: libtesseract.a libtesseract_training.a
+      srcpath: unittest
+      buildkey: layout_test
+    ligature_table_test:
+      libalias: libtesseract.a libtesseract_training.a
+      srcpath: unittest
+      buildkey: ligature_table_test
+    linlsq_test:
+      libalias: libtesseract.a
+      srcpath: unittest
+      buildkey: linlsq_test
+    list_test:
+      libalias: libtesseract.a
+      srcpath: unittest
+      buildkey: list_test
+    loadlang_test:
+      libalias: libtesseract.a
+      srcpath: unittest
+      buildkey: loadlang_test
+    lstm_recode_test:
+      libalias: libtesseract.a libtesseract_training.a
+      srcpath: unittest
+      buildkey: lstm_recode_test
+    lstm_squashed_test:
+      libalias: libtesseract.a libtesseract_training.a
+      srcpath: unittest
+      buildkey: lstm_squashed_test
+    lstm_test:
+      libalias: libtesseract.a libtesseract_training.a
+      srcpath: unittest
+      buildkey: lstm_test
+    lstmtrainer_test:
+      libalias: libtesseract.a libtesseract_training.a
+      srcpath: unittest
+      buildkey: lstmtrainer_test
+    mastertrainer_test:
+      libalias: libtesseract.a libtesseract_training.a
+      srcpath: unittest
+      buildkey: mastertrainer_test
+    matrix_test:
+      libalias: libtesseract.a
+      srcpath: unittest
+      buildkey: matrix_test
+    networkio_test:
+      libalias: libtesseract.a
+      srcpath: unittest
+      buildkey: networkio_test
+    normstrngs_test:
+      libalias: libtesseract.a libtesseract_training.a
+      srcpath: unittest
+      buildkey: normstrngs_test
+    nthitem_test:
+      libalias: libtesseract.a
+      srcpath: unittest
+      buildkey: nthitem_test
+    osd_test:
+      libalias: libtesseract.a
+      srcpath: unittest
+      buildkey: osd_test
+    pagesegmode_test:
+      libalias: libtesseract.a libtesseract_training.a
+      srcpath: unittest
+      buildkey: pagesegmode_test
+    pango_font_info_test:
+      libalias: libtesseract.a libtesseract_training.a
+      srcpath: unittest
+      buildkey: pango_font_info_test
+    paragraphs_test:
+      libalias: libtesseract.a
+      srcpath: unittest
+      buildkey: paragraphs_test
+    params_model_test:
+      libalias: libtesseract.a libtesseract_training.a
+      srcpath: unittest
+      buildkey: params_model_test
+    progress_test:
+      libalias: libtesseract.a
+      srcpath: unittest
+      buildkey: progress_test
+    qrsequence_test:
+      libalias: libtesseract.a
+      srcpath: unittest
+      buildkey: qrsequence_test
+    recodebeam_test:
+      libalias: libtesseract.a libtesseract_training.a
+      srcpath: unittest
+      buildkey: recodebeam_test
+    rect_test:
+      libalias: libtesseract.a
+      srcpath: unittest
+      buildkey: rect_test
+    resultiterator_test:
+      libalias: libtesseract.a libtesseract_training.a
+      srcpath: unittest
+      buildkey: resultiterator_test
+    scanutils_test:
+      libalias: libtesseract.a libtesseract_training.a
+      srcpath: unittest
+      buildkey: scanutils_test
+    shapetable_test:
+      libalias: libtesseract.a libtesseract_training.a
+      srcpath: unittest
+      buildkey: shapetable_test
+    stats_test:
+      libalias: libtesseract.a
+      srcpath: unittest
+      buildkey: stats_test
+    stridemap_test:
+      libalias: libtesseract.a
+      srcpath: unittest
+      buildkey: stridemap_test
+    stringrenderer_test:
+      libalias: libtesseract.a libtesseract_training.a
+      srcpath: unittest
+      buildkey: stringrenderer_test
+    tablefind_test:
+      libalias: libtesseract.a
+      srcpath: unittest
+      buildkey: tablefind_test
+    tablerecog_test:
+      libalias: libtesseract.a
+      srcpath: unittest
+      buildkey: tablerecog_test
+    tabvector_test:
+      libalias: libtesseract.a
+      srcpath: unittest
+      buildkey: tabvector_test
+    tatweel_test:
+      libalias: libtesseract.a libtesseract_training.a
+      srcpath: unittest
+      buildkey: tatweel_test
+    textlineprojection_test:
+      libalias: libtesseract.a libtesseract_training.a
+      srcpath: unittest
+      buildkey: textlineprojection_test
+    tfile_test:
+      libalias: libtesseract.a
+      srcpath: unittest
+      buildkey: tfile_test
+    unichar_test:
+      libalias: libtesseract.a libtesseract_training.a
+      srcpath: unittest
+      buildkey: unichar_test
+    unicharcompress_test:
+      libalias: libtesseract.a libtesseract_training.a
+      srcpath: unittest
+      buildkey: unicharcompress_test
+    unicharset_test:
+      libalias: libtesseract.a libtesseract_training.a
+      srcpath: unittest
+      buildkey: unicharset_test
+    validate_grapheme_test:
+      libalias: libtesseract.a libtesseract_training.a
+      srcpath: unittest
+      buildkey: validate_grapheme_test
+    validate_indic_test:
+      libalias: libtesseract.a libtesseract_training.a
+      srcpath: unittest
+      buildkey: validate_indic_test
+    validate_khmer_test:
+      libalias: libtesseract.a libtesseract_training.#a
+      srcpath: unittest
+      buildkey: validate_khmer_test
+    validate_myanmar_test:
+      libalias: libtesseract.a libtesseract_training.a
+      srcpath: unittest
+      buildkey: validate_myanmar_test
+    validator_test:
+      libalias: libtesseract.a libtesseract_training.a
+      srcpath: unittest
+      buildkey: validator_test
+
+uriparser:
+  name: uriparser
+  prjdir: uriparser
+  builddir: build
+  libs:
+    liburiparser.a:
+  uts:
+    testrunner:
+      libalias: liburiparser.a
+      srcpath: test
+      buildkey: testrunner
+
+vowpal_wabbit:
+  name: vowpal_wabbit
+  prjdir: vowpal_wabbit
+  builddir: build
+  framework: boost
+  libs:
+    libvw.a:
+      builddir: vowpalwabbit
+    liballreduce.a:
+      builddir: vowpalwabbit
+    libvw_c_wrapper.a:
+      builddir: vowpalwabbit
+    libvw_io.a:
+      builddir: vowpalwabbit
+  uts:
+    vw-unit-test.out:
+      libalias: libvw.a liballreduce.a libvw_c_wrapper.a libvw_io.a
+      builddir: test/unit_test
+      srcpath: test/unit_test
+
+wabt:
+  name: wabt
+  prjdir: wabt
+  builddir: build
+  libs:
+    libwabt.a:
+  uts:
+    wabt-unittests:
+      libalias: libwabt.a
+      srcpath: src
+      buildkey: wabt-unittests

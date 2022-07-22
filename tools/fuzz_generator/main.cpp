@@ -1,7 +1,7 @@
+#include "ftg/apiloader/APIJsonLoader.h"
 #include "ftg/generation/Generator.h"
 #include "ftg/utils/BuildDBParser.h"
 #include "ftg/utils/FileUtil.h"
-#include "ftg/utils/PublicAPI.h"
 #include "spdlog/spdlog.h"
 #include <string>
 
@@ -30,10 +30,10 @@ std::unique_ptr<CMDOpts> parseCommandLineArguments(int argc,
 }
 
 std::set<std::string> getPublicAPIList(std::string PublicAPIListPath) {
-  PublicAPI Parser;
-  Parser.loadJson(PublicAPIListPath);
-  assert(Parser.getPublicAPISize() && "Public API List is empty");
-  return Parser.getPublicAPIList();
+  auto APILoader = APIJsonLoader(PublicAPIListPath);
+  auto PublicAPIs = APILoader.load();
+  assert(!PublicAPIs.empty() && "Public API List is empty");
+  return PublicAPIs;
 }
 
 int main(int argc, const char **argv) {

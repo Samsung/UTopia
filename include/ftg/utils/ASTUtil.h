@@ -9,6 +9,7 @@
 #include "clang/AST/Mangle.h"
 #include "clang/Frontend/ASTUnit.h"
 #include "llvm/IR/Function.h"
+#include "llvm/IR/InstrTypes.h"
 
 namespace ftg {
 
@@ -21,6 +22,16 @@ collectNonStaticClassMethods(const std::vector<clang::ASTUnit *> Srcs);
 std::vector<clang::Expr *> getArgExprs(clang::Expr &E);
 clang::SourceLocation getDebugLoc(const clang::Stmt &S);
 clang::FunctionDecl *getFunctionDecl(clang::Expr &E);
+
+static inline const llvm::Function *
+getCalledFunction(const llvm::CallBase &CB) {
+  const auto *CV = CB.getCalledValue();
+  if (!CV)
+    return nullptr;
+
+  return llvm::dyn_cast_or_null<llvm::Function>(CV->stripPointerCasts());
+}
+
 clang::CharSourceRange
 getMacroFunctionExpansionRange(const clang::SourceManager &SrcManager,
                                const clang::SourceLocation &Loc);
@@ -59,12 +70,6 @@ static inline clang::QualType getPointeeTy(const clang::QualType &clangQTy) {
 
 static inline bool isPointerType(const clang::QualType &clangQTy) {
   return !getPointeeTy(clangQTy).isNull();
-}
-
-static inline bool isDefinedType(const clang::QualType &clangQTy) {
-  return (clangQTy->isStructureType() || clangQTy->isUnionType() ||
-          clangQTy->isClassType() || clangQTy->isFunctionType() ||
-          clangQTy->isEnumeralType());
 }
 
 static inline bool isPrimitiveType(const clang::QualType &clangQTy) {

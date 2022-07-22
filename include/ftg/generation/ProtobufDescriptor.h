@@ -16,7 +16,8 @@
 namespace ftg {
 class ProtobufDescriptor {
 public:
-  ProtobufDescriptor(std::string Name);
+  ProtobufDescriptor(const std::string &Name,
+                     const std::string &PackageName = "");
 
   /// Add field to protobuf message.
   /// \param InputType Data type of field.
@@ -50,17 +51,15 @@ private:
   addFieldToDescriptor(google::protobuf::DescriptorProto &Desc,
                        const std::string &FieldName, const Type &T);
   google::protobuf::FieldDescriptorProto *
-  addFieldToDescriptor(google::protobuf::DescriptorProto &Desc,
-                       const std::string &FieldName, const PrimitiveType &T);
+  addFieldToDescriptorPrimitiveType(google::protobuf::DescriptorProto &Desc,
+                                    const std::string &FieldName,
+                                    const Type &T);
   google::protobuf::FieldDescriptorProto *
-  addFieldToDescriptor(google::protobuf::DescriptorProto &Desc,
-                       const std::string &FieldName, const EnumType &T);
+  addFieldToDescriptorEnumType(google::protobuf::DescriptorProto &Desc,
+                               const std::string &FieldName, const Type &T);
   google::protobuf::FieldDescriptorProto *
-  addFieldToDescriptor(google::protobuf::DescriptorProto &Desc,
-                       const std::string &FieldName, const StructType &T);
-  google::protobuf::FieldDescriptorProto *
-  addFieldToDescriptor(google::protobuf::DescriptorProto &Desc,
-                       const std::string &FieldName, const PointerType &T);
+  addFieldToDescriptorPointerType(google::protobuf::DescriptorProto &Desc,
+                                  const std::string &FieldName, const Type &T);
   google::protobuf::FieldDescriptorProto *
   addFieldToDescriptor(google::protobuf::DescriptorProto &Desc,
                        const std::string &FieldName,

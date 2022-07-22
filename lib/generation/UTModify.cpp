@@ -13,7 +13,6 @@ const std::string UTModify::HeaderName = "autofuzz.h";
 const std::string UTModify::UTEntryFuncName = "enterAutofuzz";
 
 UTModify::UTModify(const Fuzzer &F, const SourceAnalysisReport &SourceReport) {
-  std::vector<Replacement> ModPoints;
   std::map<std::string, std::string> FuzzVarDecls;
   std::map<std::string, std::vector<std::string>> FuzzVarFlagDecls;
   std::map<std::string, std::vector<UTModify::GlobalVarSetter>> Setters;
@@ -23,23 +22,41 @@ UTModify::UTModify(const Fuzzer &F, const SourceAnalysisReport &SourceReport) {
     assert(Input && "Unexpected Program State");
     generateFuzzVarDeclarations(FuzzVarDecls, FuzzVarFlagDecls, *Input);
     generateFuzzVarGlobalSetters(Setters, *Input);
-    generateFuzzVarReplacements(ModPoints, *Input);
+    generateFuzzVarReplacements(*Input);
   }
-  generateTop(ModPoints, FuzzVarDecls, FuzzVarFlagDecls, Setters, UTPath,
-              SourceReport);
-  generateBottom(ModPoints, FuzzVarFlagDecls, Setters, F.getUT(), SourceReport);
+  generateTop(FuzzVarDecls, FuzzVarFlagDecls, Setters, UTPath, SourceReport);
+  generateBottom(FuzzVarFlagDecls, Setters, F.getUT(), SourceReport);
   if (!generateHeader(fs::path(UTPath).parent_path().string())) {
     clear();
     return;
   }
-  generateMainDeletion(ModPoints, SourceReport);
+  generateMainDeletion(SourceReport);
 
-  for (const auto Iter : ModPoints) {
-    if (FileReplaceMap[Iter.getFilePath().str()].add(Iter)) {
+  for (const auto &Iter : Replaces) {
+    auto Replace = Iter.second;
+    if (FileReplaceMap[Replace.getFilePath().str()].add(Replace)) {
       clear();
       return;
     }
   }
+}
+
+bool UTModify::addReplace(const clang::tooling::Replacement &Replace) {
+  auto Key = std::make_pair(Replace.getFilePath().str(), Replace.getOffset());
+  const auto [It, Inserted] = Replaces.insert(std::make_pair(Key, Replace));
+  if (Inserted)
+    return true;
+  auto Existing = It->second;
+  if (Existing.getLength() && Replace.getLength()) {
+    assert(false && "Not Mergeable Replacements Found");
+    return false;
+  }
+  auto Merged = Replacement(Existing.getFilePath(), Existing.getOffset(),
+                            Existing.getLength() + Replace.getLength(),
+                            Existing.getReplacementText().str() +
+                                Replace.getReplacementText().str());
+  Replaces.insert_or_assign(Key, Merged);
+  return true;
 }
 
 const std::map<std::string, std::string> &UTModify::getNewFiles() const {
@@ -62,6 +79,7 @@ const std::string UTModify::FilePathPrefix = "FUZZ_FILEPATH_PREFIX";
 void UTModify::clear() {
   FileNewMap.clear();
   FileReplaceMap.clear();
+  Replaces.clear();
 }
 
 std::string UTModify::generateAssignStatement(const FuzzInput &Input) const {
@@ -86,10 +104,9 @@ std::string UTModify::generateAssignStatement(const FuzzInput &Input) const {
 }
 
 void UTModify::generateBottom(
-    std::vector<Replacement> &Replace,
     const std::map<std::string, std::vector<std::string>> &FuzzVarFlagDecls,
     const std::map<std::string, std::vector<GlobalVarSetter>> &Setters,
-    const Unittest &UT, const SourceAnalysisReport &SourceReport) const {
+    const Unittest &UT, const SourceAnalysisReport &SourceReport) {
   auto UTPath = UT.getFilePath();
   auto UTType = UT.getType();
 
@@ -129,23 +146,24 @@ void UTModify::generateBottom(
       Content += "}\n";
     }
     if (!Content.empty())
-      Content = CPPMacroStart + Content + CPPMacroEnd;
-    Replace.emplace_back(Path, EndOffset, 0, Content);
+      Content = "\n" + CPPMacroStart + Content + CPPMacroEnd;
+    addReplace(Replacement(Path, EndOffset, 0, Content));
   }
 }
 
 std::string UTModify::generateDeclTypeName(const Type &T) const {
   std::string TypeName = "";
-  if (llvm::isa<PointerType>(&T)) {
+  if (T.isPointerType()) {
     const auto *PointerT = &T;
-    const auto *PointeeT = &(PointerT->getPointeeType());
-    assert(PointeeT && "Unexpected Program State");
+    const auto *PointeeT = PointerT->getPointeeType();
 
     while (PointerT != PointeeT) {
       TypeName += "*";
       PointerT = PointeeT;
-      PointeeT = &(PointerT->getPointeeType());
+      PointeeT = PointerT->getPointeeType();
     }
+    assert(PointeeT && "Unexpected Program State");
+
     TypeName = PointeeT->getASTTypeName() + " " + TypeName;
   } else {
     TypeName = T.getASTTypeName();
@@ -204,8 +222,7 @@ void UTModify::generateFuzzVarGlobalSetters(
   Iter->second.emplace_back(Setter);
 }
 
-void UTModify::generateFuzzVarReplacements(std::vector<Replacement> &Replace,
-                                           const FuzzInput &Input) const {
+void UTModify::generateFuzzVarReplacements(const FuzzInput &Input) {
   const auto &Def = Input.getDef();
   const auto &T = Def.DataType;
   assert(T && "Unexpected Program State");
@@ -214,8 +231,9 @@ void UTModify::generateFuzzVarReplacements(std::vector<Replacement> &Replace,
     auto TypeString = util::trim(Def.TypeString);
     auto Stripped = util::stripConstExpr(TypeString);
     if (Stripped != TypeString) {
-      Replace.emplace_back(Def.Path, Def.TypeOffset,
-                           (unsigned int)Def.TypeString.size(), Stripped + " ");
+      addReplace(Replacement(Def.Path, Def.TypeOffset,
+                             static_cast<unsigned int>(Def.TypeString.size()),
+                             Stripped + " "));
     }
   }
 
@@ -227,16 +245,16 @@ void UTModify::generateFuzzVarReplacements(std::vector<Replacement> &Replace,
     auto FlagVarName = util::getStaticLocalFlagVarName(Input.getFuzzVarName());
     AssignStmt = " if (" + FlagVarName + ") { " + FlagVarName + " = 0; " +
                  AssignStmt + " }";
-    Replace.emplace_back(Def.Path, Def.EndOffset, 0, AssignStmt);
+    addReplace(Replacement(Def.Path, Def.EndOffset, 0, AssignStmt));
     return;
   }
 
   if (T->isFixedLengthArrayPtr()) {
-    Replace.emplace_back(Def.Path, Def.EndOffset, 0, " " + AssignStmt);
+    addReplace(Replacement(Def.Path, Def.EndOffset, 0, " " + AssignStmt));
     return;
   }
 
-  Replace.emplace_back(Def.Path, Def.Offset, Def.Length, AssignStmt);
+  addReplace(Replacement(Def.Path, Def.Offset, Def.Length, AssignStmt));
 }
 
 bool UTModify::generateHeader(const std::string &BasePath) {
@@ -298,6 +316,10 @@ bool UTModify::generateHeader(const std::string &BasePath) {
       "#ifdef __cplusplus\n"
       "}\n"
       "#endif // __cplusplus\n"
+      "// Redefine access modifier to public\n"
+      "// to access private/protected Testbody or Setup/Teardown\n"
+      "#define private public\n"
+      "#define protected public\n"
       "#endif // " +
       HeaderGuard + "\n";
   auto HeaderPath = (fs::path(BasePath) / fs::path(HeaderName)).string();
@@ -330,43 +352,55 @@ std::string UTModify::generateIdentifier(const Definition &Def) const {
   return Def.VarName;
 }
 
-void UTModify::generateMainDeletion(
-    std::vector<clang::tooling::Replacement> &Replace,
-    const SourceAnalysisReport &SourceReport) const {
+void UTModify::generateMainDeletion(const SourceAnalysisReport &SourceReport) {
   const auto &MainFuncLoc = SourceReport.getMainFuncLoc();
   if (MainFuncLoc.getFilePath().empty())
     return;
-  Replace.emplace_back(MainFuncLoc.getFilePath(), MainFuncLoc.getOffset(),
-                       MainFuncLoc.getLength(), "");
+  addReplace(Replacement(MainFuncLoc.getFilePath(), MainFuncLoc.getOffset(),
+                         MainFuncLoc.getLength(), ""));
 }
 
 void UTModify::generateTop(
-    std::vector<Replacement> &Replace,
     const std::map<std::string, std::string> &FuzzVarDecls,
     const std::map<std::string, std::vector<std::string>> &FuzzVarFlagDecls,
     const std::map<std::string, std::vector<GlobalVarSetter>> &Setters,
-    const std::string &UTPath, const SourceAnalysisReport &SourceReport) const {
+    const std::string &UTPath, const SourceAnalysisReport &SourceReport) {
   const std::string FlagType = "unsigned int";
-  for (auto Iter : FuzzVarDecls) {
-    auto Path = Iter.first;
+  // NOTE: UTPath should be inlcuded in filepaths even if it does not have
+  // any fuzzable inputs, since ut path should include definition of static
+  // flags or declaration of global setter functions to link them all.
+  std::set<std::string> Paths = {UTPath};
+  for (auto Iter : FuzzVarDecls)
+    Paths.emplace(Iter.first);
+
+  for (const auto &Path : Paths) {
+    auto Iter = FuzzVarDecls.find(Path);
+    std::string FuzzVarDeclStatements;
+    assert((Iter != FuzzVarDecls.end() || Path == UTPath) &&
+           "Unexpected Program State");
+
+    if (Iter != FuzzVarDecls.end())
+      FuzzVarDeclStatements = Iter->second;
+
     auto Content = generateHeaderInclusion(Path, UTPath, SourceReport);
-    Content += CPPMacroStart + Iter.second;
+    auto ContentInCppMacro = FuzzVarDeclStatements;
     if (Path == UTPath) {
       for (const auto &Iter2 : FuzzVarFlagDecls)
         for (const auto &Iter3 : Iter2.second)
-          Content += FlagType + " " + Iter3 + " = 1;\n";
+          ContentInCppMacro += FlagType + " " + Iter3 + " = 1;\n";
 
       for (const auto &Iter2 : Setters)
         for (const auto &Iter3 : Iter2.second)
-          Content += "void " + Iter3.FuncName + "();\n";
+          ContentInCppMacro += "void " + Iter3.FuncName + "();\n";
     } else {
       auto FuzzVarFlagDeclsIter = FuzzVarFlagDecls.find(Path);
       if (FuzzVarFlagDeclsIter != FuzzVarFlagDecls.end())
         for (const auto &Iter2 : FuzzVarFlagDeclsIter->second)
-          Content += "extern " + FlagType + " " + Iter2 + ";\n";
+          ContentInCppMacro += "extern " + FlagType + " " + Iter2 + ";\n";
     }
-    Content += CPPMacroEnd;
-    Replace.emplace_back(Path, 0, 0, Content);
+    if (!ContentInCppMacro.empty())
+      Content += CPPMacroStart + ContentInCppMacro + CPPMacroEnd;
+    addReplace(Replacement(Path, 0, 0, Content));
   }
 }
 

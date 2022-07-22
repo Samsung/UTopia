@@ -23,13 +23,13 @@ std::string SrcGenerator::genTypeStr(const Type &Target) {
 std::string SrcGenerator::genDeclStmt(const Type &VarType,
                                       const std::string &VarName, bool Array) {
   return VarType.isFixedLengthArrayPtr() && Array
-             ? genArrDeclStmt(static_cast<const PointerType &>(VarType),
-                              VarName)
+             ? genArrDeclStmt(VarType, VarName)
              : genDeclStmt(genTypeStr(VarType), VarName);
 }
 
-std::string SrcGenerator::genArrDeclStmt(const PointerType &ArrType,
+std::string SrcGenerator::genArrDeclStmt(const Type &ArrType,
                                          const std::string &VarName) {
+  assert(ArrType.isFixedLengthArrayPtr() && "Unexpected Program State");
   // ArrLen + 1 to deal with Cstr
   // Initializing array to avoid possible side effects.
   auto TypeStr = genTypeStr(*ArrType.getPointeeType());

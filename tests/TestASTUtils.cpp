@@ -472,6 +472,39 @@ TEST_F(TestASTUtil, GetArgASTsAndFunctionDeclN) {
   ASSERT_FALSE(util::getFunctionDecl(*const_cast<Expr *>(E)));
 }
 
+TEST_F(TestASTUtil, GetCalledFunction_GeneralP) {
+  const std::string Code = "extern \"C\" {\n"
+                           "  void API();\n"
+                           "  void test() { API(); }\n"
+                           "}";
+  SourceFileManager SFM;
+  SFM.createFile("test.cpp", Code);
+  ASSERT_TRUE(load(SFM.getBaseDirPath(), SFM.getFilePath("test.cpp")));
+  const auto *CB = llvm::dyn_cast_or_null<llvm::CallBase>(
+      IRAccess->getInstruction("test", 0, 0));
+  ASSERT_TRUE(CB);
+  const auto *CF = getCalledFunction(*CB);
+  ASSERT_TRUE(CF);
+  ASSERT_EQ(CF->getName(), "API");
+}
+
+TEST_F(TestASTUtil, GetCalledFunction_IndirectN) {
+  const std::string Code = "extern \"C\" {\n"
+                           "void API();\n"
+                           "void test() {\n"
+                           "  auto *V = &API;\n"
+                           "  V();\n"
+                           "}}";
+  SourceFileManager SFM;
+  SFM.createFile("test.cpp", Code);
+  ASSERT_TRUE(load(SFM.getBaseDirPath(), SFM.getFilePath("test.cpp")));
+  const auto *CB = llvm::dyn_cast_or_null<llvm::CallBase>(
+      IRAccess->getInstruction("test", 0, 4));
+  ASSERT_TRUE(CB);
+  const auto *CF = getCalledFunction(*CB);
+  ASSERT_FALSE(CF);
+}
+
 TEST_F(TestASTUtil, GetDebugLocP) {
   auto AST = tooling::buildASTFromCode("extern \"C\" {\n"
                                        "class CLS {\n"

@@ -15,6 +15,7 @@ namespace ftg {
 
 class ProtobufMutator : public InputMutator {
 public:
+  static const std::string DescriptorNameSpace;
   static const std::string DescriptorName;
   ProtobufMutator();
   void addInput(FuzzInput &Input) override;
@@ -36,16 +37,12 @@ private:
   std::string saveMutationToFile(const std::string &MutationVarName);
 
   /// Gets mutation results from mutator.
-  std::string copyMutation(const PrimitiveType &MutationType,
-                           const FuzzInput &Input);
-  std::string copyMutation(const PointerType &MutationType,
-                           const FuzzInput &Input);
-  std::string copyMutation(const StructType &MutationType,
-                           const FuzzInput &Input);
-  std::string copyMutation(const EnumType &MutationType,
-                           const FuzzInput &Input);
-  std::string copyMutation(const ClassType &MutationType,
-                           const FuzzInput &Input);
+  std::string copyMutationPrimitiveType(const Type &MutationType,
+                                        const FuzzInput &Input);
+  std::string copyMutationPointerType(const Type &MutationType,
+                                      const FuzzInput &Input);
+  std::string copyMutationEnumType(const Type &MutationType,
+                                   const FuzzInput &Input);
 
   /// Gets mutation value from protobuf object.
   std::string getProtoVarVal(const std::string &VarName);

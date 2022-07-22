@@ -1,4 +1,5 @@
 #include "ftg/utanalysis/TargetAPIFinder.h"
+#include "ftg/utils/ASTUtil.h"
 #include "llvm/IR/InstrTypes.h"
 #include "llvm/Support/raw_ostream.h"
 #include <queue>
@@ -67,8 +68,7 @@ void TargetAPIFinder::update(Function &Func) {
       if (!CB)
         continue;
 
-      auto *CF =
-          dyn_cast_or_null<Function>(CB->getCalledValue()->stripPointerCasts());
+      auto *CF = const_cast<Function *>(util::getCalledFunction(*CB));
       if (!CF)
         continue;
       if (APIs.find(CF) != APIs.end()) {

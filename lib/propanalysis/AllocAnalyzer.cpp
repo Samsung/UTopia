@@ -221,8 +221,7 @@ void AllocAnalyzer::handleUser(StackFrame &Frame, llvm::Value &User,
 
     if (!ToST && FromST) {
       // Follow STptr to nonSTptr casting
-      if (!BI->getOperand(0)->getType()->isPointerTy() ||
-          !BI->getType()->isPointerTy())
+      if (!Op0->getType()->isPointerTy() || !BI->getType()->isPointerTy())
         return;
     }
 

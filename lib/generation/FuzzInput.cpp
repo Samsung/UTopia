@@ -1,5 +1,4 @@
 #include "ftg/generation/FuzzInput.h"
-#include "ftg/targetanalysis/ParamReport.h"
 #include "ftg/utils/AssignUtil.h"
 #include "ftg/utils/StringUtil.h"
 #include "llvm/Support/raw_ostream.h"
@@ -32,10 +31,8 @@ const Definition &FuzzInput::getDef() const {
 std::shared_ptr<const Definition> &FuzzInput::getDefPtr() { return Def; }
 
 Type &FuzzInput::getFTGType() {
-
-  auto &T = getDef().DataType;
-  assert(T && "Unexpected Program State");
-  return *T;
+  assert(getDef().DataType && "Unexpected Program State");
+  return *getDef().DataType;
 }
 
 AssignVar &FuzzInput::getLocalVar() { return LocalVar; }
@@ -103,125 +100,6 @@ NoInputByGroup::NoInputByGroup(std::shared_ptr<const Definition> Def,
                                unsigned DefIDAffectedBy)
     : FuzzNoInput(Type_GroupUnsupport, Def), DefIDAffectedBy(DefIDAffectedBy) {}
 
-bool FuzzInputGenerator::isSupportedType(const Type &T) {
-  if (T.isVariableLengthArrayPtr())
-    return false;
-
-  // TODO: Not support multi demensional array so far.
-  if (isMultiDimensionArray(T))
-    return false;
-
-  // TODO: Not support pointer array so far.
-  if (T.isArrayPtr()) {
-    const auto &PT = T.getPointeeType();
-    if (isa<PointerType>(&PT))
-      return false;
-  }
-
-  const auto &RT = T.getRealType(true);
-
-  if (const auto *ET = dyn_cast_or_null<EnumType>(&RT)) {
-    if (ET->getTypeName().empty() ||
-        ET->getTypeName().find("(anonymous)") != std::string::npos)
-      return false;
-
-    return true;
-  }
-
-  if (isa<PrimitiveType>(&RT) || RT.isStringType())
-    return true;
-
-  if (isa<StructType>(&RT)) {
-    if (T.isArrayPtr())
-      return false;
-
-    const auto &ST = *dyn_cast<StructType>(&RT);
-    if (!util::regex(ST.getTypeName(), "_contacts_.+_property_ids").empty()) {
-      return false;
-    }
-
-    return isSupportedType(ST, nullptr);
-  }
-
-  if (auto *CT = dyn_cast<ClassType>(&RT)) {
-    if (CT->isStdStringType())
-      return true;
-  }
-
-  return false;
-}
-
-bool FuzzInputGenerator::isSupportedType(const StructType &T, ParamReport *P) {
-
-  if (!T.getGlobalDef()) {
-    return false;
-  }
-
-  std::map<unsigned, std::shared_ptr<ParamReport>> FieldInfoMap;
-  if (P) {
-    for (auto &FT : P->getChildParams()) {
-      assert(FT && "Unexpected Program State");
-      auto Insert = FieldInfoMap.emplace(FT->getParamIndex(), FT);
-      assert(Insert.second && "Unexpected Program State");
-    }
-  }
-
-  for (auto Field : T.getGlobalDef()->getFields()) {
-    assert(Field && "Unexpected Program State");
-
-    auto Iter = FieldInfoMap.find(Field->getIndex());
-    assert(!P || Iter != FieldInfoMap.end());
-
-    std::shared_ptr<ParamReport> FInfo;
-    if (Iter != FieldInfoMap.end())
-      FInfo = Iter->second;
-
-    if (isSupportedType(*Field, FInfo.get()))
-      return true;
-  }
-
-  return false;
-}
-
-bool FuzzInputGenerator::isSupportedType(Field &F, ParamReport *T) {
-
-  // Do not generate struct field whose type is pointer without a string.
-  auto &DataType = F.getType();
-  if (isa<PointerType>(&DataType) && !DataType.isStringType())
-    return false;
-  if (!isSupportedType(F.getType()))
-    return false;
-
-  auto &RT = F.getRealType(true);
-  auto &Parent = F.getParent();
-
-  if (isa<StructType>(&RT)) {
-    // NOTE: Prevent nested structure
-    auto &ST = *dyn_cast<StructType>(&RT);
-    if (ST.getASTTypeName() == Parent.getName())
-      return false;
-  }
-
-  if (!T)
-    return true;
-
-  if (T->getDirection() == Dir::Dir_Out)
-    return false;
-  if (T->isArrayLen() && T->hasLenRelatedArg()) {
-    unsigned ArrayNo = T->getLenRelatedArgNo();
-    auto Fields = Parent.getFields();
-
-    assert(ArrayNo < Fields.size());
-    auto ArrayField = Fields[ArrayNo];
-    assert(ArrayField && "Unexpected Program State");
-
-    if (!isSupportedType(ArrayField->getType()))
-      return false;
-  }
-
-  return true;
-}
-
 std::pair<std::map<unsigned, std::shared_ptr<FuzzInput>>,
           std::map<unsigned, std::shared_ptr<FuzzNoInput>>>
 FuzzInputGenerator::generate(const std::vector<DefPtr> &Defs) {
@@ -237,11 +115,11 @@ bool FuzzInputGenerator::isMultiDimensionArray(const Type &T) {
   if (!T.isArrayPtr())
     return false;
 
-  auto &PT = T.getPointeeType();
-  if (&T == &PT)
+  const auto *PT = T.getPointeeType();
+  if (!PT || &T == PT)
     return false;
 
-  return PT.isArrayPtr() || PT.isFixedLengthArrayPtr();
+  return PT->isArrayPtr() || PT->isFixedLengthArrayPtr();
 }
 
 std::map<unsigned, std::shared_ptr<const Definition>>
@@ -476,16 +354,14 @@ void FuzzInputGenerator::updateArrayInfo(
 
 NoInputPtr
 FuzzNoInputFactory::generate(std::shared_ptr<const Definition> Def) const {
-  assert(Def && Def->DataType && "Unexpected Program State");
+  assert(Def && "Unexpected Program State");
 
   // TODO: Type_Unknown is not proper.
-  if (!Def->Filters.empty())
+  if (!Def->Filters.empty() || !Def->DataType)
     return std::make_shared<FuzzNoInput>(FuzzNoInput::Type_Unknown, Def);
 
-  if (Def->DataType && Def->DataType->isFixedLengthArrayPtr() &&
-      Def->VarName.empty()) {
+  if (Def->DataType->isFixedLengthArrayPtr() && Def->VarName.empty())
     return std::make_shared<FuzzNoInput>(FuzzNoInput::Type_NoNamedArray, Def);
-  }
 
   if (Def->FilePath && !Def->DataType->isStringType()) {
     return std::make_shared<FuzzNoInput>(FuzzNoInput::Type_Unknown, Def);
@@ -515,13 +391,14 @@ FuzzInputFactory::generate(std::shared_ptr<const Definition> &Def) const {
   auto *T = Def->DataType.get();
   assert(T && "Unexpected Program State");
 
+  //NOTE: This is to change normal pointer to array pointer using array
+  //property. Since it is not easy to know pointer is used as array,
+  //this attemption looks useful to get more accurate result.
+  //However, I think it would not proper approach to change type instance here.
   if (Def->Array) {
-    assert(llvm::isa<PointerType>(T) && "Unexpected Program State");
-
-    auto *PT = llvm::dyn_cast<PointerType>(T);
-    if (PT) {
-      PT->setPtrKind(ftg::PointerType::PtrKind_Array);
-    }
+    assert(T->isPointerType() && "Unexpected Program State");
+    if (T->isNormalPtr())
+      T->setPtrKind(Type::PtrKind::PtrKind_Array);
   }
 
   return std::make_shared<FuzzInput>(Def);
@@ -529,9 +406,9 @@ FuzzInputFactory::generate(std::shared_ptr<const Definition> &Def) const {
 
 void AssignVar::setName(std::string VarName) { this->VarName = VarName; }
 void AssignVar::setType(Type &FTGType) {
-  const Type *ObjectTy = &FTGType.getRealType(/*getArrayPointee=*/true);
+  const Type *ObjectTy = FTGType.getRealType(/*getArrayPointee=*/true);
   if (ObjectTy->isFixedLengthArrayPtr() && ObjectTy->isStringType()) {
-    ObjectTy = &(ObjectTy->getPointeeType());
+    ObjectTy = ObjectTy->getPointeeType();
     TypeStr = util::stripConstExpr(ObjectTy->getASTTypeName());
   } else
     TypeStr = util::getFuzzInputTypeString(ObjectTy->getASTTypeName());

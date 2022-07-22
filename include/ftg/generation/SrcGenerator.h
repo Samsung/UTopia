@@ -47,7 +47,7 @@ public:
   /// \code{.cpp}
   /// ArrType VarName[LEN + 1] = {};
   /// \endcode
-  static std::string genArrDeclStmt(const PointerType &ArrType,
+  static std::string genArrDeclStmt(const Type &ArrType,
                                     const std::string &VarName);
 
   /// Generates include statements with given header.

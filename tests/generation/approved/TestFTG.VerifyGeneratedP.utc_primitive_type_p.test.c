@@ -3,11 +3,12 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-extern int autofuzz22;
-extern unsigned int autofuzz23;
-extern char autofuzz24;
-extern float autofuzz25;
-extern double autofuzz26;
+extern int autofuzz26;
+extern unsigned int autofuzz27;
+extern char autofuzz28;
+extern bool autofuzz29;
+extern float autofuzz30;
+extern double autofuzz31;
 #ifdef __cplusplus
 }
 #endif
@@ -85,6 +86,14 @@ void utc_fixed_length_array_p() {
   // fixed length array with arr-len relation
   int input9[20] = {1,2,3,};
   inputArrArrLen(input9, 20);
+
+  char input10[20] = { 0, };
+  inputArrArrLen(input10, 20);
+
+  // multiple definition at one line
+  int input11[20], input12[20];
+  inputArr(input11);
+  inputArr(input12);
 }
 
 void utc_fixed_length_array_n() {
@@ -98,18 +107,25 @@ void utc_fixed_length_array_n() {
 }
 
 void utc_primitive_type_p() {
-  inputInt(autofuzz22);
-  inputUInt(autofuzz23);
-  inputChar(autofuzz24);
+  inputInt(autofuzz26);
+  inputUInt(autofuzz27);
+  inputChar(autofuzz28);
+  _Bool b = autofuzz29;
+  inputInt(b);
 //  inputBool(true);
-  inputFloat(autofuzz25);
-  inputDouble(autofuzz26);
+  inputFloat(autofuzz30);
+  inputDouble(autofuzz31);
 }
 
 void utc_str_type_p() {
-  char *Str = "dummy";
-  inputCStr(Str);
+  char *Str1 = "dummy";
+  inputCStr(Str1);
   inputCStr("dummy2");
+  inputVoidPtr("dummy3");
+
+  //char* as array with arraylen
+  char *Str2 = "dummy4";
+  inputVoidArrArrLen(Str2, 20);
 }
 
 void utc_pointer_type_p() {
@@ -162,6 +178,7 @@ testcase tc_array[] = {
   {"utc_unsupported_type_n", utc_unsupported_type_n, utc_startup_1, utc_cleanup_1},
   {"utc_no_input_n", utc_no_input_n, utc_startup_1, utc_cleanup_1}
 };
+
 
 
 #ifdef __cplusplus

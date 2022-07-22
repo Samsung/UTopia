@@ -106,6 +106,21 @@ bool DebugInfoMap::GVMapKey::operator<(const struct GVMapKey &Key) const {
   return Name < Key.Name;
 }
 
+std::unique_ptr<ASTDefNode>
+DebugInfoMap::getArgumentNode(Expr &E, unsigned ArgNo, ASTUnit &U) const {
+  auto ADN = std::make_unique<ASTDefNode>(E, ArgNo, U);
+  assert(ADN && "Unexpected Program State");
+
+  if (auto *CVD = getConstVarDecl(*ADN)) {
+    auto *Assigned = ADN->getAssigned();
+    assert(Assigned && "Unexpected Program State");
+
+    ADN = std::make_unique<ASTDefNode>(*CVD, Assigned->getASTUnit());
+    assert(ADN && "Unexpected Program State");
+  }
+  return ADN;
+}
+
 ASTNode *DebugInfoMap::getFromCallMap(const llvm::CallBase &CB) const {
   auto *TempCB = const_cast<llvm::CallBase *>(&CB);
   IRNode Node(*TempCB);
@@ -233,6 +248,31 @@ VarDecl *DebugInfoMap::getConstVarDecl(ASTDefNode &Node) const {
   return const_cast<VarDecl *>(Result);
 }
 
+bool DebugInfoMap::isArgsInMacro(const ASTDefNode &Node, Expr &E,
+                                 unsigned ArgNo, ASTUnit &U) const {
+  const auto *CurAssigned = Node.getAssigned();
+  assert(CurAssigned && "Unexpected Program State");
+
+  const auto &CurLoc = CurAssigned->getIndex();
+  if (ArgNo > 0 && !util::isDefaultArgument(E, ArgNo - 1) &&
+      !util::isImplicitArgument(E, ArgNo - 1)) {
+    auto Prev = getArgumentNode(E, ArgNo - 1, U);
+    if (Prev && Prev->getAssigned() &&
+        Prev->getAssigned()->getIndex() == CurLoc)
+      return true;
+  }
+
+  auto ArgSize = util::getArgExprs(E).size();
+  if (ArgSize > ArgNo + 1 && !util::isDefaultArgument(E, ArgNo + 1) &&
+      !util::isImplicitArgument(E, ArgNo + 1)) {
+    auto Next = getArgumentNode(E, ArgNo + 1, U);
+    if (Next && Next->getAssigned() &&
+        Next->getAssigned()->getIndex() == CurLoc)
+      return true;
+  }
+  return false;
+}
+
 bool DebugInfoMap::isNullType(const ASTDefNode &Node) const {
   QualType T;
   if (const auto *Assigned = Node.getAssigned())
@@ -264,23 +304,24 @@ void DebugInfoMap::update(clang::ASTUnit &Unit) {
 }
 
 ASTDefNode *DebugInfoMap::updateArgMap(ASTNode &ACN, unsigned ArgNo) {
-  const auto *E = ACN.getNode().get<Expr>();
+  auto &U = ACN.getASTUnit();
+  auto *E = const_cast<Expr *>(ACN.getNode().get<Expr>());
   assert(E && "Unexpected Program State");
 
-  auto ADN = std::make_unique<ASTDefNode>(*const_cast<Expr *>(E), ArgNo,
-                                          ACN.getASTUnit());
-  assert(ADN && "Unexpected Program State");
+  auto Cur = getArgumentNode(*E, ArgNo, U);
+  assert(Cur && "Unexpected Program State");
 
-  ArgMapKey Key = {.E = const_cast<Expr *>(E), .ArgNo = ArgNo};
-  if (auto *CVD = getConstVarDecl(*ADN)) {
-    auto *Assigned = ADN->getAssigned();
-    assert(Assigned && "Unexpected Program State");
+  // NOTE: This is not to insert argument location if previous or next argument
+  // have same location, which is one of the approaches to identify multiple
+  // arguments are in one macro like below.
+  // #define MACRO 0, 0 API(MACRO);
+  // So far, our algorithm can not change a token in a macro which has more than
+  // one tokens.
+  if (!Cur->getAssigned() || isArgsInMacro(*Cur, *E, ArgNo, U))
+    Cur.reset();
 
-    ADN = std::make_unique<ASTDefNode>(*CVD, Assigned->getASTUnit());
-    assert(ADN && "Unexpected Program State");
-  }
-
-  auto Result = ArgMap.emplace(Key, std::move(ADN));
+  ArgMapKey Key = {.E = E, .ArgNo = ArgNo};
+  auto Result = ArgMap.emplace(Key, std::move(Cur));
   if (!Result.second)
     return nullptr;
   return Result.first->second.get();
@@ -406,7 +447,10 @@ void DebugInfoMap::updateCtorInitializers(clang::ASTUnit &Unit) {
       continue;
 
     for (const auto *Iter : Record->inits()) {
-      if (!Iter)
+      assert(Iter && "Unexpected behavior of cxxConstructorDecl matcher");
+      // Ignore field initializer that uses compiler generated implicit value
+      if (Iter->getInit()->getStmtClass() ==
+          clang::Stmt::ImplicitValueInitExprClass)
         continue;
 
       try {

@@ -23,7 +23,7 @@ protected:
 using TestProtobufMutatorDeathTest = TestProtobufMutator;
 
 TEST_F(TestProtobufMutator, IntP) {
-  auto IntT = std::make_shared<IntegerType>();
+  auto IntT = std::make_shared<Type>(Type::TypeID_Integer);
   IntT->setASTTypeName("int");
   auto Def = std::make_shared<Definition>();
   Def->DataType = IntT;
@@ -33,14 +33,14 @@ TEST_F(TestProtobufMutator, IntP) {
 }
 
 TEST_F(TestProtobufMutator, IntArrP) {
-  auto ArrT = std::make_shared<PointerType>();
+  auto ArrT = std::make_shared<Type>(Type::TypeID_Pointer);
   auto ArrInfo = std::make_shared<ArrayInfo>();
   ArrInfo->setMaxLength(10);
   ArrInfo->setLengthType(ArrayInfo::FIXED);
   ArrT->setArrayInfo(ArrInfo);
-  ArrT->setPtrKind(PointerType::PtrKind_Array);
+  ArrT->setPtrKind(Type::PtrKind::PtrKind_Array);
   ArrT->setASTTypeName("int *");
-  auto IntT = std::make_shared<IntegerType>();
+  auto IntT = std::make_shared<Type>(Type::TypeID_Integer);
   IntT->setASTTypeName("int");
   ArrT->setPointeeType(IntT);
   auto Def = std::make_shared<Definition>();
@@ -51,9 +51,9 @@ TEST_F(TestProtobufMutator, IntArrP) {
 }
 
 TEST_F(TestProtobufMutator, FilePathP) {
-  auto StrT = std::make_shared<PointerType>();
+  auto StrT = std::make_shared<Type>(Type::TypeID_Pointer);
   StrT->setASTTypeName("char *");
-  StrT->setPtrKind(PointerType::PtrKind_String);
+  StrT->setPtrKind(Type::PtrKind::PtrKind_String);
   auto Def = std::make_shared<Definition>();
   Def->DataType = StrT;
   Def->FilePath = true;
@@ -64,24 +64,150 @@ TEST_F(TestProtobufMutator, FilePathP) {
 
 TEST_F(TestProtobufMutator, EmptyInputN) { verifyGenerateResult(); }
 
-TEST_F(TestProtobufMutatorDeathTest, StructN) {
-  // Struct is not supported currently
+TEST_F(TestProtobufMutatorDeathTest, NullDataTypeN) {
   auto Def = std::make_shared<Definition>();
-  Def->DataType = std::make_shared<StructType>();
-  FuzzInput Input(Def);
-  ASSERT_DEATH(Mutator.addInput(Input), "");
+  Def->DataType = nullptr;
+  ASSERT_DEATH(FuzzInput Input(Def), "");
 }
 
-TEST_F(TestProtobufMutatorDeathTest, VoidN) {
-  auto Def = std::make_shared<Definition>();
-  Def->DataType = std::make_shared<VoidType>();
-  FuzzInput Input(Def);
-  ASSERT_DEATH(Mutator.addInput(Input), "");
+TEST_F(TestProtobufMutator, ArrayLenWhoseArrayIsStringPtrP) {
+  auto ArrayT = Type::createCharPointerType();
+  auto ArrayD = std::make_shared<Definition>();
+  ArrayD->Array = true;
+  ArrayD->DataType = ArrayT;
+  ArrayD->ID = 0;
+
+  FuzzInput ArrayInput(ArrayD);
+
+  auto ArrayLenT = std::make_shared<Type>(Type::TypeID_Integer);
+  ArrayLenT->setASTTypeName("unsigned");
+
+  auto ArrayLenD = std::make_shared<Definition>();
+  ArrayLenD->ArrayLen = true;
+  ArrayLenD->DataType = ArrayLenT;
+  ArrayLenD->ID = 1;
+
+  FuzzInput ArrayLenInput(ArrayLenD);
+
+  ArrayInput.ArrayLenDef = ArrayLenD.get();
+  ArrayLenInput.ArrayDef = ArrayD.get();
+
+  Mutator.addInput(ArrayInput);
+  Mutator.addInput(ArrayLenInput);
+  verifyGenerateResult();
 }
 
-TEST_F(TestProtobufMutatorDeathTest, FunctionN) {
+TEST_F(TestProtobufMutator, NoArrayDefInArrayLenInputN) {
+  auto ArrayLenT = std::make_shared<Type>(Type::TypeID_Integer);
+  ArrayLenT->setASTTypeName("unsigned");
+
+  auto ArrayLenD = std::make_shared<Definition>();
+  ArrayLenD->ArrayLen = true;
+  ArrayLenD->DataType = ArrayLenT;
+  ArrayLenD->ID = 1;
+
+  FuzzInput ArrayLenInput(ArrayLenD);
+
+  ProtobufMutator Mutator;
+  ASSERT_DEATH(Mutator.addInput(ArrayLenInput), "");
+}
+
+TEST_F(TestProtobufMutator, NoArrayTypeInArrayLenInputN) {
+  auto ArrayD = std::make_shared<Definition>();
+  ArrayD->Array = true;
+  ArrayD->ID = 0;
+
+  auto ArrayLenT = std::make_shared<Type>(Type::TypeID_Integer);
+  ArrayLenT->setASTTypeName("unsigned");
+
+  auto ArrayLenD = std::make_shared<Definition>();
+  ArrayLenD->ArrayLen = true;
+  ArrayLenD->DataType = ArrayLenT;
+  ArrayLenD->ID = 1;
+
+  FuzzInput ArrayLenInput(ArrayLenD);
+  ArrayLenInput.ArrayDef = ArrayD.get();
+
+  ProtobufMutator Mutator;
+  ASSERT_DEATH(Mutator.addInput(ArrayLenInput), "");
+}
+
+TEST_F(TestProtobufMutator, ArrayLenWhoseArrayIsNotSupportN) {
+  auto IntT = std::make_shared<Type>(Type::TypeID_Integer);
+  IntT->setASTTypeName("unsigned");
+
+  auto ArrayT = std::make_shared<Type>(Type::TypeID_Pointer);
+  ArrayT->setASTTypeName("int *");
+  ArrayT->setPointeeType(IntT);
+  ArrayT->setPtrKind(Type::PtrKind::PtrKind_Array);
+
+  auto ArrayD = std::make_shared<Definition>();
+  ArrayD->Array = true;
+  ArrayD->DataType = ArrayT;
+  ArrayD->ID = 0;
+
+  auto ArrayLenT = std::make_shared<Type>(Type::TypeID_Integer);
+  ArrayLenT->setASTTypeName("unsigned");
+
+  auto ArrayLenD = std::make_shared<Definition>();
+  ArrayLenD->ArrayLen = true;
+  ArrayLenD->DataType = ArrayLenT;
+  ArrayLenD->ID = 1;
+
+  FuzzInput ArrayLenInput(ArrayLenD);
+
+  ArrayLenInput.ArrayDef = ArrayD.get();
+
+  ProtobufMutator Mutator;
+
+  auto ArrayArrayInfo = std::make_shared<ArrayInfo>();
+  ArrayArrayInfo->setLengthType(ArrayInfo::UNLIMITED);
+  ArrayT->setArrayInfo(ArrayArrayInfo);
+  ASSERT_DEATH(Mutator.addInput(ArrayLenInput), "");
+
+  ArrayArrayInfo->setLengthType(ArrayInfo::VARIABLE);
+  ArrayT->setArrayInfo(ArrayArrayInfo);
+  ASSERT_DEATH(Mutator.addInput(ArrayLenInput), "");
+}
+
+TEST_F(TestProtobufMutator, UCharStrP) {
+  auto UCharT = std::make_shared<Type>(Type::TypeID_Integer);
+  UCharT->setASTTypeName("const unsigned char");
+  UCharT->setAnyCharacter(true);
+  UCharT->setTypeSize(1);
+
+  auto StrT = std::make_shared<Type>(Type::TypeID_Pointer);
+  StrT->setASTTypeName("const unsigned char *");
+  StrT->setPtrKind(Type::PtrKind::PtrKind_String);
+
+  StrT->setPointeeType(UCharT);
+
+  auto StrD = std::make_shared<Definition>();
+  StrD->DataType = StrT;
+
+  FuzzInput StrInput(StrD);
+
+  Mutator.addInput(StrInput);
+  verifyGenerateResult();
+}
+
+TEST_F(TestProtobufMutator, EnumArrayP) {
+  auto ArrT = std::make_shared<Type>(Type::TypeID_Pointer);
+  auto ArrInfo = std::make_shared<ArrayInfo>();
+  ArrInfo->setMaxLength(10);
+  ArrInfo->setLengthType(ArrayInfo::FIXED);
+  ArrT->setArrayInfo(ArrInfo);
+  ArrT->setPtrKind(Type::PtrKind::PtrKind_Array);
+  ArrT->setASTTypeName("EnumT *");
+  std::vector<EnumConst> Enumerators{{"E1", 0}};
+  auto EnumDef = std::make_shared<Enum>("EnumT", Enumerators);
+  auto EnumT = std::make_shared<Type>(Type::TypeID_Enum);
+  EnumT->setTypeName("EnumT");
+  EnumT->setGlobalDef(EnumDef.get());
+  ArrT->setPointeeType(EnumT);
   auto Def = std::make_shared<Definition>();
-  Def->DataType = std::make_shared<FunctionType>();
+  Def->DataType = ArrT;
   FuzzInput Input(Def);
-  ASSERT_DEATH(Mutator.addInput(Input), "");
+  Mutator.addInput(Input);
+  verifyGenerateResult();
 }

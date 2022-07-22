@@ -19,13 +19,27 @@ bool UnsupportTypeFilter::check(const ASTIRNode &Node) const {
   if (!T)
     return true;
 
+  if (T->isVoidPointerType())
+    if (const auto *E = AN->getNode().get<Expr>()) {
+      E = E->IgnoreImpCasts();
+      if (!E)
+        return true;
+
+      if (E->isNullPointerConstant(
+          AN->getASTUnit().getASTContext(), Expr::NPC_NeverValueDependent))
+        return true;
+
+      if (!E->getType().getTypePtrOrNull())
+        return true;
+    }
+
   if ((T->isIntegerType() && !T->isEnumeralType()) || T->isRealFloatingType())
     return false;
   if (T->isAnyPointerType()) {
     const auto *ElementT = T->getPointeeType().getTypePtr();
     if (!ElementT)
       return true;
-    if (ElementT->isAnyCharacterType())
+    if (ElementT->isCharType())
       return false;
     return true;
   }

@@ -1,6 +1,7 @@
 #include "TestHelper.h"
 #include "ftg/sourceanalysis/SourceAnalyzerImpl.h"
 #include "testutil/APIManualLoader.h"
+#include "testutil/SourceFileManager.h"
 #include <gtest/gtest.h>
 
 using namespace ftg;
@@ -137,4 +138,110 @@ TEST_F(TestSourceImplAnalyzer, SerializeP) {
   ASSERT_TRUE(Report.getIncludedHeaders("/tmp/sourceimplanalyzer.cpp") ==
               ClonedReport.getIncludedHeaders("/tmp/sourceimplanalyzer.cpp"));
   ASSERT_TRUE(Report.getSrcBaseDir() == ClonedReport.getSrcBaseDir());
+}
+
+TEST_F(TestSourceImplAnalyzer, MainFunctionInHeaderP) {
+  const std::string HeaderCode =
+      "int main(int argc, char *argv[]) { return 0; }\n";
+  const std::string SrcCode = "#include \"header.h\"";
+  SourceFileManager SFM;
+  SFM.createFile("header.h", HeaderCode);
+  SFM.createFile("test.cpp", SrcCode);
+  std::vector<std::string> Paths = {SFM.getFilePath("test.cpp")};
+  auto CH = TestHelperFactory().createCompileHelper(
+      SFM.getBaseDirPath(), Paths, "-O0 -g", CompileHelper::SourceType_CPP);
+  ASSERT_TRUE(CH);
+  auto SC = CH->load();
+  ASSERT_TRUE(SC);
+  Analyzer = std::make_unique<SourceAnalyzerImpl>(*SC);
+  ASSERT_TRUE(Analyzer);
+  const auto &MainFuncLoc = Analyzer->getActualReport().getMainFuncLoc();
+  ASSERT_EQ(MainFuncLoc.getFilePath(), SFM.getFilePath("header.h"));
+  ASSERT_EQ(MainFuncLoc.getOffset(), 0);
+  ASSERT_EQ(MainFuncLoc.getLength(), 46);
+}
+
+TEST_F(TestSourceImplAnalyzer, MainFunctionInSourceP) {
+  const std::string SrcCode =
+      "int main(int argc, char *argv[]) { return 0; }\n";
+  SourceFileManager SFM;
+  SFM.createFile("test.cpp", SrcCode);
+  std::vector<std::string> Paths = {SFM.getFilePath("test.cpp")};
+  auto CH = TestHelperFactory().createCompileHelper(
+      SFM.getBaseDirPath(), Paths, "-O0 -g", CompileHelper::SourceType_CPP);
+  ASSERT_TRUE(CH);
+  auto SC = CH->load();
+  ASSERT_TRUE(SC);
+  Analyzer = std::make_unique<SourceAnalyzerImpl>(*SC);
+  ASSERT_TRUE(Analyzer);
+  const auto &MainFuncLoc = Analyzer->getActualReport().getMainFuncLoc();
+  ASSERT_EQ(MainFuncLoc.getFilePath(), SFM.getFilePath("test.cpp"));
+  ASSERT_EQ(MainFuncLoc.getOffset(), 0);
+  ASSERT_EQ(MainFuncLoc.getLength(), 46);
+}
+
+TEST_F(TestSourceImplAnalyzer, MainFunctionInMacroP) {
+  const std::string SrcCode =
+      "#define MAIN int main(int argc, char *argv[]) { return 0; }\n"
+      "MAIN\n";
+  SourceFileManager SFM;
+  SFM.createFile("test.cpp", SrcCode);
+  std::vector<std::string> Paths = {SFM.getFilePath("test.cpp")};
+  auto CH = TestHelperFactory().createCompileHelper(
+      SFM.getBaseDirPath(), Paths, "-O0 -g", CompileHelper::SourceType_CPP);
+  ASSERT_TRUE(CH);
+  auto SC = CH->load();
+  ASSERT_TRUE(SC);
+  Analyzer = std::make_unique<SourceAnalyzerImpl>(*SC);
+  ASSERT_TRUE(Analyzer);
+  const auto &Report = Analyzer->getActualReport();
+  const auto &MainFuncLoc = Report.getMainFuncLoc();
+  ASSERT_EQ(MainFuncLoc.getFilePath(), SFM.getFilePath("test.cpp"));
+  ASSERT_EQ(MainFuncLoc.getOffset(), 60);
+  ASSERT_EQ(MainFuncLoc.getLength(), 4);
+}
+
+TEST_F(TestSourceImplAnalyzer, MainFunctionNotExistN) {
+  const std::string SrcCode = "void func() {}\n";
+  SourceFileManager SFM;
+  SFM.createFile("test.cpp", SrcCode);
+  std::vector<std::string> Paths = {SFM.getFilePath("test.cpp")};
+  auto CH = TestHelperFactory().createCompileHelper(
+      SFM.getBaseDirPath(), Paths, "-O0 -g", CompileHelper::SourceType_CPP);
+  ASSERT_TRUE(CH);
+  auto SC = CH->load();
+  ASSERT_TRUE(SC);
+  Analyzer = std::make_unique<SourceAnalyzerImpl>(*SC);
+  ASSERT_TRUE(Analyzer);
+  const auto &Report = Analyzer->getActualReport();
+  const auto &MainFuncLoc = Report.getMainFuncLoc();
+  ASSERT_TRUE(MainFuncLoc.getFilePath().empty());
+  ASSERT_EQ(MainFuncLoc.getOffset(), 0);
+  ASSERT_EQ(MainFuncLoc.getLength(), 0);
+}
+
+TEST_F(TestSourceImplAnalyzer, MainFunctionAnotherDirN) {
+  const std::string MainCode =
+      "int main(int argc, char *argv[]) { return 0; }\n";
+  const std::string UTCode = "void test() {}\n";
+  SourceFileManager SFM1, SFM2;
+  SFM1.createFile("main.cpp", MainCode);
+  SFM2.createFile("ut.cpp", UTCode);
+  std::vector<std::string> Paths = {SFM1.getFilePath("main.cpp"),
+                                    SFM2.getFilePath("ut.cpp")};
+  auto CH = TestHelperFactory().createCompileHelper(
+      SFM2.getBaseDirPath(), Paths, "-O0 -g", CompileHelper::SourceType_CPP);
+  ASSERT_TRUE(CH);
+
+  auto SC = CH->load();
+  ASSERT_TRUE(SC);
+
+  Analyzer = std::make_unique<SourceAnalyzerImpl>(*SC);
+  ASSERT_TRUE(Analyzer);
+
+  const auto &Report = Analyzer->getActualReport();
+  const auto &MainFuncLoc = Report.getMainFuncLoc();
+  ASSERT_TRUE(MainFuncLoc.getFilePath().empty());
+  ASSERT_EQ(MainFuncLoc.getOffset(), 0);
+  ASSERT_EQ(MainFuncLoc.getLength(), 0);
 }

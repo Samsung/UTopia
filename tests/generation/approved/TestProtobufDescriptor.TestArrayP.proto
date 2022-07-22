@@ -1,6 +1,6 @@
 syntax = "proto3";
 
 message TestArrayP {
-  repeated int32 int_arr = 1;
+  repeated sint32 int_arr = 1;
 }
 

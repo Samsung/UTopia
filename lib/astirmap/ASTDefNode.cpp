@@ -31,22 +31,23 @@ ASTDefNode::ASTDefNode(BinaryOperator &B, ASTUnit &Unit) {
   if (!B.isAssignmentOp())
     throw std::runtime_error("Unsupported binary operator");
 
-  size_t NumChild = 0;
-  Stmt *Dst = nullptr;
-  Stmt *Src = nullptr;
-  for (auto child : B.children()) {
-    if (NumChild == 0)
-      Dst = child;
-    else if (NumChild == 1)
-      Src = child;
-    NumChild++;
+  auto *LHS = B.getLHS();
+  auto *RHS = B.getRHS();
+  assert(LHS && RHS && "Unexpected Program State");
+
+  while (auto *BinOp = llvm::dyn_cast_or_null<BinaryOperator>(
+      RHS->IgnoreCasts())) {
+    if (!BinOp->isAssignmentOp())
+      break;
+
+    RHS = BinOp->getRHS();
+    assert(RHS && "Unexpected Program State");
   }
-  assert(NumChild == 2 && Dst && Src && "Unexpected Program State");
 
   Assignee = std::make_unique<ASTNode>(ASTNode::STMT,
-                                       DynTypedNode::create(*Dst), Unit);
+                                       DynTypedNode::create(*LHS), Unit);
   Assigned = std::make_unique<ASTNode>(ASTNode::STMT,
-                                       DynTypedNode::create(*Src), Unit);
+                                       DynTypedNode::create(*RHS), Unit);
   assert(Assignee && Assigned && "Unexpected Program State");
 
   SourceLoc = B.getOperatorLoc();

@@ -3,8 +3,10 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-extern char * autofuzz27;
-extern char * autofuzz28;
+extern char * autofuzz32;
+extern char * autofuzz33;
+extern char * autofuzz35;
+extern int autofuzz36;
 #ifdef __cplusplus
 }
 #endif
@@ -82,6 +84,14 @@ void utc_fixed_length_array_p() {
   // fixed length array with arr-len relation
   int input9[20] = {1,2,3,};
   inputArrArrLen(input9, 20);
+
+  char input10[20] = { 0, };
+  inputArrArrLen(input10, 20);
+
+  // multiple definition at one line
+  int input11[20], input12[20];
+  inputArr(input11);
+  inputArr(input12);
 }
 
 void utc_fixed_length_array_n() {
@@ -98,15 +108,22 @@ void utc_primitive_type_p() {
   inputInt(1);
   inputUInt(1u);
   inputChar('a');
+  _Bool b = 1;
+  inputInt(b);
 //  inputBool(true);
   inputFloat(1.1f);
   inputDouble(1.1);
 }
 
 void utc_str_type_p() {
-  char *Str = autofuzz27;
-  inputCStr(Str);
-  inputCStr(autofuzz28);
+  char *Str1 = autofuzz32;
+  inputCStr(Str1);
+  inputCStr(autofuzz33);
+  inputVoidPtr("dummy3");
+
+  //char* as array with arraylen
+  char *Str2 = autofuzz35;
+  inputVoidArrArrLen(Str2, autofuzz36);
 }
 
 void utc_pointer_type_p() {
@@ -159,6 +176,7 @@ testcase tc_array[] = {
   {"utc_unsupported_type_n", utc_unsupported_type_n, utc_startup_1, utc_cleanup_1},
   {"utc_no_input_n", utc_no_input_n, utc_startup_1, utc_cleanup_1}
 };
+
 
 
 #ifdef __cplusplus

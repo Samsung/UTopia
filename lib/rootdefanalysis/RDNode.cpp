@@ -7,7 +7,8 @@ using namespace llvm;
 
 namespace ftg {
 
-RDNode::RDNode(int Idx, Instruction &I, const RDNode *Before) : Timeout(false) {
+RDNode::RDNode(int Idx, Instruction &I, const RDNode *Before)
+    : StopTracing(false), Timeout(false) {
 
   this->ForcedDef = false;
 
@@ -29,7 +30,7 @@ RDNode::RDNode(int Idx, Instruction &I, const RDNode *Before) : Timeout(false) {
 }
 
 RDNode::RDNode(Value &V, Instruction &I, const RDNode *Before)
-    : Timeout(false) {
+    : StopTracing(false), Timeout(false) {
 
   this->ForcedDef = false;
 
@@ -43,7 +44,7 @@ RDNode::RDNode(Value &V, Instruction &I, const RDNode *Before)
 
 RDNode::RDNode(const RDTarget &Target, llvm::Instruction &I,
                const RDNode *Before)
-    : ForcedDef(false), Timeout(false) {
+    : ForcedDef(false), StopTracing(false), Timeout(false) {
 
   if (Before)
     *this = *Before;
@@ -54,6 +55,8 @@ RDNode::RDNode(const RDTarget &Target, llvm::Instruction &I,
 }
 
 RDNode::RDNode(const RDNode &Src) { *this = Src; }
+
+void RDNode::copyVisit(const RDNode &Src) { Visit = Src.Visit; }
 
 void RDNode::setIdx(int Idx) { this->Idx = Idx; }
 
@@ -67,12 +70,6 @@ void RDNode::setLocation(llvm::Instruction &I) {
 
   Location = &I;
   Idx = getIdx(*Target, *Location);
-}
-
-void RDNode::setVisit(
-    const std::map<Function *, std::set<Instruction *>> &Visit) {
-
-  this->Visit = Visit;
 }
 
 void RDNode::setFirstUses(const std::set<RDArgIndex> &FirstUses) {
@@ -91,27 +88,29 @@ void RDNode::setFirstUse(llvm::CallBase &CB, int ArgNo) {
 
 void RDNode::setForcedDef() { this->ForcedDef = true; }
 
+void RDNode::setStopTracing(bool Flag) { StopTracing = Flag; }
+
 void RDNode::timeout() {
 
   this->Timeout = true;
   setForcedDef();
 }
 
-void RDNode::visit(Instruction &I) {
-
-  auto *F = I.getFunction();
+void RDNode::visit(const RDTarget &T, const Instruction &I) {
+  const auto *F = I.getFunction();
   assert(F && "Unexpected Program State");
 
   auto Iter = Visit.find(F);
   if (Iter != Visit.end()) {
-    if (!Iter->second.insert(&I).second) {
+    if (!Iter->second.emplace(T, I).second) {
       assert(false && "Unexpected Program State");
     }
     return;
   }
 
-  std::set<Instruction *> VIs = {&I};
-  Visit.emplace(F, VIs);
+  std::set<RDVisitNode> VisitNodes;
+  VisitNodes.emplace(T, I);
+  Visit.emplace(F, VisitNodes);
 }
 
 void RDNode::addFirstUse(llvm::CallBase &CB, int ArgNo) {
@@ -149,11 +148,6 @@ llvm::Instruction &RDNode::getLocation() {
   return *Location;
 }
 
-const std::map<Function *, std::set<Instruction *>> &RDNode::getVisit() const {
-
-  return Visit;
-}
-
 const std::set<RDArgIndex> &RDNode::getFirstUses() const { return FirstUses; }
 
 std::pair<Value *, int> RDNode::getDefinition() const {
@@ -177,16 +171,15 @@ std::pair<Value *, int> RDNode::getDefinition() const {
   return std::make_pair(&IR, -1);
 }
 
-bool RDNode::isVisit(Instruction &I) const {
-
-  auto *F = I.getFunction();
+bool RDNode::isVisit(const RDTarget &T, const Instruction &I) const {
+  const auto *F = I.getFunction();
   assert(F && "Unexpected Program State");
 
   auto Iter = Visit.find(F);
   if (Iter == Visit.end())
     return false;
 
-  return Iter->second.find(&I) != Iter->second.end();
+  return Iter->second.find(RDVisitNode(T, I)) != Iter->second.end();
 }
 
 bool RDNode::isRootDefinition() const {
@@ -203,6 +196,8 @@ bool RDNode::isMemory() const {
 
 bool RDNode::isTimeout() const { return Timeout; }
 
+bool RDNode::isStopTracing() const { return StopTracing; }
+
 RDNode &RDNode::operator=(const RDNode &RHS) {
 
   Idx = RHS.Idx;
@@ -211,6 +206,7 @@ RDNode &RDNode::operator=(const RDNode &RHS) {
   Visit = RHS.Visit;
   FirstUses = RHS.FirstUses;
   ForcedDef = RHS.ForcedDef;
+  StopTracing = RHS.StopTracing;
   Timeout = RHS.Timeout;
 
   return *this;
@@ -255,6 +251,19 @@ raw_ostream &operator<<(raw_ostream &O, const RDNode &Src) {
 
   O << "|-----------------------\n";
   return O;
+}
+
+RDNode::RDVisitNode::RDVisitNode(const RDTarget &T, const llvm::Instruction &I)
+    : T(RDTarget::create(T)), I(I) {}
+
+bool RDNode::RDVisitNode::operator<(const RDVisitNode &Rhs) const {
+  if ((T == nullptr && Rhs.T != nullptr) || (T != nullptr && Rhs.T == nullptr))
+    return T < Rhs.T;
+
+  if ((T != nullptr && Rhs.T != nullptr) && (*T != *Rhs.T))
+    return *T < *Rhs.T;
+
+  return &I < &Rhs.I;
 }
 
 int RDNode::getIdx(Value &V, Instruction &I) const {

@@ -111,11 +111,6 @@ private:
 class FuzzInputGenerator {
 
 public:
-  // Queries
-  static bool isSupportedType(const Type &T);
-  static bool isSupportedType(const StructType &T, ParamReport *P);
-  static bool isSupportedType(Field &T, ParamReport *P);
-
   FuzzInputGenerator() = default;
   // TODO: Use const specifier for ASTInfo
   std::pair<std::map<unsigned, std::shared_ptr<FuzzInput>>,

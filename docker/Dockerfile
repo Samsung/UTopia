@@ -1,9 +1,10 @@
 # Base Information
-FROM ubuntu:18.04
+FROM ubuntu:20.04
 LABEL org.opencontainers.image.authors="joonun.jang@samsung.com"
 
 ### Install packages/tools for build
-
+ARG DEBIAN_FRONTEND=noninteractive
+ENV TZ=Etc/UTC
 RUN apt-get update \
     && apt-get install -y \
       build-essential \
@@ -12,7 +13,8 @@ RUN apt-get update \
       lsb-release \
       git \
       libz-dev \
-      ninja-build
+      ninja-build \
+      libboost-test-dev
 
 # Install cmake
 RUN wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/null \
