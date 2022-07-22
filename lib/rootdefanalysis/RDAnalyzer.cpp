@@ -7,7 +7,7 @@ using namespace llvm;
 namespace ftg {
 
 RDAnalyzer::RDAnalyzer(unsigned Timeout, RDExtension *Extension)
-    : Timeout(Timeout) {
+    : Timeout(Timeout), Start() {
   if (Extension)
     this->Extension = *Extension;
 }
@@ -105,8 +105,8 @@ std::set<RDNode> RDAnalyzer::traverseFunction(RDNode &Node, Function &F,
   auto &Location = Node.getLocation();
   std::set<RDNode> Prevs;
   if (!TraceCallee && isa<CallBase>(&Location)) {
-    if (!Node.isVisit(Location)) {
-      Node.visit(Location);
+    if (!Node.isVisit(Node.getTarget(), Location)) {
+      Node.visit(Node.getTarget(), Location);
       Prevs = getPrevs(Node);
     }
   } else {
@@ -126,12 +126,24 @@ std::set<RDNode> RDAnalyzer::traverseFunction(RDNode &Node, Function &F,
         continue;
       }
 
-      if (isa<AllocaInst>(NextNode.getTarget().getIR())) {
+      auto &Target = NextNode.getTarget().getIR();
+
+      // NOTE: Alloca insts are considered as a candidate root definition
+      // since uninitialized variable declarations are emitted to IR like this.
+      if (isa<AllocaInst>(&Target)) {
         const_cast<RDNode *>(&NextNode)->setIdx(-1);
         mergeRDNode(Result, NextNode);
         continue;
       }
-      mergeRDNode(Continue, NextNode);
+
+      // NOTE: Only global variable and argument can be continued outside
+      // of this function.
+      if (!isa<GlobalVariable>(&Target) && !isa<Argument>(&Target))
+        continue;
+
+      RDNode NewNode(NextNode);
+      NewNode.setStopTracing(false);
+      mergeRDNode(Continue, NewNode);
     }
   }
 
@@ -151,10 +163,11 @@ std::set<RDNode> RDAnalyzer::traverseFunction(RDNode &Node, Function &F,
     }
   }
   mergeRDNodes(Result, Continue);
-  // Traversing function is node. Delete visited information about this function
-  // to allow revisit this function later.
-  for (const auto &Node : Result)
-    const_cast<RDNode *>(&Node)->cancelVisit(F);
+
+  // NOTE: Restore previous node visit information to keep visit context
+  // to traverse outside of this function.
+  for (const auto &ResultNode : Result)
+    const_cast<RDNode *>(&ResultNode)->copyVisit(Node);
   return Result;
 }
 
@@ -208,10 +221,10 @@ std::set<RDNode> RDAnalyzer::getPrevsRegBase(RDNode &Node) {
   auto &Target = Node.getTarget().getIR();
   assert(isa<Instruction>(&Target) && "Unexpected Program State");
 
-  auto &I = *dyn_cast<Instruction>(&Target);
+  auto &I = *cast<Instruction>(&Target);
   if (isa<CallBase>(&I)) {
     std::set<RDNode> Result;
-    for (const auto &Node : handleRegister(Node, *dyn_cast<CallBase>(&I)))
+    for (const auto &Node : handleRegister(Node, *cast<CallBase>(&I)))
       mergeRDNodes(Result, pass(*const_cast<RDNode *>(&Node)));
     return Result;
   }
@@ -235,10 +248,13 @@ std::set<RDNode> RDAnalyzer::getPrevsRegBase(RDNode &Node) {
 }
 
 std::set<RDNode> RDAnalyzer::trace(RDNode &Node) {
+  if (Node.isStopTracing())
+    return {Node};
+
   if (Cache.has(Node)) {
     auto CachedNodes = Cache.get(Node);
     for (const auto &CachedNode : CachedNodes) {
-      const_cast<RDNode *>(&CachedNode)->setVisit(Node.getVisit());
+      const_cast<RDNode *>(&CachedNode)->copyVisit(Node);
       if (CachedNode.getFirstUses().size() == 0) {
         const_cast<RDNode *>(&CachedNode)->setFirstUses(Node.getFirstUses());
       }
@@ -256,7 +272,7 @@ std::set<RDNode> RDAnalyzer::trace(RDNode &Node) {
   }
 
   auto &Location = Node.getLocation();
-  if (Node.isVisit(Location)) {
+  if (Node.isVisit(Node.getTarget(), Location)) {
     return {};
   }
 
@@ -267,7 +283,7 @@ std::set<RDNode> RDAnalyzer::trace(RDNode &Node) {
 
   RDNode NewNode = Node;
   NewNode.clearFirstUses();
-  NewNode.visit(Location);
+  NewNode.visit(Node.getTarget(), Location);
 
   std::set<RDNode> Result;
   for (const auto &NextNode : next(NewNode))
@@ -367,8 +383,12 @@ std::set<RDNode> RDAnalyzer::pass(RDNode &Node) {
     return {Node};
 
   auto Prevs = getPrevs(Node);
-  if (Prevs.size() == 0)
-    return {Node};
+  // There is no path to explore, mark it not to futher tracing.
+  if (Prevs.empty()) {
+    RDNode NewNode(Node);
+    NewNode.setStopTracing(true);
+    return { NewNode };
+  }
 
   std::set<RDNode> Result;
   for (auto &Prev : Prevs) {
@@ -380,6 +400,13 @@ std::set<RDNode> RDAnalyzer::pass(RDNode &Node) {
 }
 
 std::set<RDNode> RDAnalyzer::handleRegister(RDNode &Node, CallBase &CB) {
+  auto Result = handleRegisterInternal(Node, CB);
+  assert(!Result.empty() && "Unexpected Program States");
+  return Result;
+}
+
+std::set<RDNode> RDAnalyzer::handleRegisterInternal(RDNode &Node,
+                                                    CallBase &CB) {
   auto *F = CB.getCalledFunction();
   if (!F)
     return {Node};
@@ -435,14 +462,23 @@ std::set<RDNode> RDAnalyzer::handleStoreInst(RDNode &Node, StoreInst &I) {
   auto *Ptr = I.getPointerOperand();
   assert(Ptr && "Unexpected Program State");
 
+  std::set<RDNode> Result;
   auto PropRet = isPropagated(Node.getTarget(), *Ptr);
+  if (PropRet == PROPTYPE_NONE)
+    return {Node};
+
+  RDNode NewNode(0, I, &Node);
+  // NOTE: Target of register should be same as its location.
+  if (isa<RDRegister>(NewNode.getTarget())) {
+    auto *LocI = dyn_cast<Instruction>(&NewNode.getTarget().getIR());
+    assert(LocI && "Unexpected Program State");
+    NewNode.setLocation(*LocI);
+  }
+
   if (PropRet == PROPTYPE_INCL)
-    return {RDNode(0, I, &Node)};
+    return {NewNode};
 
-  if (PropRet == PROPTYPE_PART)
-    return {Node, RDNode(0, I, &Node)};
-
-  return {Node};
+  return {Node, NewNode};
 }
 
 std::set<RDNode> RDAnalyzer::handleMemoryCall(RDNode &Node, CallBase &CB) {
@@ -579,7 +615,6 @@ std::set<RDNode> RDAnalyzer::handleExternalCall(RDNode &Node, CallBase &CB) {
       std::set<RDNode> NextNodes = {Node};
       for (auto NonOutParamIndex : NonOutParamIndices) {
         RDNode NextNode(NonOutParamIndex, CB, &Node);
-        NextNode.clearVisit();
         NextNode.setFirstUse(CB, NonOutParamIndex);
         NextNodes.insert(NextNode);
       }

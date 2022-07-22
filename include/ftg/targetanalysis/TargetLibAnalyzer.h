@@ -47,9 +47,6 @@ private:
   LoopAnalysisReport LoopReport;
   ParamNumberAnalysisReport ParamNumberReport;
 
-  std::shared_ptr<Enum> createEnum(clang::EnumDecl &ED);
-  std::shared_ptr<Field> createField(clang::FieldDecl &FD, Struct *S);
-  std::shared_ptr<Struct> createStruct(clang::RecordDecl &RD);
   std::vector<const llvm::Function *> collectAnalyzableIRFunctions() const;
   void loadExternals(const std::string &ExternLibDir);
   void parseTypes(std::vector<clang::ASTUnit *> &ASTUnits);

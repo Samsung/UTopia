@@ -72,6 +72,14 @@ void utc_fixed_length_array_p() {
   // fixed length array with arr-len relation
   int input9[20] = {1,2,3,};
   inputArrArrLen(input9, 20);
+
+  char input10[20] = { 0, };
+  inputArrArrLen(input10, 20);
+
+  // multiple definition at one line
+  int input11[20], input12[20];
+  inputArr(input11);
+  inputArr(input12);
 }
 
 void utc_fixed_length_array_n() {
@@ -88,15 +96,22 @@ void utc_primitive_type_p() {
   inputInt(1);
   inputUInt(1u);
   inputChar('a');
+  _Bool b = 1;
+  inputInt(b);
 //  inputBool(true);
   inputFloat(1.1f);
   inputDouble(1.1);
 }
 
 void utc_str_type_p() {
-  char *Str = "dummy";
-  inputCStr(Str);
+  char *Str1 = "dummy";
+  inputCStr(Str1);
   inputCStr("dummy2");
+  inputVoidPtr("dummy3");
+
+  //char* as array with arraylen
+  char *Str2 = "dummy4";
+  inputVoidArrArrLen(Str2, 20);
 }
 
 void utc_pointer_type_p() {

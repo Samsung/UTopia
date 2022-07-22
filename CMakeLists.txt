@@ -23,9 +23,9 @@ if(NOT CMAKE_BUILD_TYPE)
   message(STATUS "Build type is not set. Using Debug as default.")
   set(CMAKE_BUILD_TYPE Debug)
 endif()
-
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_FLAGS
-  "${CMAKE_CXX_FLAGS} -Wall -Werror -std=c++14 -fno-rtti -fno-omit-frame-pointer")
+  "${CMAKE_CXX_FLAGS} -Wall -Werror -fno-rtti -fno-omit-frame-pointer")
 # Compatibility for old protobuf versions
 add_compile_options("-DGOOGLE_PROTOBUF_NO_RTTI")
 

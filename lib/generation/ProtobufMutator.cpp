@@ -12,40 +12,42 @@ namespace fs = std::experimental::filesystem;
 
 using namespace ftg;
 
+const std::string ProtobufMutator::DescriptorNameSpace = "AutoFuzz";
 const std::string ProtobufMutator::DescriptorName = "FuzzArgsProfile";
 const std::string ProtobufMutator::DescriptorObjName = "autofuzz_mutation";
 
 ProtobufMutator::ProtobufMutator()
-    : InputMutator(), Descriptor(DescriptorName) {
-  Headers.emplace(R"("libprotobuf-mutator/src/libfuzzer/libfuzzer_macro.h")");
-  Headers.emplace('"' + Descriptor.getHeaderName() + '"');
+    : InputMutator(), Descriptor(DescriptorName, DescriptorNameSpace) {
+  addHeader(R"("libprotobuf-mutator/src/libfuzzer/libfuzzer_macro.h")");
+  addHeader('"' + Descriptor.getHeaderName() + '"');
 }
 
 void ProtobufMutator::addInput(FuzzInput &Input) {
   FuzzVarDecls.emplace_back(genFuzzVarDecl(Input));
   FuzzVarAssigns.emplace_back(genFuzzVarAssign(Input));
-  if (!Input.getDef().ArrayLen)
-    Descriptor.addField(Input.getFTGType().getRealType(),
+  if (!Input.getDef().ArrayLen) {
+    assert(Input.getFTGType().getRealType() && "Unexpected Program State");
+    Descriptor.addField(*Input.getFTGType().getRealType(),
                         Input.getProtoVarName());
+  }
 }
 
 void ProtobufMutator::genEntry(const std::string &OutDir,
                                const std::string &FileName) {
   std::string Code;
   // Headers
-  for (auto Header : Headers)
+  for (const auto &Header : getHeaders())
     Code += SrcGenerator::genIncludeStmt(Header);
 
   Code += R"(extern "C" {)";
   // Fuzz var declaration
   for (auto FuzzVarDecl : FuzzVarDecls)
-    // TODO: handling _Bool, Seems to be handled at type analysis.
     Code += FuzzVarDecl;
   Code += "}";
 
   // Fuzzer main
-  Code += "DEFINE_PROTO_FUZZER(const " + DescriptorName + " &" +
-          DescriptorObjName + ") {";
+  Code += "DEFINE_PROTO_FUZZER(const " + DescriptorNameSpace +
+          "::" + DescriptorName + " &" + DescriptorObjName + ") {";
 
   // Assign mutation result
   for (auto FuzzVarAssign : FuzzVarAssigns)
@@ -62,7 +64,8 @@ void ProtobufMutator::genEntry(const std::string &OutDir,
 std::string ProtobufMutator::genFuzzVarDecl(FuzzInput &Input) {
   auto FuzzVarName = Input.getFuzzVarName();
   auto Code = SrcGenerator::genDeclStmt(Input.getFTGType(), FuzzVarName, false);
-  if (Input.getFTGType().getRealType().isFixedLengthArrayPtr())
+  if (Input.getFTGType().getRealType() &&
+      Input.getFTGType().getRealType()->isFixedLengthArrayPtr())
     Code += SrcGenerator::genDeclStmt(
         "unsigned", util::getAvasFuzzSizeVarName(FuzzVarName));
   return Code;
@@ -73,38 +76,36 @@ std::string ProtobufMutator::genFuzzVarAssign(FuzzInput &FuzzingInput) {
   // Use intermediate LocalVar for handling pointers
   auto LocalVarName = FuzzingInput.getProtoVarName();
   auto FuzzVarName = FuzzingInput.getFuzzVarName();
-  auto &MutationType = FuzzingInput.getFTGType().getRealType();
+  const auto *MutationType = FuzzingInput.getFTGType().getRealType();
+
+  assert(MutationType && "Unexpected Program State");
 
   // LocalVar declaration
-  Code += SrcGenerator::genDeclStmt(MutationType, LocalVarName);
+  Code += SrcGenerator::genDeclStmt(*MutationType, LocalVarName);
 
   // Copy mutation result to LocalVar
-  if (auto *PtrT = llvm::dyn_cast<PointerType>(&MutationType)) {
-    Code += copyMutation(*PtrT, FuzzingInput);
-  } else if (auto *CT = llvm::dyn_cast<ClassType>(&MutationType)) {
-    Code += copyMutation(*CT, FuzzingInput);
-  } else if (auto *ST = llvm::dyn_cast<StructType>(&MutationType)) {
-    Code += copyMutation(*ST, FuzzingInput);
-  } else if (auto *ET = llvm::dyn_cast<EnumType>(&MutationType)) {
-    Code += copyMutation(*ET, FuzzingInput);
-  } else if (auto *PrimT = llvm::dyn_cast<PrimitiveType>(&MutationType)) {
-    Code += copyMutation(*PrimT, FuzzingInput);
+  if (MutationType->isPointerType()) {
+    Code += copyMutationPointerType(*MutationType, FuzzingInput);
+  } else if (MutationType->isEnumType()) {
+    Code += copyMutationEnumType(*MutationType, FuzzingInput);
+  } else if (MutationType->isPrimitiveType()) {
+    Code += copyMutationPrimitiveType(*MutationType, FuzzingInput);
   } else {
     assert(false && "Unsupported mutation type");
   }
 
   // Copy LocalVar to FuzzVar
   auto &FuzzVarType = FuzzingInput.getFTGType();
-  if (&FuzzVarType == &MutationType) {
+  if (&FuzzVarType == MutationType) {
     Code += SrcGenerator::genAssignStmt(FuzzVarName, LocalVarName);
   } else { // FuzzVar is pointer type
     auto PtrVarName = LocalVarName;
-    auto TypeStr = SrcGenerator::genTypeStr(MutationType);
+    auto TypeStr = SrcGenerator::genTypeStr(*MutationType);
     const auto *TypePtr = &FuzzVarType;
-    while (&MutationType != TypePtr) {
+    while (MutationType != TypePtr) {
       Code += SrcGenerator::genAssignStmt(TypeStr + "* " + PtrVarName + "p",
                                           "&" + PtrVarName);
-      TypePtr = &TypePtr->getPointeeType();
+      TypePtr = TypePtr->getPointeeType();
       PtrVarName += "p";
       TypeStr += "*";
     }
@@ -113,13 +114,15 @@ std::string ProtobufMutator::genFuzzVarAssign(FuzzInput &FuzzingInput) {
   return Code;
 }
 
-std::string ProtobufMutator::copyMutation(const PointerType &MutationType,
-                                          const FuzzInput &Input) {
+std::string ProtobufMutator::copyMutationPointerType(const Type &MutationType,
+                                                     const FuzzInput &Input) {
+  assert(MutationType.isPointerType() && "Unexpected Program State");
   std::string Code;
   auto InputDef = Input.getDef();
   auto LocalVarName = Input.getProtoVarName();
   // Base type can not be single ptr Array or String
   auto MutationVal = getProtoVarVal(LocalVarName);
+  auto MutationValBegin = MutationVal + ".begin()";
   auto MutationSize = getProtoVarValSize(LocalVarName);
   if (InputDef.FilePath) {
     Code += saveMutationToFile(LocalVarName);
@@ -131,37 +134,58 @@ std::string ProtobufMutator::copyMutation(const PointerType &MutationType,
     Code += SrcGenerator::genAssignStmtWithMaxCheck(FuzzArrSize, ArrLength,
                                                     MutationSize);
     // Array copy
-    Headers.emplace("<algorithm>");
-    Code += "std::copy(" + MutationVal + ", " + MutationVal + " + " +
-            FuzzArrSize + ", " + LocalVarName + ");";
+    if (MutationType.getPointeeType()->isEnumType()) { // needs type casting
+      Code += "for(int i=0;i<" + FuzzArrSize + ";++i) {" + LocalVarName +
+              "[i]=static_cast<" +
+              MutationType.getPointeeType()->getTypeName() + ">(" +
+              MutationVal + "[i]);}";
+    } else {
+      addHeader("<algorithm>");
+      Code += "std::copy(" + MutationValBegin + ", " + MutationValBegin +
+              " + " + FuzzArrSize + ", " + LocalVarName + ");";
+    }
   } else if (MutationType.isStringType()) {
-    Code += SrcGenerator::genAssignStmt(
-        LocalVarName, SrcGenerator::genStrToCStr(MutationVal));
+    auto StrVal = SrcGenerator::genStrToCStr(MutationVal);
+    auto OrgTypeName =
+        util::stripConstExpr(MutationType.getPointeeType()->getASTTypeName());
+    if (OrgTypeName.compare("char") != 0)
+      StrVal = "reinterpret_cast<" + OrgTypeName + "*>(" + StrVal + ")";
+    Code += SrcGenerator::genAssignStmt(LocalVarName, StrVal);
   }
   return Code;
 }
 
-std::string ProtobufMutator::copyMutation(const PrimitiveType &MutationType,
-                                          const FuzzInput &Input) {
+std::string ProtobufMutator::copyMutationPrimitiveType(const Type &MutationType,
+                                                       const FuzzInput &Input) {
+  assert(MutationType.isPrimitiveType() && "Unexpected Program State");
   std::string Code;
   auto InputDef = Input.getDef();
   auto LocalVarName = Input.getProtoVarName();
   auto MutationVal = getProtoVarVal(LocalVarName);
   if (InputDef.ArrayLen) {
-    auto *RelatedArrayDef = Input.ArrayDef;
+    const auto *RelatedArrayDef = Input.ArrayDef;
     assert(RelatedArrayDef && "Incomplete Arr-ArrLen relationship");
-    auto &RelatedArrType = RelatedArrayDef->DataType;
-    assert(RelatedArrType && RelatedArrType->isFixedLengthArrayPtr() &&
-           "Incomplete Arr-ArrLen relationship");
-    auto ArrLength =
-        std::to_string(llvm::dyn_cast<PointerType>(RelatedArrType.get())
-                           ->getArrayInfo()
-                           ->getMaxLength());
-    // Mutation array can be larger than fuzz var array
-    Code += SrcGenerator::genAssignStmtWithMaxCheck(
-        LocalVarName,
-        getProtoVarValSize(util::getProtoVarName(RelatedArrayDef->ID)),
-        ArrLength);
+    const auto &RelatedArrType = RelatedArrayDef->DataType;
+    assert(RelatedArrType && "Incomplete Arr-ArrLen relationship");
+    // NOTE: below condition statements requires order preserving. char [10]
+    // type is both a fixed length array ptr and string ptr, however at here
+    // it should be handled as a fixed length array ptr.
+    if (RelatedArrType->isFixedLengthArrayPtr()) {
+      auto ArrLength =
+          std::to_string(RelatedArrType.get()->getArrayInfo()->getMaxLength());
+      // Mutation array can be larger than fuzz var array
+      Code += SrcGenerator::genAssignStmtWithMaxCheck(
+          LocalVarName,
+          getProtoVarValSize(util::getProtoVarName(RelatedArrayDef->ID)),
+          ArrLength);
+    }
+    else if (RelatedArrType->isStringType()) {
+      Code += SrcGenerator::genAssignStmt(
+          LocalVarName,
+          getProtoVarValSize(util::getProtoVarName(RelatedArrayDef->ID)));
+    }
+    else
+      assert(false && "Incomplete Arr-ArrLen relationship");
   } else if (InputDef.BufferAllocSize) {
     // Buffer size must be over 0
     Code += "if (" + MutationVal + " < 1) return;";
@@ -181,8 +205,8 @@ std::string
 ProtobufMutator::saveMutationToFile(const std::string &MutationVarName) {
   std::string Code;
   // Headers for file open/write
-  Headers.emplace("<fcntl.h>");
-  Headers.emplace("<unistd.h>");
+  addHeader("<fcntl.h>");
+  addHeader("<unistd.h>");
   auto MutationVal = getProtoVarVal(MutationVarName);
   auto MutationSize = getProtoVarValSize(MutationVarName);
   auto FuzzFilePathVar = MutationVarName + "_filepath";
@@ -200,23 +224,14 @@ ProtobufMutator::saveMutationToFile(const std::string &MutationVarName) {
       MutationVarName, SrcGenerator::genStrToCStr(FuzzFilePathVar));
   return Code;
 }
-std::string ProtobufMutator::copyMutation(const ClassType &MutationType,
-                                          const FuzzInput &Input) {
-  assert(MutationType.isStdStringType() && "Unsupported Class Type");
+
+std::string ProtobufMutator::copyMutationEnumType(const Type &MutationType,
+                                                  const FuzzInput &Input) {
+  assert(MutationType.isEnumType() && "Unexpected Program State");
   auto LocalVarName = Input.getProtoVarName();
-  return SrcGenerator::genAssignStmt(LocalVarName,
-                                     getProtoVarVal(LocalVarName));
-}
-std::string ProtobufMutator::copyMutation(const StructType &MutationType,
-                                          const FuzzInput &Input) {
-  // TODO: Implement struct copy
-  assert(false && "Struct is not implemented yet");
-}
-std::string ProtobufMutator::copyMutation(const EnumType &MutationType,
-                                          const FuzzInput &Input) {
-  auto LocalVarName = Input.getProtoVarName();
-  return SrcGenerator::genAssignStmt(LocalVarName,
-                                     getProtoVarVal(LocalVarName));
+  return SrcGenerator::genAssignStmt(
+      LocalVarName, "static_cast<" + MutationType.getTypeName() + ">(" +
+                        getProtoVarVal(LocalVarName) + ")");
 }
 
 std::string ProtobufMutator::getProtoVarVal(const std::string &VarName) {

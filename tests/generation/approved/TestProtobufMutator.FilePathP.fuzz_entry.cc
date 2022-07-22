@@ -1,12 +1,12 @@
 #include "FuzzArgsProfile.pb.h"
-#include "autofuzz.h"
 #include "libprotobuf-mutator/src/libfuzzer/libfuzzer_macro.h"
 #include <fcntl.h>
 #include <unistd.h>
+#include "autofuzz.h"
 extern "C" {
 char *autofuzz0;
 }
-DEFINE_PROTO_FUZZER(const FuzzArgsProfile &autofuzz_mutation) {
+DEFINE_PROTO_FUZZER(const AutoFuzz::FuzzArgsProfile &autofuzz_mutation) {
   char *fuzzvar0;
   std::string fuzzvar0_filepath(FUZZ_FILEPATH_PREFIX + fuzzvar0_file);
   int fuzzvar0_fd =

@@ -1,17 +1,17 @@
 #include "../lib/lib.h"
 #include "FuzzArgsProfile.pb.h"
-#include "autofuzz.h"
 #include "libprotobuf-mutator/src/libfuzzer/libfuzzer_macro.h"
+#include "autofuzz.h"
 extern "C" {
-int autofuzz29;
-e1 autofuzz31;
+int autofuzz37;
+e1 autofuzz39;
 }
-DEFINE_PROTO_FUZZER(const FuzzArgsProfile &autofuzz_mutation) {
-  int fuzzvar29;
-  fuzzvar29 = autofuzz_mutation.fuzzvar29();
-  autofuzz29 = fuzzvar29;
-  e1 fuzzvar31;
-  fuzzvar31 = autofuzz_mutation.fuzzvar31();
-  autofuzz31 = fuzzvar31;
+DEFINE_PROTO_FUZZER(const AutoFuzz::FuzzArgsProfile &autofuzz_mutation) {
+  int fuzzvar37;
+  fuzzvar37 = autofuzz_mutation.fuzzvar37();
+  autofuzz37 = fuzzvar37;
+  e1 fuzzvar39;
+  fuzzvar39 = static_cast<_e1>(autofuzz_mutation.fuzzvar39());
+  autofuzz39 = fuzzvar39;
   enterAutofuzz();
 }

@@ -3,8 +3,6 @@ include_directories(${CMAKE_SOURCE_DIR}/include/ftg/targetanalysis)
 add_subdirectory(targetpb)
 
 add_library(ftgTargetAnalysis
-  FunctionReport.cpp
-  ParamReport.cpp
   TargetLib.cpp
   TargetLibAnalyzer.cpp
   TargetLibExportUtil.cpp

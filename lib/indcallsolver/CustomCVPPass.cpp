@@ -137,7 +137,7 @@ public:
       if (isa<Instruction>(Key.getPointer())) {
         return getUndefVal();
       } else if (auto *A = dyn_cast<Argument>(Key.getPointer())) {
-        if (!(A->getParent()->hasAddressTaken()))
+        if (A->getParent() && !(A->getParent()->hasAddressTaken()))
           return getUndefVal();
       } else if (auto *C = dyn_cast<Constant>(Key.getPointer())) {
         return computeConstant(C);

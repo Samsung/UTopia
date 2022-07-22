@@ -203,3 +203,51 @@ TEST_F(FuzzInputGenerationTest, array_propN) {
     ASSERT_FALSE(F->isFuzzableInput(Def->ID));
   }
 }
+
+TEST(TestFuzzInputFactory, NormalPtrHasArrayPropertyP) {
+  auto IntT = std::make_shared<Type>(Type::TypeID_Integer);
+  IntT->setASTTypeName("unsigned");
+  auto ArrayArrayInfo = std::make_shared<ArrayInfo>();
+  auto ArrayT = std::make_shared<Type>(Type::TypeID_Pointer);
+  ArrayT->setASTTypeName("unsigned *");
+  ArrayT->setArrayInfo(ArrayArrayInfo);
+  ArrayT->setPointeeType(IntT);
+  ArrayT->setPtrKind(Type::PtrKind::PtrKind_Normal);
+  auto ArrayD = std::make_shared<Definition>();
+  ArrayD->Array = true;
+  ArrayD->DataType = ArrayT;
+  ArrayD->ID = 0;
+  std::shared_ptr<const Definition> InputD = ArrayD;
+  auto ArrayInput = FuzzInputFactory().generate(InputD);
+  ASSERT_TRUE(ArrayInput->getFTGType().isArrayPtr());
+}
+
+TEST(TestFuzzInputFactory, StringPtrP) {
+  auto IntT = std::make_shared<Type>(Type::TypeID_Integer);
+  IntT->setASTTypeName("unsigned");
+  auto ArrayArrayInfo = std::make_shared<ArrayInfo>();
+  auto ArrayT = std::make_shared<Type>(Type::TypeID_Pointer);
+  ArrayT->setASTTypeName("unsigned *");
+  ArrayT->setArrayInfo(ArrayArrayInfo);
+  ArrayT->setPointeeType(IntT);
+  ArrayT->setPtrKind(Type::PtrKind::PtrKind_String);
+  auto ArrayD = std::make_shared<Definition>();
+  ArrayD->Array = true;
+  ArrayD->DataType = ArrayT;
+  ArrayD->ID = 0;
+  std::shared_ptr<const Definition> InputD = ArrayD;
+  auto ArrayInput = FuzzInputFactory().generate(InputD);
+  ASSERT_TRUE(ArrayInput->getFTGType().isStringType());
+}
+
+TEST(TestFuzzInputFactory, NullDefinitionN) {
+
+  std::shared_ptr<const Definition> D;
+  ASSERT_DEATH(FuzzInputFactory().generate(D), "");
+}
+
+TEST(TestFuzzInputFactory, NullTypeN) {
+  auto D = std::make_shared<Definition>();
+  std::shared_ptr<const Definition> InputD = D;
+  ASSERT_DEATH(FuzzInputFactory().generate(InputD), "");
+}

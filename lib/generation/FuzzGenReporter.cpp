@@ -53,12 +53,6 @@ void FuzzGenReporter::addFuzzer(const Fuzzer &F,
     auto APICallStatus = NOT_FUZZABLE_UNIDENTIFIED;
 
     auto APIArgs = APICall.Args;
-    if (APIArgs.size() == 0) {
-      auto *Func = TargetReport.getFunction(APICall.Name);
-      if (Func && Func->getParams().size() == 0)
-        APICallStatus = NOT_FUZZABLE_NO_INPUT;
-    }
-
     for (auto &APIArg : APIArgs) {
       for (auto DefID : APIArg.DefIDs) {
         if (F.isFuzzableInput(DefID)) {

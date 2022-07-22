@@ -26,13 +26,16 @@ private:
   const static std::string FilePathPrefix;
   std::map<std::string, std::string> FileNewMap;
   std::map<std::string, clang::tooling::Replacements> FileReplaceMap;
+  std::map<std::pair<std::string, unsigned>, clang::tooling::Replacement>
+      Replaces;
+
+  bool addReplace(const clang::tooling::Replacement &Replace);
   void clear();
   std::string generateAssignStatement(const FuzzInput &Input) const;
   void generateBottom(
-      std::vector<clang::tooling::Replacement> &Replace,
       const std::map<std::string, std::vector<std::string>> &FuzzVarFlagDecls,
       const std::map<std::string, std::vector<GlobalVarSetter>> &Setters,
-      const Unittest &UT, const SourceAnalysisReport &SourceReport) const;
+      const Unittest &UT, const SourceAnalysisReport &SourceReport);
   std::string generateDeclTypeName(const Type &T) const;
   void generateFuzzVarDeclarations(
       std::map<std::string, std::string> &FuzzVarDecls,
@@ -41,23 +44,18 @@ private:
   void generateFuzzVarGlobalSetters(
       std::map<std::string, std::vector<GlobalVarSetter>> &Setters,
       const FuzzInput &Input) const;
-  void
-  generateFuzzVarReplacements(std::vector<clang::tooling::Replacement> &Replace,
-                              const FuzzInput &Input) const;
+  void generateFuzzVarReplacements(const FuzzInput &Input);
   bool generateHeader(const std::string &BasePath);
   std::string
   generateHeaderInclusion(const std::string Path, const std::string &UTPath,
                           const SourceAnalysisReport &SourceReport) const;
   std::string generateIdentifier(const Definition &Def) const;
-  void generateMainDeletion(std::vector<clang::tooling::Replacement> &Replace,
-                            const SourceAnalysisReport &SourceReport) const;
+  void generateMainDeletion(const SourceAnalysisReport &SourceReport);
   void generateTop(
-      std::vector<clang::tooling::Replacement> &Replace,
       const std::map<std::string, std::string> &FuzzVarDecls,
       const std::map<std::string, std::vector<std::string>> &FuzzVarFlagDecls,
       const std::map<std::string, std::vector<GlobalVarSetter>> &Setters,
-      const std::string &UTPath,
-      const SourceAnalysisReport &SourceReport) const;
+      const std::string &UTPath, const SourceAnalysisReport &SourceReport);
 };
 
 } // namespace ftg

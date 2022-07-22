@@ -1,0 +1,761 @@
+keywords:
+  fflags: -fsanitize=address,fuzzer-no-link -fno-omit-frame-pointer -g
+  fflags_link: -fsanitize=address,fuzzer -fno-omit-frame-pointer -g
+  pflags: -fprofile-instr-generate -fcoverage-mapping
+  cmake_flags: -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_AR=$(which llvm-ar)
+  cmake_org_flags: k#:cmake_flags:# -DCMAKE_VERBOSE_MAKEFILE=ON -DCMAKE_C_FLAGS="-g -O0" -DCMAKE_CXX_FLAGS="-g -O0" -DCMAKE_EXE_LINKER_FLAGS=-g -DCMAKE_SHARED_LINKER_FLAGS=-g
+  cmake_fuzzer_flags: k#:cmake_flags:# -DCMAKE_C_FLAGS="k#:fflags:#" -DCMAKE_CXX_FLAGS="k#:fflags:#" -DCMAKE_EXE_LINKER_FLAGS="k#:fflags:#" -DCMAKE_SHARED_LINKER_FLAGS="k#:fflags:#"
+  cmake_profile_flags: k#:cmake_flags:# -DCMAKE_C_FLAGS="k#:pflags:#" -DCMAKE_CXX_FLAGS="k#:pflags:#" -DCMAKE_EXE_LINKER_FLAGS="k#:pflags:#" -DCMAKE_SHARED_LINKER_FLAGS="k#:pflags:#"
+  bazel_org_flags: CC="clang" CXX="clang++" AR="/usr/local/bin/llvm-ar"
+  bazel_profile_flags: CC="clang" CXX="clang++" AR="/usr/local/bin/llvm-ar"
+
+targets:
+  assimp:
+    repo:
+      dir: assimp
+      cmd:
+        - git clone --recursive https://github.com/assimp/assimp.git --config user.name autofuzz --config user.email autofuzz@autofuzz.com
+        - cd assimp && git checkout a9b29abee64a5061e78de4f60a918d67dbe39ce0 -b autofuzz_base
+    compile:
+      org:
+        - rm -rf build && mkdir -p build
+        - cd build && cmake -DBUILD_SHARED_LIBS=OFF k#:cmake_org_flags:# ..
+        - rm -f output/build.log
+        - cd build && export COMPILE_LOG="$(realpath ../output/build.log)" && make -j8 V=1
+        - sed -i 's/-DASSIMP_TEST_MODELS_DIR="\/root\/fuzz-test-generation\/exp\/assimp\/test\/models"/-DASSIMP_TEST_MODELS_DIR=\\"\/root\/fuzz-test-generation\/exp\/assimp\/test\/models\\"/g' output/build.log
+        - sed -i 's/-DASSIMP_TEST_MODELS_NONBSD_DIR="\/root\/fuzz-test-generation\/exp\/assimp\/test\/models-nonbsd"/-DASSIMP_TEST_MODELS_NONBSD_DIR=\\"\/root\/fuzz-test-generation\/exp\/assimp\/test\/models-nonbsd\\"/g' output/build.log
+        - cp build/lib/libassimp.a output/
+      fuzzer:
+        - rm -rf build && mkdir -p build
+        - cd build && cmake -DBUILD_SHARED_LIBS=OFF k#:cmake_fuzzer_flags:# ..
+        - cd build && make -j8 > /dev/null 2>&1
+        - cp build/lib/libassimp.a output/libassimp_fuzzer.a
+      profile:
+        - rm -rf build && mkdir -p build
+        - cd build && cmake -DBUILD_SHARED_LIBS=OFF k#:cmake_profile_flags:# ..
+        - cd build && make -j8 > /dev/null 2>&1
+        - cp build/lib/libassimp.a output/libassimp_profile.a
+
+  bsdiff:
+    repo:
+      dir: bsdiff
+      cmd:
+        - apt-get update && apt-get install -y libbrotli-dev libbz2-dev libdivsufsort-dev
+        - mkdir bsdiff && cd bsdiff && git clone https://android.googlesource.com/platform/external/bsdiff --config user.name autofuzz --config user.email autofuzz@autofuzz.com
+        - cd bsdiff/bsdiff && git checkout be81a990b3e1b1827602cf0fd23c5b55dce3a4de -b autofuzz_base
+        - mv bsdiff/bsdiff/.git bsdiff/
+        - cd bsdiff && git rm `git status | grep deleted | awk '{print $2}'` && git add bsdiff
+        - "sed -i ':a;N;$!ba;s/LIBRARIES-$(USE_BSDIFF) += libbsdiff.so/LIBRARIES-$(USE_BSDIFF) += libbsdiff.so\\n\\nLIBRARIES-y += libbspatch.a\\nLIBRARIES-$(USE_BSDIFF) += libbsdiff.a/g' bsdiff/bsdiff/Makefile"
+        - "sed -i ':a;N;$!ba;s/libbsdiff.so: LDLIBS += $(BSDIFF_LIBS)\\n/libbsdiff.so: LDLIBS += $(BSDIFF_LIBS)\\nlibbsdiff.a: $(BSDIFF_OBJS)\\n/g' bsdiff/bsdiff/Makefile"
+        - "sed -i ':a;N;$!ba;s/libbspatch.so: LDLIBS += $(BSPATCH_LIBS)/libbspatch.so: LDLIBS += $(BSPATCH_LIBS)\\nlibbspatch.a: $(BSPATCH_OBJS)/g' bsdiff/bsdiff/Makefile"
+        - "sed -i ':a;N;$!ba;s/bsdiff_unittest: $(BSPATCH_OBJS) $(BSDIFF_OBJS) $(UNITTEST_OBJS)/bsdiff_unittest: $(UNITTEST_OBJS) libbspatch.a libbsdiff.a/g' bsdiff/bsdiff/Makefile"
+        - "sed -i ':a;N;$!ba;s/# Source file dependencies/libbsdiff.a libbspatch.a:\\n\\t$(AR) cru $@ $^ $(LDLIBS)\\n\\n# Source file dependencies/g' bsdiff/bsdiff/Makefile"
+        - echo "\\n*_ast\\n*_bc\\n*_link\\n*.json" >> bsdiff/bsdiff/.gitignore
+        - cd bsdiff && git add bsdiff/Makefile bsdiff/.gitignore && git commit -m "Base Commit"
+    compile:
+      org:
+        - cd bsdiff && if [ -f bsdiff ]; then make clean; fi
+        - rm -rf output && mkdir -p output
+        - rm -f output/build.log
+        - cd bsdiff && export COMPILE_LOG="$(realpath ../output/build.log)" && make all test -j16 V=1 CC=clang CXX=clang++ AR=$(which llvm-ar) CFLAGS="-g -std=c++11 -O3 -Wall -Werror -fPIC -Iinclude -I.."
+        - cp bsdiff/libbsdiff.a ./output/libbsdiff.a
+        - cp bsdiff/libbspatch.a ./output/libbspatch.a
+      fuzzer:
+        - cd bsdiff && make clean
+        - cd bsdiff && make all test -j16 V=1 CC=clang CXX=clang++ AR=$(which llvm-ar) CFLAGS="-g -std=c++11 -O3 -Wall -Werror -fPIC -Iinclude -I.. k#:fflags:#" CXXFLAGS="-g -fPIC k#:fflags:#" LDFLAGS="-g -fPIC k#:fflags:#"
+        - cp bsdiff/libbsdiff.a ./output/libbsdiff_fuzzer.a
+        - cp bsdiff/libbspatch.a ./output/libbspatch_fuzzer.a
+      profile:
+        - cd bsdiff && make clean
+        - cd bsdiff && make all test -j16 V=1 CC=clang CXX=clang++ AR=$(which llvm-ar) CFLAGS="-g -std=c++11 -O3 -Wall -Werror -fPIC -Iinclude -I.. k#:pflags:#" CXXFLAGS="-g -fPIC k#:pflags:#" LDFLAGS="-g -fPIC k#:pflags:#"
+        - cp bsdiff/libbsdiff.a ./output/libbsdiff_profile.a
+        - cp bsdiff/libbspatch.a ./output/libbspatch_profile.a
+
+  cpu_features:
+    repo:
+      dir: cpu_features
+      cmd:
+        - git clone https://android.googlesource.com/platform/external/cpu_features --config user.name autofuzz --config user.email autofuzz@autofuzz.com
+        - cd cpu_features && git checkout 99eb6aeb118b624ccf0c3ba371c806462b9f9519 -b autofuzz_base
+        - "sed -i 's/master/main/g' cpu_features/cmake/googletest.CMakeLists.txt.in"
+        - cd cpu_features && git commit -am "Base Commit"
+    compile:
+      org:
+        - rm -rf build && mkdir -p build && rm -rf output && mkdir -p output
+        - cd build && cmake -DBUILD_TESTING=ON k#:cmake_org_flags:# ..
+        - rm -f output/build.log
+        - cd build && export COMPILE_LOG="$(realpath ../output/build.log)" && make -j16 V=1
+        - cp build/libcpu_features.a output/
+        - cp build/test/libstack_line_reader.a output/
+        - cp build/test/libstring_view.a output/
+        - cp build/test/libhwcaps_for_testing.a output/
+        - cp build/test/liball_libraries.a output/
+        - cp build/test/libfilesystem_for_testing.a output/
+        - cp build/test/libstack_line_reader_for_test.a output/
+      fuzzer:
+        - rm -rf build && mkdir -p build && cd build
+        - cd build && cmake -DBUILD_TESTING=ON k#:cmake_fuzzer_flags:# ..
+        - cd build && make -j16 V=1 > /dev/null 2>&1
+        - cp build/libcpu_features.a output/libcpu_features_fuzzer.a
+        - cp build/test/libstack_line_reader.a output/libstack_line_reader_fuzzer.a
+        - cp build/test/libstring_view.a output/libstring_view_fuzzer.a
+        - cp build/test/libhwcaps_for_testing.a output/libhwcaps_for_testing_fuzzer.a
+        - cp build/test/liball_libraries.a output/liball_libraries_fuzzer.a
+        - cp build/test/libfilesystem_for_testing.a output/libfilesystem_for_testing_fuzzer.a
+        - cp build/test/libstack_line_reader_for_test.a output/libstack_line_reader_for_test_fuzzer.a
+      profile:
+        - rm -rf build && mkdir -p build && cd build
+        - cd build && cmake -DBUILD_TESTING=ON k#:cmake_profile_flags:# ..
+        - cd build && make -j16 V=1 > /dev/null 2>&1
+        - cp build/libcpu_features.a output/libcpu_features_profile.a
+        - cp build/test/libstack_line_reader.a output/libstack_line_reader_profile.a
+        - cp build/test/libstring_view.a output/libstring_view_profile.a
+        - cp build/test/libhwcaps_for_testing.a output/libhwcaps_for_testing_profile.a
+        - cp build/test/liball_libraries.a output/liball_libraries_profile.a
+        - cp build/test/libfilesystem_for_testing.a output/libfilesystem_for_testing_profile.a
+        - cp build/test/libstack_line_reader_for_test.a output/libstack_line_reader_for_test_profile.a
+
+  cpuinfo:
+    repo:
+      dir: cpuinfo
+      cmd:
+        - git clone https://android.googlesource.com/platform/external/cpuinfo --config user.name autofuzz --config user.email autofuzz@autofuzz.com
+        - cd cpuinfo && git checkout 6ca2549f6b2ec107937292581826dbe810f75bfb -b autofuzz_base
+    compile:
+      org:
+        - rm -rf build && mkdir -p build && rm -rf output && mkdir -p output
+        - cd build && cmake k#:cmake_org_flags:# ..
+        - rm -f output/build.log
+        - cd build && export COMPILE_LOG="$(realpath ../output/build.log)" && make -j16 V=1
+        - cp build/libcpuinfo.a output/
+        - cp build/libcpuinfo_internals.a output/
+      fuzzer:
+        - rm -rf build && mkdir -p build && cd build
+        - cd build && cmake k#:cmake_fuzzer_flags:# .. > /dev/null 2>&1
+        - cd build && make -j16 > /dev/null 2>&1
+        - cp build/libcpuinfo.a output/libcpuinfo_fuzzer.a
+        - cp build/libcpuinfo_internals.a output/libcpuinfo_internals_fuzzer.a
+      profile:
+        - rm -rf build && mkdir -p build && cd build
+        - cd build && cmake k#:cmake_profile_flags:# .. > /dev/null 2>&1
+        - cd build && make -j16 > /dev/null 2>&1
+        - cp build/libcpuinfo.a output/libcpuinfo_profile.a
+        - cp build/libcpuinfo_internals.a output/libcpuinfo_internals_profile.a
+
+  jsonnet:
+    repo:
+      dir: jsonnet
+      cmd:
+        - git clone https://github.com/google/jsonnet.git --config user.name autofuzz --config user.email autofuzz@autofuzz.com
+        - cd jsonnet && git checkout 80762b936484fb82e561876d2792ee6a3126edc4 && git checkout -b autofuzz_base
+        - sed -i 's/<< std::endl/<< "\\n"/g' jsonnet/core/parser_test.cpp
+        - sed -i 's/<< std::endl/<< "\\n"/g' jsonnet/core/lexer_test.cpp
+        - sed -i '1s/^/#ifdef __cplusplus\nextern "C" {\n#endif\n/' jsonnet/include/libjsonnet.h
+        - echo "#ifdef __cplusplus" >> jsonnet/include/libjsonnet.h
+        - echo "}" >> jsonnet/include/libjsonnet.h
+        - echo "#endif" >> jsonnet/include/libjsonnet.h
+        - "sed -i 's/master/main/g' jsonnet/CMakeLists.txt.in"
+        - cd jsonnet && git commit -am "Base Commit"
+    compile:
+      org:
+        - rm -rf build && mkdir -p build
+        - cd build && cmake k#:cmake_org_flags:# ..
+        - rm -f output/build.log
+        - cd build && export COMPILE_LOG="$(realpath ../output/build.log)" && make -j8 V=1 > /dev/null 2>&1
+        - cp build/libjsonnet.a output && cp build/libjsonnet++.a output
+      fuzzer:
+        - rm -rf build && mkdir -p build
+        - cd build && cmake k#:cmake_fuzzer_flags:# ..
+        - cd build && make -j8 > /dev/null 2>&1
+        - cp build/libjsonnet.a output/libjsonnet_fuzzer.a && cp build/libjsonnet++.a output/libjsonnet++_fuzzer.a
+      profile:
+        - rm -rf build && mkdir -p build && cd build
+        - cd build && cmake k#:cmake_profile_flags:# ..
+        - cd build && make -j8 > /dev/null 2>&1
+        - cp build/libjsonnet.a output/libjsonnet_profile.a && cp build/libjsonnet++.a output/libjsonnet++_profile.a
+
+  ledger:
+    repo:
+      dir: ledger
+      cmd:
+        - apt-get update && apt-get install -y libmpfr-dev libboost-all-dev
+        - git clone https://github.com/ledger/ledger --config user.name autofuzz --config user.email autofuzz@autofuzz.com
+        - cd ledger && git checkout 5d033adce84319bd3d10217ccf3e20c7c0734c7a -b autofuzz_base
+        - sed -i 's/add_library(libledger SHARED/add_library(libledger STATIC/g' ledger/src/CMakeLists.txt
+        - sed -i 's/add_executable(MathTests t_amount.cc t_commodity.cc t_balance.cc t_expr.cc t_value.cc)/add_executable(MathTests t_commodity.cc t_value.cc)/g' ledger/test/unit/CMakeLists.txt
+        - sed -i 's/\/\/#define BOOST_TEST_MODULE/#define BOOST_TEST_MODULE/g' ledger/test/unit/t_commodity.cc
+        - sed -i 's/BOOST_FIXTURE_TEST_SUITE(format/BOOST_FIXTURE_TEST_SUITE(format2/g' ledger/test/unit/t_format.cc
+        - sed -i 's/amount_t("/(amount_t)amount_t("/g' ledger/test/unit/t_value.cc
+        - sed -i 's/balance_t("/(balance_t)balance_t("/g' ledger/test/unit/t_value.cc
+        - sed -i 's/string("/(string)string("/g' ledger/test/unit/t_value.cc
+        - cd ledger && git add src/CMakeLists.txt test/unit/CMakeLists.txt test/unit/t_commodity.cc test/unit/t_format.cc test/unit/t_value.cc && git commit -m "Base Commit"
+    compile:
+      org:
+        - rm -rf build && mkdir -p build
+        - cd build && cmake -DBUILD_SHARED_LIBS=OFF k#:cmake_org_flags:# .. > /dev/null 2>&1
+        - rm -f output/build.log
+        - cd build && export COMPILE_LOG="$(realpath ../output/build.log)" && make -j8 V=1
+        - cp build/src/libledger.a output
+      fuzzer:
+        - rm -rf build && mkdir -p build
+        - cd build && cmake -DBUILD_SHARED_LIBS=OFF k#:cmake_fuzzer_flags:# .. > /dev/null 2>&1
+        - cd build && make -j8 V=1 > /dev/null 2>&1
+        - cp build/src/libledger.a output/libledger_fuzzer.a
+      profile:
+        - rm -rf build && mkdir -p build
+        - cd build && cmake -DBUILD_SHARED_LIBS=OFF k#:cmake_profile_flags:# .. > /dev/null 2>&1
+        - cd build && make -j8 V=1 > /dev/null 2>&1
+        - cp build/src/libledger.a output/libledger_profile.a
+
+  leveldb:
+    repo:
+      dir: leveldb
+      cmd:
+        - apt-get update && apt-get install -y make autoconf automake libtool gettext pkg-config build-essential
+        - mkdir leveldb && cd leveldb && git clone --recurse-submodules https://github.com/google/leveldb.git --config user.name autofuzz --config user.email autofuzz@autofuzz.com
+        - cd leveldb/leveldb && git checkout 5d94ad4d95c09d3ac203ddaf9922e55e730706a8 && git checkout -b autofuzz_base
+        - cd leveldb/leveldb/third_party/benchmark && git checkout 7d0d9061d83b663ce05d9de5da3d5865a3845b79 && git checkout -b autofuzz_base
+        - cd leveldb/leveldb/third_party/googletest && git checkout 662fe38e44900c007eccb65a5d2ea19df7bd520e && git checkout -b autofuzz_base
+        - mv leveldb/leveldb leveldb/src && mv leveldb/src/.git leveldb
+        - cd leveldb && git rm `git status | grep deleted | awk '{print $2}'` && git add src && git commit -m "Base"
+    compile:
+      org:
+        - rm -rf build && mkdir build
+        - cd build && cmake k#:cmake_org_flags:# ../src
+        - rm -f output/build.log
+        - cd build && export COMPILE_LOG="$(realpath ../output/build.log)" && make -j8 > /dev/null
+        - cp build/libleveldb.a output
+      fuzzer:
+        - rm -rf build && mkdir build
+        - cd build && cmake k#:cmake_fuzzer_flags:# ../src
+        - cd build && make -j8 > /dev/null 2>&1
+        - cp build/libleveldb.a output/libleveldb_fuzzer.a
+      profile:
+        - rm -rf build && mkdir build
+        - cd build && cmake k#:cmake_profile_flags:# ../src
+        - cd build && make -j8 > /dev/null 2>&1
+        - cp build/libleveldb.a output/libleveldb_profile.a
+
+  libaom:
+    repo:
+      dir: libaom
+      cmd:
+        - git clone https://aomedia.googlesource.com/aom libaom --config user.name autofuzz --config user.email autofuzz@autofuzz.com
+        - apt-get install -y yasm
+        - cd libaom && git checkout ab8fddcfc19b54d2a2243dd8a396f4ea3c19b188 -b autofuzz_base
+    compile:
+      org:
+        - rm -f output/build.log && rm -rf build && git checkout -- build
+        - cd build && cmake k#:cmake_org_flags:# .. || true 1
+        - export COMPILE_LOG="$(realpath output/build.log)" && cd build && make -j16 V=1
+        - cp build/libaom.a output
+      fuzzer:
+        - rm -rf build && git checkout -- build
+        - cd build && cmake k#:cmake_fuzzer_flags:# .. || true 1
+        - cd build && make -j16 V=1
+        - cp build/libaom.a output/libaom_fuzzer.a
+      profile:
+        - rm -rf build && git checkout -- build
+        - cd build && cmake k#:cmake_profile_flags:# .. || true 1
+        - cd build && make -j16 V=1
+        - cp build/libaom.a output/libaom_profile.a
+
+  libhtp:
+    repo:
+      dir: libhtp
+      cmd:
+        - git clone https://github.com/OISF/libhtp.git --config user.name autofuzz --config user.email autofuzz@autofuzz.com
+        - cd libhtp && git checkout 5aaea8cdc7ceac907b3cdbe265e8a2b5fe74d918 -b autofuzz_base
+        - sed -i '389s/^/\/\//g' ./libhtp/test/test_utils.cpp
+        - sed -i '388s/)/);/g' ./libhtp/test/test_utils.cpp
+        - sed -i 's/malloc/(char*)malloc/g' libhtp/test/test.c
+        - mv libhtp/test/test.c libhtp/test/test.cpp
+        - sed -i 's/test.c/test.cpp/g' libhtp/test/Makefile.am
+        - cd libhtp && git add test/test_utils.cpp test/test.cpp test/Makefile.am && git rm test/test.c && git commit -m "Base Commit"
+        - cd libhtp &&  ./autogen.sh
+    compile:
+      org:
+        - rm -rf output && mkdir -p output
+        - ./configure CC=clang CXX=clang++ AR=$(which llvm-ar) CFLAGS="-g" CPPFLAGS="-g" LDFLAGS="-g"
+        - make clean
+        - export COMPILE_LOG="$(realpath output/build.log)" && make -j16 V=1
+        - export COMPILE_LOG="$(realpath output/build.log)" && make test V=1
+        - sed -i 's/libhtp.lax\/libhtp-c.a\///g' output/build.log
+        - sed -i 's/libhtp.lax\/liblzma-c.a\///g' output/build.log
+        - sed -i 's/.libs\/LzFind.o .libs\/LzmaDec.o/lzma\/.libs\/LzFind.o lzma\/.libs\/LzmaDec.o/g' output/build.log
+        - sed -i 's/-lpthread ..\/htp\/.libs\/libhtp.so/-lpthread ..\/htp\/.libs\/libhtp.a/g' output/build.log
+        - cp htp/.libs/libhtp.a ./output/libhtp.a
+      fuzzer:
+        - make clean
+        - ./configure CC=clang CXX=clang++ AR=$(which llvm-ar) CFLAGS="-g -fsanitize=address,fuzzer-no-link -fno-omit-frame-pointer" CXXFLAGS="-g -fsanitize=address,fuzzer-no-link -fno-omit-frame-pointer" LDFLAGS="-g -fsanitize=address,fuzzer-no-link"
+        - make -j16
+        - make  test -j16
+        - cp htp/.libs/libhtp.a ./output/libhtp_fuzzer.a
+      profile:
+        - make clean
+        - ./configure CC=clang CXX=clang++ AR=$(which llvm-ar) CFLAGS="-g -fprofile-instr-generate -fcoverage-mapping" CXXFLAGS="-g -fprofile-instr-generate -fcoverage-mapping" LDFLAGS="-g -fprofile-instr-generate -fcoverage-mapping"
+        - make -j16
+        - make  test -j16
+        - cp htp/.libs/libhtp.a ./output/libhtp_profile.a
+
+  libphonenumber:
+    repo:
+      dir: libphonenumber
+      cmd:
+        - apt-get update --fix-missing
+        - apt-get install -y libicu-dev libboost-thread-dev openjdk-8-jdk
+        - git clone https://github.com/google/libphonenumber --config user.name autofuzz --config user.email autofuzz@autofuzz.com
+        - cd libphonenumber && git checkout 10c40f6a583d97318449b3204a26f917dc6e308 -b autofuzz_base
+        - sed -i '1s/^/#ifndef AUTOFUZZ_TEST_UTIL_H\n#define AUTOFUZZ_TEST_UTIL_H\n/' libphonenumber/cpp/test/phonenumbers/test_util.h
+        - echo "#endif" >> libphonenumber/cpp/test/phonenumbers/test_util.h
+        - cd libphonenumber && git add cpp/test/phonenumbers/test_util.h && git commit -m "Base Commit"
+    compile:
+      org:
+        - rm -rf cpp/build && mkdir -p cpp/build
+        - cd cpp/build && cmake k#:cmake_org_flags:# ..
+        - rm -f output/build.log
+        - cd cpp/build && export COMPILE_LOG="$(realpath ../../output/build.log)" && make -j8 V=1
+        - cp cpp/build/libphonenumber_testing.a output
+      fuzzer:
+        - rm -rf cpp/build && mkdir -p cpp/build
+        - cd cpp/build && cmake k#:cmake_fuzzer_flags:# ..
+        - cd cpp/build && make -j8 > /dev/null 2>&1
+        - cp cpp/build/libphonenumber_testing.a output/libphonenumber_testing_fuzzer.a
+        - sed -i 's/return prefix_language_code_pairs/return (const char**)prefix_language_code_pairs/g' cpp/test/phonenumbers/geocoding/geocoding_test_data.cc
+        - git add cpp/test/phonenumbers/geocoding/geocoding_test_data.cc && git commit -m "Base Commit"
+      profile:
+        - rm -rf cpp/build && mkdir -p cpp/build
+        - cd cpp/build && cmake k#:cmake_profile_flags:# ..
+        - cd cpp/build && make -j8 > /dev/null 2>&1
+        - cp cpp/build/libphonenumber_testing.a output/libphonenumber_testing_profile.a
+
+  libvpx:
+     repo:
+       dir: libvpx
+       cmd:
+         - git clone https://chromium.googlesource.com/webm/libvpx --config user.name autofuzz --config user.email autofuzz@autofuzz.com
+         - apt-get install -y yasm
+         - cd libvpx && git checkout b8273e -b autofuzz_base
+     compile:
+       org:
+         - rm -f output/build.log && rm -rf build && git checkout -- build
+         - cd build && CC=clang CXX=clang++ LD=clang++ AR=$(which llvm-ar) CFLAGS="-g" CXXFLAGS="-g" LDFLAGS="-g" ../configure
+         - export COMPILE_LOG="$(realpath output/build.log)" && cd build && make -j8
+         - cp build/libvp9rc.a output/
+         - cp build/libvpx.a output/
+       fuzzer:
+         - rm -rf build && git checkout -- build
+         - cd build && CC=clang CXX=clang++ LD=clang++ AR=$(which llvm-ar) CFLAGS="k#:fflags:#" CXXFLAGS="k#:fflags:#" LDFLAGS="k#:fflags:#" ../configure
+         - cd build && make -j8
+         - cp build/libvp9rc.a output/libvp9rc_fuzzer.a
+         - cp build/libvpx.a output/libvpx_fuzzer.a
+       profile:
+         - rm -rf build && git checkout -- build
+         - cd build && CC=clang CXX=clang++ LD=clang++ AR=$(which llvm-ar) CFLAGS="k#:pflags:#" CXXFLAGS="k#:pflags:#" LDFLAGS="k#:pflags:#" ../configure
+         - cd build && make -j8
+         - cp build/libvp9rc.a output/libvp9rc_profile.a
+         - cp build/libvpx.a output/libvpx_profile.a
+
+  minijail:
+    repo:
+      dir: minijail
+      cmd:
+        - apt-get update && apt-get install -y libcap-dev
+        - mkdir minijail && cd minijail && git clone https://android.googlesource.com/platform/external/minijail --config user.name autofuzz --config user.email autofuzz@autofuzz.com
+        - cd minijail/minijail && git checkout ceb800091b03171c3998a57e37c25ac523c23b4d -b autofuzz_base
+        - mv minijail/minijail/.git minijail/
+        - mv minijail/minijail/.gitignore minijail/
+        - cd minijail && git rm `git status | grep deleted | awk '{print $2}'` && git add minijail
+        - cd minijail/minijail && bash get_googletest.sh
+        - sed -i '65s/CC_LIBRARY(libminijailpreload.so)/CC_STATIC_LIBRARY(libminijail.pic.a)/g' minijail/minijail/Makefile
+        - sed -i '70,74s/TEST(//g' minijail/minijail/Makefile
+        - sed -i '70,74s/))/)/g' minijail/minijail/Makefile
+        - sed -i '97s/$(CORE_OBJECT_FILES)/libminijail.pic.a/g' minijail/minijail/Makefile
+        - sed -i '115,146s/$(CORE_OBJECT_FILES)/libminijail.pic.a/g' minijail/minijail/Makefile
+        - sed -i '126s/realloc/(gid_t*)realloc/g' minijail/minijail/minijail0_cli.c
+        - sed -i '316s/xmalloc/(char*)xmalloc/g' minijail/minijail/minijail0_cli.c
+        - sed -i '514s/xmalloc/(struct sock_filter*)xmalloc/g' minijail/minijail/minijail0_cli.c
+        - sed -i '18 a \#include "util.h"' minijail/minijail/minijail0_cli_unittest.cc
+        - mv minijail/minijail/elfparse.c minijail/minijail/elfparse.cc
+        - mv minijail/minijail/minijail0_cli.c minijail/minijail/minijail0_cli.cc
+        - cd minijail/minijail && git rm elfparse.c minijail0_cli.c && git add elfparse.cc minijail0_cli.cc minijail0_cli_unittest.cc Makefile && git commit -m "Base Commit"
+    compile:
+      org:
+        - rm -rf output && mkdir -p output
+        - cd minijail && make clean
+        - cd minijail && export COMPILE_LOG="$(realpath ../output/build.log)" && make all tests -j16 V=1 VERBOSE=1 CC=clang CXX=clang++ AR=$(which llvm-ar)
+        - sed -i 's/-DPRELOADPATH="\/lib\/libminijailpreload.so"/-DPRELOADPATH=\\"\/lib\/libminijailpreload.so\\"/g' output/build.log
+        - sed -i 's/-DDEFAULT_PIVOT_ROOT="\/var\/empty"/-DDEFAULT_PIVOT_ROOT=\\"\/var\/empty\\"/g' output/build.log
+        - cp minijail/libminijail.pic.a ./output/libminijail.pic.a
+      fuzzer:
+        - cd minijail && make clean
+        - cd minijail && make all tests -j16 V=1 VERBOSE=1 CC=clang CXX=clang++ AR=$(which llvm-ar) CFLAGS="k#:fflags:#" CXXFLAGS="k#:fflags:#" LDFLAGS="k#:fflags:#"
+        - cp minijail/libminijail.pic.a ./output/libminijail.pic_fuzzer.a
+      profile:
+        - cd minijail && make clean
+        - cd minijail && make all tests -j16 V=1 VERBOSE=1 CC=clang CXX=clang++ AR=$(which llvm-ar) CFLAGS="k#:pflags:#" CXXFLAGS="k#:pflags:#" LDFLAGS="k#:pflags:# -lpthread"
+        - cp minijail/libminijail.pic.a ./output/libminijail.pic_profile.a
+
+  muduo:
+    repo:
+      dir: muduo
+      cmd:
+        - git clone https://github.com/chenshuo/muduo --config user.name autofuzz --config user.email autofuzz@autofuzz.com
+        - cd muduo && git checkout 9aaeda812bde476d231495212e6cf331ae2792b4 -b autofuzz_base
+    compile:
+      org:
+        - rm -rf build && mkdir -p build
+        - cd build && cmake k#:cmake_org_flags:# ..
+        - rm -f output/build.log
+        - cd build && export COMPILE_LOG="$(realpath ../output/build.log)" && make V=1 -j8
+        - cp build/lib/libmuduo_base.a output
+        - cp build/lib/libmuduo_net.a output
+        - cp build/lib/libmuduo_http.a output
+      fuzzer:
+        - rm -rf build && mkdir -p build
+        - cd build && cmake k#:cmake_fuzzer_flags:# ..
+        - cd build && make -j8 > /dev/null 2>&1
+        - cp build/lib/libmuduo_base.a output/libmuduo_base_fuzzer.a
+        - cp build/lib/libmuduo_net.a output/libmuduo_net_fuzzer.a
+        - cp build/lib/libmuduo_http.a output/libmuduo_http_fuzzer.a
+      profile:
+        - rm -rf build && mkdir -p build
+        - cd build && cmake k#:cmake_profile_flags:# ..
+        - cd build && make -j8 > /dev/null 2>&1
+        - cp build/lib/libmuduo_base.a output/libmuduo_base_profile.a
+        - cp build/lib/libmuduo_net.a output/libmuduo_net_profile.a
+        - cp build/lib/libmuduo_http.a output/libmuduo_http_profile.a
+
+  node:
+    repo:
+      dir: node
+      cmd:
+        - git clone --recursive https://github.com/nodejs/node --config user.name autofuzz --config user.email autofuzz@autofuzz.com
+        - cd node && git checkout fa86b36124ec022544256828bb9936ba3ed42ec0 -b autofuzz_base
+        - sed -i 's/crsT/qc/g' node/tools/gyp/pylib/gyp/generator/make.py
+        - cd node && git add tools/gyp/pylib/gyp/generator/make.py && git commit -m "Base Commit"
+    compile:
+      org:
+        - make clean
+        - CC=clang CXX=clang++ LD=clang++ AR=$(which llvm-ar) CFLAGS="-g" CXXFLAGS="-g" LDFLAGS="-g" ./configure
+        - rm -f output/build.log
+        - export COMPILE_LOG="$(realpath output/build.log)" && CC=clang CXX=clang++ LD=clang++ AR=$(which llvm-ar) CFLAGS="-g" CXXFLAGS="-g" LDFLAGS="-g" make -j16 check
+        - sed -i 's/-DNODE_ARCH="x64"/-DNODE_ARCH=\\"x64\\"/g' output/build.log
+        - sed -i 's/-DNODE_PLATFORM="linux"/-DNODE_PLATFORM=\\"linux\\"/g' output/build.log
+        - sed -i 's/-DNODE_OPENSSL_SYSTEM_CERT_PATH=""/-DNODE_OPENSSL_SYSTEM_CERT_PATH=\\"\\"/g' output/build.log
+        - cp ./out/Release/obj.target/libnode.a output/
+      fuzzer:
+        - make clean
+        - CC=clang CXX=clang++ LD=clang++ AR=$(which llvm-ar) CFLAGS="k#:fflags:#" CXXFLAGS="k#:fflags:#" LDFLAGS="k#:fflags:#" ./configure
+        - CC=clang CXX=clang++ LD=clang++ AR=$(which llvm-ar) CFLAGS="k#:fflags:#" CXXFLAGS="k#:fflags:#" LDFLAGS="k#:fflags:#" make check
+        - cp ./out/Release/obj.target/libnode.a output/libnode_fuzzer.a
+      profile:
+        - make clean
+        - CC=clang CXX=clang++ LD=clang++ AR=$(which llvm-ar) CFLAGS="k#:pflags:#" CXXFLAGS="k#:pflags:#" LDFLAGS="k#:pflags:#" ./configure
+        - CC=clang CXX=clang++ LD=clang++ AR=$(which llvm-ar) CFLAGS="k#:pflags:#" CXXFLAGS="k#:pflags:#" LDFLAGS="k#:pflags:#" make check -j16
+        - cp ./out/Release/obj.target/libnode.a output/libnode_profile.a
+
+  openh264:
+    repo:
+      dir: openh264
+      cmd:
+        - apt update && apt install -y nasm
+        - git clone https://github.com/cisco/openh264.git --config user.name autofuzz --config user.email autofuzz@autofuzz.com
+        - cd openh264 && git checkout ca0e43e864c8c57ec76a7763af6436be4e76c8d0 -b autofuzz_base
+        - sed -i '195d' openh264/Makefile
+        - sed -i '14,18d' openh264/test/api/simple_test.cpp
+        - sed -i '12d' openh264/test/api/simple_test.cpp
+        - sed -i '8,10d' openh264/test/api/simple_test.cpp
+        - sed -i '1s/^/#ifndef AUTOFUZZ_BLOCK_1\n#define AUTOFUZZ_BLOCK_1\n/' openh264/test/encoder/EncUT_SliceBufferReallocate.h
+        - sed -i -e '$a\\n#endif\n' openh264/test/encoder/EncUT_SliceBufferReallocate.h
+        - sed -i '1s/^/#ifndef AUTOFUZZ_BLOCK_2\n#define AUTOFUZZ_BLOCK_2\n/' openh264/codec/common/src/welsCodecTrace.cpp
+        - sed -i -e '$a\\n#endif\n' openh264/codec/common/src/welsCodecTrace.cpp
+        - sed -i '1s/^/#ifndef AUTOFUZZ_BLOCK_3\n#define AUTOFUZZ_BLOCK_3\n/' openh264/codec/processing/src/scrolldetection/ScrollDetection.h
+        - sed -i -e '$a\\n#endif\n' openh264/codec/processing/src/scrolldetection/ScrollDetection.h
+        - sed -i '1s/^/#ifndef AUTOFUZZ_BLOCK_4\n#define AUTOFUZZ_BLOCK_4\n/' openh264/codec/encoder/core/src/encoder.cpp
+        - sed -i -e '$a\\n#endif\n' openh264/codec/encoder/core/src/encoder.cpp
+        - cd openh264 && git add Makefile test/api/simple_test.cpp test/encoder/EncUT_SliceBufferReallocate.h codec/common/src/welsCodecTrace.cpp codec/processing/src/scrolldetection/ScrollDetection.h codec/encoder/core/src/encoder.cpp && git commit -m "Base Commit"
+    compile:
+      org:
+        - rm -f output/build.log && make clean
+        - make gtest-bootstrap
+        - export COMPILE_LOG="$(realpath output/build.log)" && make test ARCH="x86_64" CC=clang CXX=clang++ AR=$(which llvm-ar) LD=clang++ CFLAGS="-fPIC -g" CXXFLAGS="-fPIC -g" LDFLAGS="-g -lpthread"
+        - cp libcommon.a output/
+        - cp libdecoder.a output/
+        - cp libencoder.a output/
+        - cp libprocessing.a output/
+      fuzzer:
+        - make clean
+        - make gtest-bootstrap
+        - make test ARCH="x86_64" CC=clang CXX=clang++ AR=$(which llvm-ar) LD=clang++ CFLAGS="-fPIC k#:fflags:#" CXXFLAGS="-fPIC k#:fflags:#" LDFLAGS="-g -lpthread k#:fflags:#"
+        - cp libcommon.a output/libcommon_fuzzer.a
+        - cp libdecoder.a output/libdecoder_fuzzer.a
+        - cp libencoder.a output/libencoder_fuzzer.a
+        - cp libprocessing.a output/libprocessing_fuzzer.a
+      profile:
+        - make clean
+        - make gtest-bootstrap
+        - make test ARCH="x86_64" CC=clang CXX=clang++ AR=$(which llvm-ar) LD=clang++ CFLAGS="-fPIC k#:pflags:#" CXXFLAGS="-fPIC k#:pflags:#" LDFLAGS="-g -lpthread k#:pflags:#"
+        - cp libcommon.a output/libcommon_profile.a
+        - cp libdecoder.a output/libdecoder_profile.a
+        - cp libencoder.a output/libencoder_profile.a
+        - cp libprocessing.a output/libprocessing_profile.a
+
+  pthreadpool:
+    repo:
+      dir: pthreadpool
+      cmd:
+        - git clone https://android.googlesource.com/platform/external/pthreadpool --config user.name autofuzz --config user.email autofuzz@autofuzz.com
+        - cd pthreadpool && git checkout bf08f8656c6cb12f73122b1aacc16726cbf8d6ce -b autofuzz_base
+    compile:
+      org:
+        - rm -rf build && mkdir -p build && rm -rf output && mkdir -p output
+        - cd build && cmake -DPTHREADPOOL_BUILD_TESTS=ON k#:cmake_org_flags:# ..
+        - rm -f output/build.log
+        - cd build && export COMPILE_LOG="$(realpath ../output/build.log)" && make -j16 V=1
+        - cp build/libpthreadpool.a output/
+      fuzzer:
+        - rm -rf build && mkdir -p build && cd build
+        - cd build && cmake -DPTHREADPOOL_BUILD_TESTS=ON k#:cmake_fuzzer_flags:# ..
+        - cd build && make -j16
+        - cp build/libpthreadpool.a output/libpthreadpool_fuzzer.a
+      profile:
+        - rm -rf build && mkdir -p build && cd build
+        - cd build && cmake -DPTHREADPOOL_BUILD_TESTS=ON k#:cmake_profile_flags:# ..
+        - cd build && make -j16
+        - cp build/libpthreadpool.a output/libpthreadpool_profile.a
+
+  puffin:
+    repo:
+      dir: puffin
+      cmd:
+        - apt-get update && apt-get install -y libgoogle-glog-dev
+        - git clone https://android.googlesource.com/platform/external/puffin --config user.name autofuzz --config user.email autofuzz@autofuzz.com
+        - cd puffin && git checkout d51726bde3cac59456126b86eb52d43035e4b245 -b autofuzz_base
+        - sed -i 's/bit\_io\_unittest\.cc/unittest\_common\.cc bit\_io\_unittest\.cc/g' puffin/Makefile
+        - sed -i 's/libpuffin.so/libpuffin.a/g' puffin/Makefile
+        - sed -i 's/$(CXX) $(CXXFLAGS) $(LDFLAGS) -shared $^ -o $@ $(LDLIBS)/$(AR) qc $@ $^/g' puffin/Makefile
+        - sed -i 's/$(UNITTEST_OBJECTS)/$(UNITTEST_OBJECTS) $(LIBPUFFIN)/g' puffin/Makefile
+        - cd puffin && git add ./Makefile && git commit -m "Base Commit"
+    compile:
+      org:
+        - if [ -f puffin_unittests ]; then make clean; fi
+        - rm -rf output && mkdir -p output
+        - export COMPILE_LOG="$(realpath output/build.log)" && make all test -j16 CC=clang CXX=clang++ AR=$(which llvm-ar)
+        - cp libpuffin.a ./output/libpuffin.a
+      fuzzer:
+        - make clean
+        - make all test -j16 V=1 CC=clang CXX=clang++ AR=$(which llvm-ar) CFLAGS="-g -std=c++14 -O3 -Wall -Werror -fPIC -I../ -Isrc/include k#:fflags:#" CXXFLAGS="-g -std=c++14 -Wall -I../ -Isrc/include -fPIC k#:fflags:#" LDFLAGS="-g -fPIC k#:fflags:#"
+        - cp libpuffin.a ./output/libpuffin_fuzzer.a
+      profile:
+        - make clean
+        - make all test -j16 V=1 CC=clang CXX=clang++ AR=$(which llvm-ar) CFLAGS="-g -std=c++14 -O3 -Wall -Werror -fPIC -I../ -Isrc/include k#:pflags:#" CXXFLAGS="-g -std=c++14 -Wall -I../ -Isrc/include -fPIC k#:pflags:#" LDFLAGS="-g -fPIC k#:pflags:#"
+        - cp libpuffin.a ./output/libpuffin_profile.a
+
+  sfntly:
+    repo:
+      dir: sfntly
+      cmd:
+        - apt-get install -y libicu-dev
+        - git clone https://android.googlesource.com/platform/external/sfntly --config user.name autofuzz --config user.email autofuzz@autofuzz.com
+        - cd sfntly && git checkout 2dcabc8c562e5a63ead0256bef8c02ef872aa36f -b autofuzz_base
+        - git clone https://github.com/google/googletest.git sfntly/cpp/ext --config user.name autofuzz --config user.email autofuzz@autofuzz.com
+        - cd sfntly/cpp/ext && git checkout 53495a2a7d6ba7e0691a7f3602e9a5324bba6e45 -b autofuzz_base
+        - mv sfntly/cpp/ext/googletest sfntly/cpp/ext/gtest
+        - rm sfntly/cpp/src/test/cmap_test.cc
+        - rm sfntly/cpp/src/test/autogenerated/cmap_basic_test.cc
+        - rm sfntly/cpp/src/test/cmap_iterator_test.cc
+        - sed -i 's/sfntly::SAMPLE_TTF_FILE/(char*)sfntly::SAMPLE_TTF_FILE/g' sfntly/cpp/src/test/chrome_subsetter.cc
+        - cd sfntly && git add cpp/src/test/chrome_subsetter.cc && git commit -m "Base Commit"
+    compile:
+      org:
+        - rm -rf build && mkdir -p build && rm -rf output && mkdir -p output
+        - cd build && cmake k#:cmake_org_flags:# ../cpp/
+        - cd build && sed -i "s/-Werror/-Werror -Wno-error=self-assign-overloaded/g" ./CMakeFiles/unit_test.dir/flags.make
+        - rm -f output/build.log
+        - cd build && export COMPILE_LOG="$(realpath ../output/build.log)" && make -j16 V=1
+        - sed -i 's/-D__wur=__attribute__((warn_unused_result))/-D__wur="__attribute__((warn_unused_result))"/g' output/build.log
+        - cp build/lib/libsfntly.a output/
+      fuzzer:
+        - rm -rf build && mkdir -p build && cd build
+        - cd build && cmake k#:cmake_fuzzer_flags:# ../cpp/
+        - cd build && sed -i "s/-Werror/-Werror -Wno-error=self-assign-overloaded/g" ./CMakeFiles/unit_test.dir/flags.make
+        - cd build && make -j16
+        - cp build/lib/libsfntly.a output/libsfntly_fuzzer.a
+      profile:
+        - rm -rf build && mkdir -p build && cd build
+        - cd build && cmake k#:cmake_profile_flags:# ../cpp/
+        - cd build && sed -i "s/-Werror/-Werror -Wno-error=self-assign-overloaded/g" ./CMakeFiles/unit_test.dir/flags.make
+        - cd build && make -j16
+        - cp build/lib/libsfntly.a output/libsfntly_profile.a
+
+  snappy:
+    repo:
+      dir: snappy
+      cmd:
+        - mkdir -p snappy
+        - cd snappy && git clone git://git.tizen.org/platform/upstream/snappy --depth 1 src --config user.name autofuzz --config user.email autofuzz@autofuzz.com
+        - cd snappy/src && git checkout 4f7bd2dbfd12bfda77488baf46c2f7648c9f1999 -b autofuzz_base
+        - sed -i 's/${GFLAGS_LIBRARIES}/${GFLAGS_LIBRARIES} gtest pthread/g' snappy/src/CMakeLists.txt
+        - mv snappy/src/.git snappy
+        - cd snappy && git rm `git status | grep deleted | awk '{print $2}'` && git add src && git commit -m "Base"
+    compile:
+      org:
+        - rm -rf build && mkdir -p build
+        - cd build && cmake k#:cmake_org_flags:# ../src
+        - rm -f output/build.log
+        - cd build && export COMPILE_LOG="$(realpath ../output/build.log)" && make V=1 -j8
+        - cp build/libsnappy.a output/
+      fuzzer:
+        - rm -rf build && mkdir -p build
+        - cd build && cmake k#:cmake_fuzzer_flags:# ../src
+        - cd build && make -j8 > /dev/null 2>&1
+        - cp build/libsnappy.a output/libsnappy_fuzzer.a
+      profile:
+        - rm -rf build && mkdir -p build
+        - cd build && cmake k#:cmake_profile_flags:# ../src
+        - cd build && make -j8 > /dev/null 2>&1
+        - cp build/libsnappy.a output/libsnappy_profile.a
+
+  tesseract:
+    repo:
+      dir: tesseract
+      cmd:
+        - apt-get update && apt-get install -y libpng-dev libjpeg8-dev libtiff5-dev zlib1g-dev libleptonica-dev libicu-dev libpango1.0-dev libcairo2-dev cabextract curl
+        - git clone https://github.com/tesseract-ocr/tesseract.git --config user.name autofuzz --config user.email autofuzz@autofuzz.com
+        - if [ ! -d langdata_lstm ]; then git clone https://github.com/tesseract-ocr/langdata_lstm.git --config user.name autofuzz --config user.email autofuzz@autofuzz.com && cd langdata_lstm && git checkout f0714d60cdc221fceb11787acb5e35b3937643ae -b autofuzz_base; fi
+        - if [ ! -d tessdata ]; then git clone https://github.com/tesseract-ocr/tessdata.git --config user.name autofuzz --config user.email autofuzz@autofuzz.com && cd tessdata && git checkout 4767ea922bcc460e70b87b1d303ebdfed0897da8 -b autofuzz_base; fi
+        - cd tesseract && git checkout 75e6c3ea4c8eae740fb65a84e77dbf0c8d092240 -b autofuzz_base
+        - cd tesseract && git submodule update --init
+        - cd tesseract && ./autogen.sh
+        - sed -i '9083d' tesseract/Makefile.in
+        - sed -i '21s/const char/static const char/g' tesseract/unittest/include_gunit.h
+        - sed -i 's/constexpr char/const char/g' tesseract/unittest/lang_model_test.cc
+        - sed -i '431s/GenerateSyntheticOutputs(/GenerateSyntheticOutputs((const char**)/g' tesseract/unittest/recodebeam_test.cc
+        - sed -i '431s/kGWR2nds/(const char**)kGWR2nds/g' tesseract/unittest/recodebeam_test.cc
+        - sed -i '448s/GenerateSyntheticOutputs(/GenerateSyntheticOutputs((const char**)/g' tesseract/unittest/recodebeam_test.cc
+        - sed -i '448s/kZH2nds/(const char**)kZH2nds/g' tesseract/unittest/recodebeam_test.cc
+        - sed -i '482s/GenerateSyntheticOutputs(/GenerateSyntheticOutputs((const char**)/g' tesseract/unittest/recodebeam_test.cc
+        - sed -i '482s/kVi2nds/(const char**)kVi2nds/g' tesseract/unittest/recodebeam_test.cc
+        - cd tesseract && git rm -rf --cached abseil googletest && git add unittest/include_gunit.h unittest/lang_model_test.cc unittest/recodebeam_test.cc && git commit -m "Base Commit"
+    compile:
+      org:
+        - ./configure --prefix=$(pwd)/local --enable-shared=no CC="clang" CXX="clang++" AR="$(which llvm-ar)" CFLAGS="-g" CXXFLAGS="-g" LDFLAGS="-g"
+        - rm -f output/build.log
+        - export COMPILE_LOG="$(pwd)/output/build.log" && make -j16 clean
+        - export COMPILE_LOG="$(pwd)/output/build.log" && make -j16 training
+        - export COMPILE_LOG="$(pwd)/output/build.log" && make -j16 check
+        - cp .libs/libtesseract.a output
+        - cp .libs/libtesseract_training.a output
+        - sed -i 's/-DTESSBIN_DIR="\/root\/fuzz-test-generation\/exp\/tesseract"/-DTESSBIN_DIR=\\"\/root\/fuzz-test-generation\/exp\/tesseract\\"/g' output/build.log
+        - sed -i 's/-DLANGDATA_DIR="\/root\/fuzz-test-generation\/exp\/langdata_lstm"/-DLANGDATA_DIR=\\"\/root\/fuzz-test-generation\/exp\/langdata_lstm\\"/g' output/build.log
+        - sed -i 's/-DTESSDATA_DIR="\/root\/fuzz-test-generation\/exp\/tessdata"/-DTESSDATA_DIR=\\"\/root\/fuzz-test-generation\/exp\/tessdata\\"/g' output/build.log
+        - sed -i 's/-DTESTING_DIR="\/root\/fuzz-test-generation\/exp\/tesseract\/test\/testing"/-DTESTING_DIR=\\"\/root\/fuzz-test-generation\/exp\/tesseract\/test\/testing\\"/g' output/build.log
+        - sed -i 's/-DTESTDATA_DIR="\/root\/fuzz-test-generation\/exp\/tesseract\/test\/testdata"/-DTESTDATA_DIR=\\"\/root\/fuzz-test-generation\/exp\/tesseract\/test\/testdata\\"/g' output/build.log
+      fuzzer:
+        - ./configure --prefix=$(pwd)/local --enable-shared=no CC="clang" CXX="clang++" AR="$(which llvm-ar)" CFLAGS="k#:fflags:#" CXXFLAGS="k#:fflags:#" LDFLAGS="k#:fflags:#"
+        - make -j16 clean
+        - make -j16 training
+        - make -j16 check
+        - cp .libs/libtesseract.a output/libtesseract_fuzzer.a
+        - cp .libs/libtesseract_training.a output/libtesseract_training_fuzzer.a
+      profile:
+        - ./configure --prefix=$(pwd)/local --enable-shared=no CC="clang" CXX="clang++" AR="$(which llvm-ar)" CFLAGS="k#:pflags:#" CXXFLAGS="k#:pflags:#" LDFLAGS="k#:pflags:#"
+        - make -j16 clean
+        - make -j16 training
+        - make -j16 check
+        - cp .libs/libtesseract.a output/libtesseract_profile.a
+        - cp .libs/libtesseract_training.a output/libtesseract_training_profile.a
+
+  uriparser:
+    repo:
+      dir: uriparser
+      cmd:
+        - apt-get install -y make autoconf automake wget sudo libtool cmake
+        - git clone https://github.com/uriparser/uriparser --config user.name autofuzz --config user.email autofuzz@autofuzz.com
+        - cd uriparser && git checkout 1762d5ff025fb07b4b8ccd1a8a9635009b2e9e34 && git checkout -b autofuzz_base
+        - cd uriparser && sed -i ':a;N;$!ba;s/${API_HEADER_FILES}\n *${LIBRARY_CODE_FILES}\n *)\n\n    target/${API_HEADER_FILES})\n\n    target/g' CMakeLists.txt
+        - cd uriparser && sed -i ':a;N;$!ba;s/target_link_libraries(testrunner PUBLIC/target_link_libraries(testrunner PUBLIC uriparser/g' CMakeLists.txt
+        - cd uriparser && git add CMakeLists.txt && git commit -m "Base"
+    compile:
+      org:
+        - rm -rf build && mkdir -p build
+        - cd build && cmake -DCMAKE_BUILD_TYPE=Release -DURIPARSER_BUILD_DOCS:BOOL=OFF -DBUILD_SHARED_LIBS:BOOL=OFF k#:cmake_org_flags:# ..
+        - rm -f output/build.log
+        - cd build && export COMPILE_LOG="$(realpath ../output/build.log)" && make V=1 -j8 > /dev/null 2>&1
+        - cp build/liburiparser.a output
+      fuzzer:
+        - rm -rf build && mkdir -p build
+        - cd build && cmake -DCMAKE_BUILD_TYPE=Release -DURIPARSER_BUILD_DOCS:BOOL=OFF -DBUILD_SHARED_LIBS:BOOL=OFF k#:cmake_fuzzer_flags:# ..
+        - cd build && make -j8 > /dev/null 2>&1
+        - cp build/liburiparser.a output/liburiparser_fuzzer.a
+      profile:
+        - rm -rf build && mkdir -p build
+        - cd build && cmake -DCMAKE_BUILD_TYPE=Release -DURIPARSER_BUILD_DOCS:BOOL=OFF -DBUILD_SHARED_LIBS:BOOL=OFF k#:cmake_profile_flags:# ..
+        - cd build && make -j8 > /dev/null 2>&1
+        - cp build/liburiparser.a output/liburiparser_profile.a
+
+  vowpal_wabbit:
+    repo:
+      dir: vowpal_wabbit
+      cmd:
+        - apt-get update && apt-get install -y libboost-all-dev
+        - git clone https://github.com/VowpalWabbit/vowpal_wabbit --config user.name autofuzz --config user.email autofuzz@autofuzz.com
+        - cd vowpal_wabbit && git checkout 8786469ee0b062c6c443c10b86c6c9cedd6e47b7
+        - cd vowpal_wabbit && git submodule update --init --recursive
+        - sed -i '/set(unix_static_flag/d' vowpal_wabbit/CMakeLists.txt
+        - cd vowpal_wabbit && git add CMakeLists.txt && git commit -m "Base Commit"
+    compile:
+      org:
+        - rm -rf build && mkdir -p build
+        - cd build && cmake -DSTATIC_LINK_VW_JAVA=ON -DSTATIC_LINK_VW=ON k#:cmake_org_flags:# .. > /dev/null 2>&1
+        - rm -f output/build.log
+        - cd build && export COMPILE_LOG="$(realpath ../output/build.log)" && make -j8; true
+        - cp build/vowpalwabbit/*.a output
+      fuzzer:
+        - rm -rf build && mkdir -p build
+        - cd build && cmake -DSTATIC_LINK_VW_JAVA=ON -DSTATIC_LINK_VW=ON k#:cmake_fuzzer_flags:# .. > /dev/null 2>&1
+        - cd build && make V=1 -j8 > /dev/null 2>&1; true
+        - cp build/vowpalwabbit/libvw_c_wrapper.a output/libvw_c_wrapper_fuzzer.a
+        - cp build/vowpalwabbit/liballreduce.a output/liballreduce_fuzzer.a
+        - cp build/vowpalwabbit/libvw_io.a output/libvw_io_fuzzer.a
+        - cp build/vowpalwabbit/libvw.a output/libvw_fuzzer.a
+      profile:
+        - rm -rf build && mkdir -p build
+        - cd build && cmake -DSTATIC_LINK_VW_JAVA=ON -DSTATIC_LINK_VW=ON k#:cmake_profile_flags:# .. > /dev/null 2>&1
+        - cd build && make V=1 -j8 > /dev/null 2>&1; true
+        - cp build/vowpalwabbit/libvw_c_wrapper.a output/libvw_c_wrapper_profile.a
+        - cp build/vowpalwabbit/liballreduce.a output/liballreduce_profile.a
+        - cp build/vowpalwabbit/libvw_io.a output/libvw_io_profile.a
+        - cp build/vowpalwabbit/libvw.a output/libvw_profile.a
+
+  wabt:
+    repo:
+      dir: wabt
+      cmd:
+        - apt-get update && apt-get install -y cmake libtool make python
+        - git clone --recursive https://github.com/WebAssembly/wabt --config user.name autofuzz --config user.email autofuzz@autofuzz.com
+        - cd wabt && git checkout e808dfe3fc7ec890be4ef59d4772afaa19af4847 && git checkout -b autofuzz_base
+        - cd wabt/third_party/gtest && git checkout 703bd9caab50b139428cea1aaff9974ebee5742e
+        - cd wabt/third_party/ply && git checkout d776a2ece6c12bf8f8b6a0e65b48546ac6078765
+        - cd wabt/third_party/testsuite && git checkout 01efde81028c5b0d099eb836645a2dc5e7755449
+        - cd wabt/third_party/uvwasi && git checkout 55eff19f4c7e69ec151424a037f951e0ad006ed6
+        - cd wabt/third_party/wasm-c-api && git checkout d9a80099d496b5cdba6f3fe8fc77586e0e505ddc
+        - cd wabt && git submodule init && git submodule update
+    compile:
+      org:
+        - rm -rf build && mkdir -p build
+        - cd build && cmake k#:cmake_org_flags:# ..
+        - rm -f output/build.log
+        - cd build && export COMPILE_LOG="$(realpath ../output/build.log)" && make V=1 -j8
+        - cp build/libwabt.a output/
+      fuzzer:
+        - rm -rf build && mkdir -p build
+        - cd build && cmake k#:cmake_fuzzer_flags:# ..
+        - cd build && make -j8 > /dev/null 2>&1
+        - cp build/libwabt.a output/libwabt_fuzzer.a
+      profile:
+        - rm -rf build && mkdir -p build
+        - cd build && cmake k#:cmake_profile_flags:# ..
+        - cd build && make -j8 > /dev/null 2>&1
+        - cp build/libwabt.a output/libwabt_profile.a

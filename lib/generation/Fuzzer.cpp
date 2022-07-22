@@ -1,6 +1,4 @@
 #include "ftg/generation/Fuzzer.h"
-#include "ftg/targetanalysis/FunctionReport.h"
-#include "ftg/targetanalysis/ParamReport.h"
 
 namespace ftg {
 

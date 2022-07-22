@@ -1,4 +1,5 @@
 #include "ftg/propanalysis/ArgFlowAnalyzer.h"
+#include "ftg/utils/ASTUtil.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/Support/raw_ostream.h"
 #include <list>
@@ -106,8 +107,7 @@ bool ArgFlowAnalyzer::mayThrow(const BasicBlock &BB) const {
     if (!CB)
       continue;
 
-    const auto *CV = CB->getCalledValue();
-    const auto *F = dyn_cast_or_null<Function>(CV->stripPointerCasts());
+    const auto *F = util::getCalledFunction(*CB);
     if (!F || F->getName() != "__cxa_allocate_exception")
       continue;
 

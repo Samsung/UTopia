@@ -1,15 +1,29 @@
 #ifndef FTG_PROPANALYSIS_ARGFLOW_H
 #define FTG_PROPANALYSIS_ARGFLOW_H
 
-#include "ftg/propanalysis/FieldInfo.h"
-#include "ftg/propanalysis/StructInfo.h"
-#include "ftg/targetanalysis/ParamReport.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/IR/Argument.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/InstrTypes.h"
 
 namespace ftg {
+
+enum Alloc {
+  Alloc_None = 0x000,
+  Alloc_Size = 0x001,
+  Alloc_Address = 0x010,
+  Alloc_Free = 0x100
+};
+
+enum Dir {
+  Dir_NoOp = 0x000,
+  Dir_In = 0x100,
+  Dir_Out = 0x010,
+  Dir_Unidentified = 0x001
+};
+
+using ArgAlloc = unsigned;
+using ArgDir = unsigned;
 
 enum AnalysisState {
   AnalysisState_Not_Analyzed, // default value
@@ -32,6 +46,27 @@ class ArgFlow {
   friend class PreDefinedAnalyzer;
 
 public:
+  class FieldInfo {
+  public:
+    unsigned FieldNum;
+    std::set<unsigned> SizeFields;
+    std::set<unsigned> ArrayFields;
+    std::set<llvm::Value *> Values;
+    ArgFlow &Parent; // struct result
+
+    FieldInfo(unsigned FieldNum, ArgFlow &Parent);
+    bool hasLenRelatedField();
+  };
+
+  class StructInfo {
+  public:
+    ArgDir FieldsDirection = Dir_NoOp;
+    ArgAlloc FieldsAllocation = Alloc_None;
+    std::map<unsigned, std::shared_ptr<ArgFlow>> FieldResults;
+    llvm::StructType *StructType;
+    StructInfo(llvm::StructType *ST);
+  };
+
   unsigned LoopDepth = 0;
   bool LoopExit = false;
 

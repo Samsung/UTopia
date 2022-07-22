@@ -1,9 +1,5 @@
 project(tests)
 
-if (DEFINED INCLUDE_NOT_FUZZABLE_TC)
-   add_compile_options("-DINCLUDE_NOT_FUZZABLE_TC")
-endif()
-
 include_directories(
   ${CMAKE_SOURCE_DIR}/tests
 )
@@ -32,6 +28,7 @@ add_executable(tests
     generation/TestUTModify.cpp
 
     inputanalysis/TestDefMapGenerator.cpp
+    inputanalysis/TestInputAnalysisReport.cpp
 
     utils/TestAssignUtil.cpp
     utils/TestStringUtil.cpp
@@ -39,7 +36,6 @@ add_executable(tests
 
     apiloader/TestAPILoader.cpp
 
-    struct/TestStruct.cpp
     sourceanalysis/TestSourceAnalyzerImpl.cpp
     sourceloader/TestProjectEntry.cpp
     sourceloader/TestCompileDB.cpp
@@ -61,10 +57,12 @@ add_executable(tests
     tcanalysis/TestTCTCallWriter.cpp
     tcanalysis/TestTCAnalyzerFactory.cpp
 
+    rootdefanalysis/TestRDSpace.cpp
     rootdefanalysis/TestRootDef.cpp
     rootdefanalysis/TestField.cpp
     rootdefanalysis/TestClass.cpp
     type/TestType.cpp
+    type/TestArrayInfo.cpp
     generation/TestFuzzStatus.cpp
     generation/TestProtobufDescriptor.cpp
     generation/TestProtobufMutator.cpp)

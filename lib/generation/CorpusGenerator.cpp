@@ -28,6 +28,7 @@ std::string CorpusGenerator::generate(const Definition &Def) const {
 
   std::string Result;
 
+  assert(Def.DataType && "Unexpected Program State");
   auto CorpusValue = generate(Def.Value, Def.DataType.get());
   if (CorpusValue.empty())
     return Result;
@@ -83,16 +84,11 @@ std::string CorpusGenerator::generate(const ASTValueData &Data,
 
   if (Data.Type == ASTValueData::VType_STRING) {
     Result = "\"" + Result + "\"";
-  } else if (auto *ET =
-                 const_cast<EnumType *>(llvm::dyn_cast_or_null<EnumType>(T))) {
-    if (auto *GD = ET->getGlobalDef()) {
+  } else if (T->getKind() == Type::TypeID_Enum) {
+    if (auto *GD = T->getGlobalDef()) {
       auto &Elems = GD->getElements();
       for (unsigned S = 0; S < Elems.size(); ++S) {
-        if (!Elems[S]) {
-          continue;
-        }
-
-        if (std::to_string(Elems[S]->getType()) == Result) {
+        if (std::to_string(Elems[S].getValue()) == Result) {
           Result = std::to_string(S);
           break;
         }
@@ -106,17 +102,16 @@ std::string CorpusGenerator::generate(const ASTValueData &Data,
 bool CorpusGenerator::isByteType(const Type &T) const {
   const auto *PT = &T;
   do {
-    PT = &(PT->getPointeeType());
-  } while (PT != &(PT->getPointeeType()));
+    PT = PT->getPointeeType();
+  } while (PT && PT != PT->getPointeeType());
 
-  if (&T == PT)
+  if (!PT || &T == PT)
     return false;
 
-  auto *IT = llvm::dyn_cast_or_null<IntegerType>(PT);
-  if (!IT)
+  if (!PT->isIntegerType())
     return false;
 
-  return IT->isAnyCharacter();
+  return PT->isAnyCharacter();
 }
 
 } // namespace ftg

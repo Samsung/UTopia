@@ -6,169 +6,202 @@ using namespace llvm;
 
 namespace ftg {
 
+std::shared_ptr<Type> Type::createCharPointerType() {
+  auto CharType = std::make_shared<Type>(Type::TypeID_Integer);
+  if (!CharType)
+    return nullptr;
+  CharType->setAnyCharacter(true);
+  CharType->setASTTypeName("char");
+  CharType->setTypeSize(1);
+
+  auto CharPtrType = std::make_shared<Type>(Type::TypeID_Pointer);
+  CharPtrType->setPointeeType(CharType);
+  CharPtrType->setASTTypeName("char *");
+  CharPtrType->setPtrKind(Type::PtrKind_String);
+  return CharPtrType;
+}
+
 std::shared_ptr<Type> Type::createType(const clang::QualType &T,
                                        const clang::ASTContext &ASTCtx,
-                                       TypedElem *ParentD, Type *ParentT,
                                        llvm::Argument *A, TargetLib *TL) {
-  std::shared_ptr<Type> Result;
+  std::shared_ptr<Type> Result = nullptr;
   if (util::isPointerType(T)) {
-    Result = PointerType::createType(T, ASTCtx, ParentD, A, TL);
-  } else if (util::isDefinedType(T)) {
-    Result = DefinedType::createType(T, TL);
-  } else if (T->isVoidType()) {
-    Result = std::make_shared<VoidType>();
+    Result = Type::createPointerType(T, ASTCtx, A, TL);
+  } else if (T->isEnumeralType()) {
+    Result = Type::createEnumType(T, TL);
   } else if (util::isPrimitiveType(T)) {
-    Result = PrimitiveType::createType(T);
-    // TODO: Move to PrimitiveType member as it is unnecessary in other classes.
-    // Only TypeSize of PrimitiveTypes is used when generating fuzzers.
-    // Sometimes segfault occurs when getting size of unknown types.
-    Result->setTypeSize(ASTCtx.getTypeSizeInChars(T).getQuantity());
-  } else {
-    return std::make_shared<Type>(Type::Unknown);
+    Result = Type::createPrimitiveType(T, ASTCtx);
   }
-  Result->setParent(ParentD);
-  Result->setParentType(ParentT);
+  if (!Result)
+    return nullptr;
 
-  auto ASTTypeName = T.getAsString();
-  if (auto *ET = T->getAs<clang::ElaboratedType>())
-    ASTTypeName = ET->desugar().getAsString();
+  // Follow policy of target source but set Bool 1 to use 'bool'
+  auto PP = ASTCtx.getPrintingPolicy();
+  PP.Bool = 1;
+  auto ASTTypeName = T.getAsString(PP);
+  if (const auto *ET = T->getAs<clang::ElaboratedType>())
+    ASTTypeName = ET->desugar().getAsString(PP);
   Result->setASTTypeName(ASTTypeName);
   Result->setNameSpace("");
   return Result;
 }
 
-void Type::updateArrayInfoFromAST(Type &T, const clang::QualType &QT) {
-  PointerType *CurType = llvm::dyn_cast<PointerType>(&T);
-  clang::QualType CurQT = QT;
-  while (CurType) {
-    if (const auto *CurArrType = util::getAsArrayType(CurQT)) {
-      CurType->setPtrKind(PointerType::PtrKind_Array);
-
-      auto ArrInfo = std::make_unique<ArrayInfo>();
-      if (auto *CAT = dyn_cast<clang::ConstantArrayType>(CurArrType)) {
-        ArrInfo->setLengthType(ArrayInfo::FIXED);
-        ArrInfo->setMaxLength(CAT->getSize().getZExtValue());
-      } else if (isa<clang::VariableArrayType>(CurArrType)) {
-        ArrInfo->setLengthType(ArrayInfo::VARIABLE);
-      } else if (CurArrType->isIncompleteArrayType()) {
-        ArrInfo->setIncomplete(true);
-      }
-      CurType->setArrayInfo(std::move(ArrInfo));
-    }
-
-    auto PointeeQT = util::getPointeeTy(CurQT);
-    if (PointeeQT->isAnyCharacterType()) {
-      // FIXME: It is workaround to determine char pointer type as string.
-      CurType->setPtrKind(PointerType::PtrKind_String);
-      if (!CurType->getArrayInfo())
-        CurType->setArrayInfo(std::make_unique<ArrayInfo>());
-    }
-
-    CurQT = PointeeQT;
-    CurType =
-        llvm::dyn_cast_or_null<PointerType>(CurType->getSettablePointeeType());
+std::shared_ptr<Type> Type::createPrimitiveType(const clang::QualType &T,
+                                                const clang::ASTContext &Ctx) {
+  // Only TypeSize of PrimitiveTypes is used when generating fuzzers.
+  // Sometimes segfault occurs when getting size of unknown types.
+  if (T->isIntegerType()) {
+    auto Result = std::make_shared<Type>(Type::TypeID_Integer);
+    Result->setUnsigned(T->isUnsignedIntegerType());
+    Result->setBoolean(T->isBooleanType());
+    Result->setAnyCharacter(T->isAnyCharacterType());
+    Result->setTypeSize(Ctx.getTypeSizeInChars(T).getQuantity());
+    return Result;
+  } else if (T->isFloatingType()) {
+    auto Result = std::make_shared<Type>(Type::TypeID_Float);
+    Result->setTypeSize(Ctx.getTypeSizeInChars(T).getQuantity());
+    return Result;
   }
+  return nullptr;
 }
 
-Type::Type(Type::TypeID ID) : ID(ID) {}
+std::shared_ptr<Type> Type::createEnumType(const clang::QualType &T,
+                                           TargetLib *TL) {
+  if (T->isEnumeralType()) {
+    auto Result = std::make_shared<Type>(Type::TypeID_Enum);
+    Result->setUnsigned(T->isUnsignedIntegerType());
+    Result->setBoolean(T->isBooleanType());
 
-std::string Type::getASTTypeName() const {
-  std::string ret = ASTTypeName;
-  if (auto V = llvm::dyn_cast<IntegerType>(&this->getRealType())) {
-    if (V->isBoolean() && ret.find("_Bool") != std::string::npos) {
-      ret.replace(ret.find("_Bool"), 5, "bool");
-    }
+    clang::TagDecl *TD = T->getAsTagDecl();
+    // NOTE: Below condition is to handle when tagDecl is nullptr.
+    //       Previous code does not define behavior of above case, thus
+    //       conservative handling is inserted.
+    if (!TD)
+      return nullptr;
+    auto EnumName = TD->getQualifiedNameAsString();
+    if (auto *TypedefDecl = TD->getTypedefNameForAnonDecl())
+      EnumName = TypedefDecl->getQualifiedNameAsString();
+    Result->setTypeName(EnumName);
+    if (TL)
+      Result->setGlobalDef(TL->getEnum(EnumName));
+    return Result;
   }
+  return nullptr;
+}
 
-  // Temporary Fix.
-  if (ret == "std::vector::size_type") {
-    ret = "size_t";
-  }
-  return ret;
+std::shared_ptr<Type> Type::createPointerType(const clang::QualType &T,
+                                              const clang::ASTContext &ASTCtx,
+                                              llvm::Argument *A,
+                                              TargetLib *TL) {
+  auto Result = std::make_shared<Type>(Type::TypeID_Pointer);
+  if (!Result)
+    return nullptr;
+
+  Result->setPtrKind(Type::PtrKind::PtrKind_Normal);
+  clang::QualType PointeeT = util::getPointeeTy(T);
+  Result->setPointeeType(Type::createType(PointeeT, ASTCtx, A, TL));
+  Result->updateArrayInfoFromAST(T);
+  return Result;
+}
+
+void Type::updateArrayInfoFromAST(const clang::QualType &QT) {
+  assert(PtrInfo && "Unexpected Program State");
+  PtrInfo->updateArrayInfoFromAST(this, QT);
+}
+
+Type::Type(Type::TypeID ID) : ID(ID) {
+  if (ID == TypeID_Pointer)
+    this->PtrInfo =
+        std::make_shared<PointerInfo>(Type::PtrKind::PtrKind_Normal);
 }
 
 Type::TypeID Type::getKind() const { return ID; }
 
-std::string Type::getNameSpace() const { return NameSpace; }
+bool Type::isPrimitiveType() const { return isIntegerType() || isFloatType(); }
 
-const TypedElem *Type::getParent() const { return Parent; }
+bool Type::isIntegerType() const { return ID == Type::TypeID_Integer; }
 
-const Type *Type::getParentType() const { return ParentType; }
+bool Type::isFloatType() const { return ID == Type::TypeID_Float; }
 
-const Type &Type::getPointeeType() const {
-  if (const auto *PT = dyn_cast<PointerType>(this)) {
-    auto *PointeeType = PT->getPointeeType();
-    assert(PointeeType && "Unexpected Program State");
-    return *PointeeType;
-  }
-  return *this;
+bool Type::isEnumType() const { return ID == Type::TypeID_Enum; }
+
+bool Type::isPointerType() const { return ID == Type::TypeID_Pointer; }
+
+bool Type::isNormalPtr() const {
+  return PtrInfo && PtrInfo->getPtrKind() == Type::PtrKind_Normal;
 }
-
-const Type &Type::getRealType(bool ArrayElement) const {
-  // TODO: cover multi-dimensional array
-  const Type *Result = this;
-  while (const auto *CurType = llvm::dyn_cast<PointerType>(Result)) {
-    if (!Result->isSinglePtr()) {
-      if (ArrayElement && Result->isArrayPtr()) {
-        Result = CurType->getPointeeType();
-      } else {
-        break;
-      }
-    }
-    Result = CurType->getPointeeType();
-  }
-  assert(Result && "Unexpected Program State");
-  return *Result;
-}
-
-Type *Type::getSettablePointeeType() {
-  auto *PT = dyn_cast<PointerType>(this);
-  if (!PT)
-    return nullptr;
-
-  return const_cast<Type *>(PT->getPointeeType());
-}
-
-size_t Type::getTypeSize() const { return TypeSize; }
 
 bool Type::isArrayPtr() const {
-  if (auto V = dyn_cast<PointerType>(this)) {
-    return V->getPtrKind() == PointerType::PtrKind_Array;
-  }
-  return false;
+  return PtrInfo && PtrInfo->getPtrKind() == Type::PtrKind_Array;
+}
+
+bool Type::isStringType() const {
+  return PtrInfo && PtrInfo->getPtrKind() == Type::PtrKind_String;
 }
 
 bool Type::isFixedLengthArrayPtr() const {
-  if (auto V = dyn_cast<PointerType>(this)) {
-    if (const auto *ArrInfo = V->getArrayInfo()) {
+  if (this->isPointerType() && PtrInfo) {
+    if (const auto *ArrInfo = this->getArrayInfo()) {
       return ArrInfo->getLengthType() == ArrayInfo::FIXED;
     }
   }
   return false;
 }
 
-bool Type::isSinglePtr() const {
-  if (auto V = dyn_cast<PointerType>(this)) {
-    return V->getPtrKind() == PointerType::PtrKind_SinglePtr;
+std::string Type::getASTTypeName() const {
+  std::string Ret = ASTTypeName;
+
+  // Temporary Fix.
+  if (Ret == "std::vector::size_type") {
+    Ret = "size_t";
   }
-  return false;
+  return Ret;
 }
 
-bool Type::isStringType() const {
-  if (auto V = dyn_cast<PointerType>(this)) {
-    return V->getPtrKind() == PointerType::PtrKind_String;
-  }
-  return false;
-}
+std::string Type::getNameSpace() const { return NameSpace; }
 
-bool Type::isVariableLengthArrayPtr() const {
-  if (auto V = dyn_cast<PointerType>(this)) {
-    if (const auto *ArrInfo = V->getArrayInfo()) {
-      return ArrInfo->getLengthType() == ArrayInfo::VARIABLE;
+const Type *Type::getRealType(bool ArrayElement) const {
+  // TODO: cover multi-dimensional array
+  const Type *Result = this;
+  while (Result && Result->isPointerType()) {
+    if (Result->isNormalPtr()) {
+      Result = Result->getPointeeType();
+      continue;
+    }
+
+    if (ArrayElement && Result->isArrayPtr()) {
+      Result = Result->getPointeeType();
+    } else {
+      break;
     }
   }
-  return false;
+  return Result;
 }
+
+size_t Type::getTypeSize() const { return TypeSize; }
+
+std::string Type::getTypeName() const { return TypeName; }
+
+const Enum *Type::getGlobalDef() const { return GlobalDef; }
+
+const ArrayInfo *Type::getArrayInfo() const {
+  assert(PtrInfo && "Unexpected Program State");
+  return PtrInfo->getArrayInfo();
+}
+
+const Type *Type::getPointeeType() const {
+  if (isPointerType()) {
+    assert(PtrInfo && "Unexpected Program State");
+    return PtrInfo->getPointeeType();
+  }
+  return this;
+}
+
+bool Type::isBoolean() const { return Boolean; }
+
+bool Type::isUnsigned() const { return Unsigned; }
+
+bool Type::isAnyCharacter() const { return AnyCharacter; }
 
 void Type::setASTTypeName(std::string ASTTypeName) {
   this->ASTTypeName = ASTTypeName;
@@ -176,82 +209,34 @@ void Type::setASTTypeName(std::string ASTTypeName) {
 
 void Type::setNameSpace(std::string NameSpace) { this->NameSpace = NameSpace; }
 
-void Type::setParent(TypedElem *Parent) { this->Parent = Parent; }
-
-void Type::setParentType(Type *ParentType) { this->ParentType = ParentType; }
-
-void Type::setTypeSize(size_t TypeSize) { this->TypeSize = TypeSize; }
-
-bool VoidType::classof(const Type *T) {
-  if (!T)
-    return false;
-
-  return T->getKind() == Type::Void;
-}
-
-VoidType::VoidType() : Type(Type::Void) {}
-
-bool PrimitiveType::classof(const Type *T) {
-  if (!T)
-    return false;
-
-  return T->getKind() == Type::Primitive;
-}
-
-std::shared_ptr<Type> PrimitiveType::createType(const clang::QualType &T) {
-  if (T->isIntegerType()) {
-    auto Result = std::make_shared<IntegerType>();
-    Result->setUnsigned(T->isUnsignedIntegerType());
-    Result->setBoolean(T->isBooleanType());
-    Result->setAnyCharacter(T->isAnyCharacterType());
-    return Result;
-  } else if (T->isFloatingType()) {
-    return std::make_shared<FloatType>();
-  }
-  // if(T->isBuiltinType())
-  return std::make_shared<Type>(Type::Unknown);
-}
-
-PrimitiveType::PrimitiveType(PrimitiveType::TypeID ID)
-    : Type(Type::Primitive), PrimitiveID(ID) {}
-
-PrimitiveType::TypeID PrimitiveType::getKind() const { return PrimitiveID; }
-
-bool IntegerType::classof(const Type *T) {
-  auto *PT = llvm::dyn_cast_or_null<PrimitiveType>(T);
-  if (!PT)
-    return false;
-
-  return (T->getKind() == Type::Primitive) &&
-         (PT->getKind() == PrimitiveType::Integer);
-}
-
-IntegerType::IntegerType() : PrimitiveType(PrimitiveType::Integer) {}
-
-bool IntegerType::isAnyCharacter() const { return AnyCharacter; }
-
-bool IntegerType::isBoolean() const { return Boolean; }
-
-bool IntegerType::isUnsigned() const { return Unsigned; }
-
-void IntegerType::setAnyCharacter(bool AnyCharacter) {
+void Type::setAnyCharacter(bool AnyCharacter) {
   this->AnyCharacter = AnyCharacter;
 }
 
-void IntegerType::setBoolean(bool Boolean) { this->Boolean = Boolean; }
+void Type::setTypeSize(size_t TypeSize) { this->TypeSize = TypeSize; }
 
-void IntegerType::setUnsigned(bool Unsigned) { this->Unsigned = Unsigned; }
+void Type::setTypeName(std::string TypeName) { this->TypeName = TypeName; }
 
-bool FloatType::classof(const Type *T) {
-  auto *FT = llvm::dyn_cast_or_null<PrimitiveType>(T);
-  if (!FT)
-    return false;
+void Type::setBoolean(bool Boolean) { this->Boolean = Boolean; }
 
-  return (T->getKind() == Type::Primitive) &&
-         (FT->getKind() == PrimitiveType::Float);
+void Type::setGlobalDef(Enum *GlobalDef) { this->GlobalDef = GlobalDef; }
+
+void Type::setUnsigned(bool Unsigned) { this->Unsigned = Unsigned; }
+
+void Type::setArrayInfo(std::shared_ptr<ArrayInfo> ArrInfo) {
+  assert(PtrInfo && "Unexpected Program State");
+  this->PtrInfo->setArrayInfo(ArrInfo);
 }
 
-FloatType::FloatType() : PrimitiveType(PrimitiveType::Float) {}
+void Type::setPointeeType(std::shared_ptr<Type> PointeeType) {
+  assert(PtrInfo && "Unexpected Program State");
+  this->PtrInfo->setPointeeType(PointeeType);
+}
+
+void Type::setPtrKind(Type::PtrKind Kind) {
+  assert(PtrInfo && "Unexpected Program State");
+  this->PtrInfo->setPtrKind(Kind);
+}
 
 ArrayInfo::LengthType ArrayInfo::getLengthType() const { return LengthTy; }
 
@@ -269,191 +254,85 @@ void ArrayInfo::setLengthType(LengthType LengthTy) {
 
 void ArrayInfo::setMaxLength(size_t MaxLength) { this->MaxLength = MaxLength; }
 
-bool PointerType::classof(const Type *T) {
-  if (!T)
-    return false;
+Type::PointerInfo::PointerInfo(PtrKind Kind) : Kind(Kind) {}
 
-  return T->getKind() == Type::Pointer;
+void Type::PointerInfo::updateArrayInfoFromAST(Type *BaseType,
+                                               const clang::QualType &QT) {
+  auto *CurType = BaseType;
+  clang::QualType CurQT = QT;
+  while (CurType && CurType->isPointerType()) {
+    if (const auto *CurArrType = util::getAsArrayType(CurQT)) {
+      CurType->setPtrKind(PtrKind::PtrKind_Array);
+
+      auto ArrInfo = std::make_unique<ArrayInfo>();
+      if (const auto *CAT = dyn_cast<clang::ConstantArrayType>(CurArrType)) {
+        ArrInfo->setLengthType(ArrayInfo::FIXED);
+        ArrInfo->setMaxLength(CAT->getSize().getZExtValue());
+      } else if (isa<clang::VariableArrayType>(CurArrType)) {
+        ArrInfo->setLengthType(ArrayInfo::VARIABLE);
+      } else if (CurArrType->isIncompleteArrayType()) {
+        ArrInfo->setIncomplete(true);
+      }
+      CurType->setArrayInfo(std::move(ArrInfo));
+    }
+
+    auto PointeeQT = util::getPointeeTy(CurQT);
+    if (PointeeQT->isCharType()) {
+      // FIXME: It is workaround to determine char pointer type as string.
+      CurType->setPtrKind(PtrKind::PtrKind_String);
+      if (!CurType->getArrayInfo()) {
+        CurType->setArrayInfo(std::make_unique<ArrayInfo>());
+      }
+    }
+
+    CurQT = PointeeQT;
+    CurType = const_cast<Type *>(CurType->getPointeeType());
+  }
 }
 
-std::shared_ptr<Type> PointerType::createType(const clang::QualType &T,
-                                              const clang::ASTContext &ASTCtx,
-                                              TypedElem *ParentD,
-                                              llvm::Argument *A,
-                                              TargetLib *TL) {
-  auto Result = std::make_shared<PointerType>();
-  if (!Result)
-    return nullptr;
-
-  clang::QualType PointeeT = util::getPointeeTy(T);
-  Result->setPointeeType(
-      Type::createType(PointeeT, ASTCtx, ParentD, Result.get(), A, TL));
-  Result->setPtrToVal(llvm::isa<PrimitiveType>(Result->getPointeeType()));
-  return Result;
-}
-
-PointerType::PointerType() : Type(Type::Pointer) {}
-
-const ArrayInfo *PointerType::getArrayInfo() const { return ArrInfo.get(); }
-
-const Type *PointerType::getPointeeType() const { return PointeeType.get(); }
-
-PointerType::PtrKind PointerType::getPtrKind() const { return Kind; }
-
-bool PointerType::isPtrToVal() const { return PtrToVal; }
-
-void PointerType::setArrayInfo(std::shared_ptr<ArrayInfo> ArrInfo) {
-  this->ArrInfo = ArrInfo;
-}
-
-void PointerType::setPointeeType(std::shared_ptr<Type> PointeeType) {
+void Type::PointerInfo::setPointeeType(std::shared_ptr<Type> PointeeType) {
   this->PointeeType = PointeeType;
 }
 
-void PointerType::setPtrKind(PtrKind Kind) { this->Kind = Kind; }
+Type::PtrKind Type::PointerInfo::getPtrKind() const { return Kind; }
 
-void PointerType::setPtrToVal(bool PtrToVal) { this->PtrToVal = PtrToVal; }
+void Type::PointerInfo::setPtrKind(PtrKind Kind) { this->Kind = Kind; }
 
-bool DefinedType::classof(const Type *T) {
-  if (!T)
-    return false;
-
-  return T->getKind() == Type::Defined;
+const Type *Type::PointerInfo::getPointeeType() const {
+  return PointeeType.get();
 }
 
-std::shared_ptr<Type> DefinedType::createType(const clang::QualType &T,
-                                              TargetLib *TL) {
-  if (T->isStructureType()) {
-    if (util::isCStyleStruct(T)) {
-      auto Result = std::make_shared<StructType>();
-      clang::TagDecl *TD = T->getAsTagDecl();
-      if (!TD)
-        return std::make_shared<Type>(Type::Unknown);
+const ArrayInfo *Type::PointerInfo::getArrayInfo() const {
+  return ArrInfo.get();
+}
 
-      Result->setTypeName(util::getTypeName(*TD));
-      Result->setTyped(TD->getTypedefNameForAnonDecl() != nullptr);
-      if (TL)
-        Result->setGlobalDef(TL->getStruct(Result->getTypeName()));
-      return std::move(Result);
-    } else {
-      return std::make_shared<ClassType>();
-    }
-  } else if (T->isUnionType()) {
-    return std::make_shared<UnionType>();
-  } else if (T->isClassType()) {
-    return std::make_shared<ClassType>();
-  } else if (T->isFunctionType()) {
-    return std::make_shared<FunctionType>();
-  } else if (T->isEnumeralType()) {
-    auto Result = std::make_shared<EnumType>();
-    Result->setUnsigned(T->isUnsignedIntegerType());
-    Result->setBoolean(T->isBooleanType());
+void Type::PointerInfo::setArrayInfo(std::shared_ptr<ArrayInfo> ArrInfo) {
+  this->ArrInfo = ArrInfo;
+}
 
-    clang::TagDecl *TD = T->getAsTagDecl();
-    // NOTE: Below condition is to handl when tagDecl is nullptr.
-    //       Previous code does not define behavior of above case, thus
-    //       conservative handling is inserted.
-    if (!TD)
-      return std::make_shared<Type>(Type::Unknown);
+Json::Value ArrayInfo::toJson() const {
+  Json::Value Json;
 
-    Result->setTypeName(TD->getQualifiedNameAsString());
-    Result->setTyped(TD->getTypedefNameForAnonDecl() != nullptr);
-    if (TL)
-      Result->setGlobalDef(TL->getEnum(Result->getTypeName()));
-    return Result;
+  Json["LengthType"] = LengthTy;
+  Json["MaxLength"] = MaxLength;
+  Json["Incomplete"] = Incomplete;
+
+  return Json;
+}
+
+bool ArrayInfo::fromJson(Json::Value Json) {
+  try {
+    if (Json.isNull() || Json.empty() || !Json["LengthType"].isInt() ||
+        !Json["MaxLength"].isUInt64() || !Json["Incomplete"].isBool())
+      throw Json::LogicError("Abnormal Json Value");
+    LengthTy = static_cast<LengthType>(Json["LengthType"].asInt());
+    MaxLength = Json["MaxLength"].asUInt64();
+    Incomplete = Json["Incomplete"].asBool();
+  } catch (Json::LogicError &E) {
+    llvm::outs() << "[E] " << E.what() << "\n";
+    return false;
   }
-  return std::make_shared<Type>(Type::Unknown);
+  return true;
 }
-
-DefinedType::DefinedType(TypeID ID) : Type(Type::Defined), DefinedID(ID) {}
-
-DefinedType::TypeID DefinedType::getKind() const { return DefinedID; }
-
-std::string DefinedType::getTypeName() const { return TypeName; }
-
-bool DefinedType::isTyped() const { return Typed; }
-
-void DefinedType::setTyped(bool Typed) { this->Typed = Typed; }
-
-void DefinedType::setTypeName(std::string TypeName) {
-  this->TypeName = TypeName;
-}
-
-bool StructType::classof(const Type *T) {
-  const auto *DT = llvm::dyn_cast_or_null<DefinedType>(T);
-  if (!DT)
-    return false;
-
-  return (T->getKind() == Type::Defined) &&
-         (DT->getKind() == DefinedType::TypeID_Struct);
-}
-
-StructType::StructType() : DefinedType(DefinedType::TypeID_Struct) {}
-
-const Struct *StructType::getGlobalDef() const { return GlobalDef; }
-
-void StructType::setGlobalDef(Struct *GlobalDef) {
-  this->GlobalDef = GlobalDef;
-}
-
-bool UnionType::classof(const Type *T) {
-  const auto *DT = llvm::dyn_cast_or_null<DefinedType>(T);
-  if (!DT)
-    return false;
-
-  return (T->getKind() == Type::Defined) &&
-         (DT->getKind() == DefinedType::TypeID_Union);
-}
-
-UnionType::UnionType() : DefinedType(DefinedType::TypeID_Union) {}
-
-bool ClassType::classof(const Type *T) {
-  const auto *DT = llvm::dyn_cast_or_null<DefinedType>(T);
-  if (!DT)
-    return false;
-
-  return (T->getKind() == Type::Defined) &&
-         (DT->getKind() == DefinedType::TypeID_Class);
-}
-
-ClassType::ClassType() : DefinedType(DefinedType::TypeID_Class) {}
-
-bool ClassType::isStdStringType() const {
-  return !util::regex(ASTTypeName, "std::.*string").empty();
-}
-
-bool FunctionType::classof(const Type *T) {
-  const auto *DT = llvm::dyn_cast_or_null<DefinedType>(T);
-  if (!DT)
-    return false;
-
-  return (T->getKind() == Type::Defined) &&
-         (DT->getKind() == DefinedType::TypeID_Function);
-}
-
-FunctionType::FunctionType() : DefinedType(DefinedType::TypeID_Function) {}
-
-bool EnumType::classof(const Type *T) {
-  const auto *DT = llvm::dyn_cast_or_null<DefinedType>(T);
-  if (!DT)
-    return false;
-
-  return (T->getKind() == Type::Defined) &&
-         (DT->getKind() == DefinedType::TypeID_Enum);
-}
-
-EnumType::EnumType() : DefinedType(DefinedType::TypeID_Enum) {}
-
-const Enum *EnumType::getGlobalDef() const { return GlobalDef; }
-
-bool EnumType::isBoolean() const { return Boolean; }
-
-bool EnumType::isUnsigned() const { return Unsigned; }
-
-void EnumType::setBoolean(bool Boolean) { this->Boolean = Boolean; }
-
-void EnumType::setGlobalDef(Enum *GlobalDef) { this->GlobalDef = GlobalDef; }
-
-void EnumType::setUnsigned(bool Unsigned) { this->Unsigned = Unsigned; }
 
 } // namespace ftg

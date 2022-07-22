@@ -1,10 +1,10 @@
 syntax = "proto3";
 
 message TestPrimitiveP {
-  int32 int_var = 1;
+  sint32 int_var = 1;
   float float_var = 2;
   bool bool_var = 3;
   uint32 unsigned_int_var = 4;
-  int64 long_var = 5;
+  sint64 long_var = 5;
 }
 

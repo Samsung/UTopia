@@ -8,7 +8,7 @@ namespace ftg {
 class RDCache {
 public:
   RDCache() = default;
-  void cache(RDNode Key, std::set<RDNode> Value);
+  void cache(const RDNode &Key, std::set<RDNode> Value);
 
   bool has(const RDNode &Key) const;
   std::set<RDNode> get(const RDNode &Key) const;

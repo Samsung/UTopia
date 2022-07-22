@@ -1,5 +1,6 @@
 #include "ftg/tcanalysis/APICall.h"
 #include "ftg/astirmap/IRNode.h"
+#include "ftg/utils/ASTUtil.h"
 
 using namespace ftg;
 using namespace llvm;
@@ -17,8 +18,7 @@ Json::Value APIArgument::toJson() const {
 
 APICall::APICall(llvm::CallBase &CB, std::vector<APIArgument> &Args)
     : Args(Args) {
-  auto *F =
-      dyn_cast_or_null<Function>(CB.getCalledValue()->stripPointerCasts());
+  auto *F = const_cast<Function *>(util::getCalledFunction(CB));
   assert(F && "Unexpected Program State");
 
   Name = std::string(F->getName());

@@ -1,4 +1,5 @@
 #include "RDSpace.h"
+#include "ftg/utils/ASTUtil.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/Passes/PassBuilder.h"
 #include <queue>
@@ -169,7 +170,7 @@ std::set<Function *> RDSpace::buildCallerMap(Function &F) {
       if (!CB)
         continue;
 
-      Function *CF = CB->getCalledFunction();
+      auto *CF = const_cast<Function *>(util::getCalledFunction(*CB));
       if (!CF)
         continue;
 

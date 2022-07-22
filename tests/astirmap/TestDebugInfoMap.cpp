@@ -203,8 +203,9 @@ TEST_F(TestDebugInfoMap, getDef_AssignP) {
                            "class CLS {\n"
                            "};\n"
                            "void test_assign() {\n"
-                           "  int Var;\n"
-                           "  Var = 1;\n"
+                           "  int Var1, Var2;\n"
+                           "  Var1 = 1;\n"
+                           "  Var1 = Var2 = 2;\n"
                            "}\n"
                            "}";
   SourceFileManager SFM;
@@ -213,9 +214,17 @@ TEST_F(TestDebugInfoMap, getDef_AssignP) {
 
   ASTDefNode *ADN;
 
-  ADN = getASTDefNode("test_assign", 0, 2, -1);
+  ADN = getASTDefNode("test_assign", 0, 4, -1);
   ASSERT_TRUE(ADN);
-  ASSERT_TRUE(verifyLocation(*ADN, 6, 7, 6, 3, 3, 6, 9, 1));
+  ASSERT_TRUE(verifyLocation(*ADN, 6, 8, 6, 3, 4, 6, 10, 1));
+
+  ADN = getASTDefNode("test_assign", 0, 5, -1);
+  ASSERT_TRUE(ADN);
+  ASSERT_TRUE(verifyLocation(*ADN, 7, 15, 7, 10, 4, 7, 17, 1));
+
+  ADN = getASTDefNode("test_assign", 0, 6, -1);
+  ASSERT_TRUE(ADN);
+  ASSERT_TRUE(verifyLocation(*ADN, 7, 8, 7, 3, 4, 7, 17, 1));
 }
 
 TEST_F(TestDebugInfoMap, getDef_ConstP) {
@@ -338,11 +347,19 @@ TEST_F(TestDebugInfoMap, getDef_MacroN) {
   const std::string Code = "extern \"C\" {\n"
                            "#define MACRO_1 API_2(API_2(10))\n"
                            "#define MACRO_2(Var1, Var2) Var1; Var2\n"
+                           "#define MACRO_3(Var) \\\n"
+                           "do {\\\n"
+                           "  const int Var1 = 0;\\\n"
+                           "  const int Var2 = 1;\\\n"
+                           "  Var(Var1, Var2);\\\n"
+                           "} while(0);\n"
                            "void API_1();\n"
                            "int API_2(int);\n"
+                           "void API_3(int, int);\n"
                            "void test_macro() {\n"
                            "  MACRO_1;\n"
                            "  MACRO_2(API_1(), API_1());\n"
+                           "  MACRO_3(API_3);\n"
                            "}}";
   SourceFileManager SFM;
   SFM.createFile("test.cpp", Code);
@@ -360,6 +377,13 @@ TEST_F(TestDebugInfoMap, getDef_MacroN) {
   // unique to map IR and AST.
   ASSERT_FALSE(getASTDefNode("test_macro", 0, 2, -1));
   ASSERT_FALSE(getASTDefNode("test_macro", 0, 3, -1));
+
+  // Note:
+  // If arguments are constant variable and all of them are from macro body
+  // expansion. ASTDefNode should not be identified because there is no way
+  // to distinguish tokens in the macro.
+  ASSERT_FALSE(getASTDefNode("test_macro", 1, 4, 0));
+  ASSERT_FALSE(getASTDefNode("test_macro", 1, 4, 1));
 }
 
 TEST_F(TestDebugInfoMap, getDef_TemplateTypeN) {
@@ -562,4 +586,49 @@ TEST_F(TestDebugInfoMap, hasDiffNumArgsN) {
       AccessHelper->getInstruction("test_callnotfound", 0, 3));
   ASSERT_TRUE(CB);
   ASSERT_THROW(Map->hasDiffNumArgs(*CB), std::runtime_error);
+}
+
+TEST_F(TestDebugInfoMap, ConstructorWithImplicitValueP) {
+  const std::string Code = "extern \"C\" {"
+                           "class A {"
+                           "  public:"
+                           "    A() : cnt() {}"
+                           "  private:"
+                           "    int cnt;"
+                           "};"
+                           "}";
+  SourceFileManager SFM;
+  SFM.createFile("test.cpp", Code);
+  // Check whether implicit initializer cnt() is properly ignored.
+  // Creating DebugInfoMap fails if it is not ignored.
+  ASSERT_TRUE(load(SFM.getBaseDirPath(), SFM.getFilePath("test.cpp")));
+}
+
+TEST_F(TestDebugInfoMap, ArgumentsInMacroN) {
+  std::string Code = "extern \"C\" {\n"
+                     "#define MACRO 0, 0\n"
+                     "void API(int, int, int, int);\n"
+                     "void test() {\n"
+                     "  API(0, MACRO, 0);"
+                     "}\n"
+                     "}";
+  SourceFileManager SFM;
+  SFM.createFile("test.cpp", Code);
+  ASSERT_TRUE(load(SFM.getBaseDirPath(), SFM.getFilePath("test.cpp")));
+  llvm::errs() << SC->getLLVMModule() << "\n";
+
+  auto *I = AccessHelper->getInstruction("test", 0, 0);
+  ASSERT_TRUE(I);
+
+  auto *ADN = Map->getASTDefNode(*I, 0);
+  ASSERT_TRUE(ADN);
+
+  ADN = Map->getASTDefNode(*I, 1);
+  ASSERT_FALSE(ADN);
+
+  ADN = Map->getASTDefNode(*I, 2);
+  ASSERT_FALSE(ADN);
+
+  ADN = Map->getASTDefNode(*I, 3);
+  ASSERT_TRUE(ADN);
 }

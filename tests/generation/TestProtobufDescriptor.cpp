@@ -32,13 +32,13 @@ protected:
 };
 
 TEST_F(TestProtobufDescriptor, TestPrimitiveP) {
-  IntegerType Int;
-  FloatType Float;
-  IntegerType Bool;
+  Type Int(Type::TypeID_Integer);
+  Type Float(Type::TypeID_Float);
+  Type Bool(Type::TypeID_Integer);
   Bool.setBoolean(true);
-  IntegerType UInt;
+  Type UInt(Type::TypeID_Integer);
   UInt.setUnsigned(true);
-  IntegerType Long;
+  Type Long(Type::TypeID_Integer);
   Long.setTypeSize(8);
   Descriptor->addField(Int, "int_var");
   Descriptor->addField(Float, "float_var");
@@ -49,94 +49,55 @@ TEST_F(TestProtobufDescriptor, TestPrimitiveP) {
 }
 
 TEST_F(TestProtobufDescriptor, TestArrayP) {
-  auto Int = std::make_shared<IntegerType>();
+  auto Int = std::make_shared<Type>(Type::TypeID_Integer);
   auto ArrInfo = std::make_shared<ArrayInfo>();
   ArrInfo->setLengthType(ArrayInfo::FIXED);
   ArrInfo->setMaxLength(10);
-  PointerType ArrPtr;
+  Type ArrPtr(Type::TypeID_Pointer);
   ArrPtr.setPointeeType(Int);
-  ArrPtr.setPtrKind(PointerType::PtrKind_Array);
+  ArrPtr.setPtrKind(Type::PtrKind::PtrKind_Array);
   ArrPtr.setArrayInfo(ArrInfo);
   Descriptor->addField(ArrPtr, "int_arr");
   verifyProto();
 }
 
 TEST_F(TestProtobufDescriptor, TestEnumP) {
-  EnumType ET1;
-  Enum E1;
-  E1.setName("EnumWithZero");
-  ET1.setTypeName("EnumWithZero");
+  Type ET1(Type::TypeID_Enum);
+  ET1.setTypeName("Namespace::Class::EnumWithZero");
+  std::vector<EnumConst> Enumerators;
   for (int Idx = 0; Idx < 3; ++Idx) {
-    E1.addElement(
-        std::make_shared<EnumConst>("Val" + std::to_string(Idx), Idx, &E1));
+    Enumerators.emplace_back("Val" + std::to_string(Idx), Idx);
   }
+  Enum E1("EnumWithZero", Enumerators);
   ET1.setGlobalDef(&E1);
   Descriptor->addField(ET1, "Flag1");
 
-  EnumType ET2;
-  Enum E2;
-  E2.setName("EnumWithoutZero");
+  Type ET2(Type::TypeID_Enum);
   ET2.setTypeName("EnumWithoutZero");
-  for (int Idx = 1; Idx < 3; ++Idx) {
-    E2.addElement(
-        std::make_shared<EnumConst>("Val" + std::to_string(Idx), Idx, &E2));
-  }
+  Enumerators.erase(Enumerators.cbegin());
+  Enum E2("EnumWithoutZero", Enumerators);
   ET2.setGlobalDef(&E2);
   Descriptor->addField(ET2, "Flag2");
   Descriptor->addField(ET2, "Flag3");
   verifyProto();
 }
 
+TEST_F(TestProtobufDescriptor, TestEnumWithAliasP) {
+  Type ET1(Type::TypeID_Enum);
+  std::vector<EnumConst> Enumerators;
+  ET1.setTypeName("EnumWithAlias");
+  for (int Idx = 0; Idx < 3; ++Idx) {
+    Enumerators.emplace_back("Val" + std::to_string(Idx), 0);
+  }
+  Enum E1("EnumWithAlias", Enumerators);
+  ET1.setGlobalDef(&E1);
+  Descriptor->addField(ET1, "Flag1");
+  verifyProto();
+}
+
 TEST_F(TestProtobufDescriptor, TestEnumWithOutDefN) {
-  EnumType ET;
+  Type ET(Type::TypeID_Enum);
   ASSERT_FALSE(Descriptor->addField(ET, "Flag"));
-}
-
-TEST_F(TestProtobufDescriptor, TestStructP) {
-  StructType ST;
-  Struct S;
-  ST.setTypeName("TestStruct");
-  S.setName("TestStruct");
-  auto Field1 = std::make_shared<Field>(&S);
-  Field1->setVarName("Field1");
-  Field1->setType(std::make_shared<IntegerType>());
-  S.addField(Field1);
-  ST.setGlobalDef(&S);
-  Descriptor->addField(ST, "Data");
-  verifyProto();
-}
-
-TEST_F(TestProtobufDescriptor, TestComplexStructP) {
-  auto ST2 = std::make_shared<StructType>();
-  Struct S2;
-  ST2->setTypeName("NestedStruct");
-  S2.setName("NestedStruct");
-  auto InnerField = std::make_shared<Field>(&S2);
-  InnerField->setVarName("Field");
-  InnerField->setType(std::make_shared<IntegerType>());
-  S2.addField(InnerField);
-  ST2->setGlobalDef(&S2);
-
-  StructType ST;
-  Struct S;
-  ST.setTypeName("TestStruct");
-  S.setName("TestStruct");
-  auto Field2 = std::make_shared<Field>(&S);
-  Field2->setVarName("Field");
-  Field2->setType(ST2);
-  S.addField(Field2);
-  ST.setGlobalDef(&S);
-  Descriptor->addField(ST, "Data");
-
-  StructType Undefined;
-  Descriptor->addField(Undefined, "Data2");
-
-  verifyProto();
-}
-
-TEST_F(TestProtobufDescriptor, TestStructWithOutDefN) {
-  StructType ST;
-  ASSERT_FALSE(Descriptor->addField(ST, "Var"));
 }
 
 TEST_F(TestProtobufDescriptor, TestCompileP) {
@@ -147,7 +108,7 @@ TEST_F(TestProtobufDescriptor, TestCompileP) {
 }
 
 TEST_F(TestProtobufDescriptor, TestInvalidFieldNameN) {
-  IntegerType Int;
+  Type Int(Type::TypeID_Integer);
   ASSERT_FALSE(Descriptor->addField(Int, "Test::test"));
   ASSERT_FALSE(Descriptor->addField(Int, ""));
 }

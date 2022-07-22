@@ -1,9 +1,199 @@
 #include "TestHelper.h"
 #include "ftg/rootdefanalysis/RDAnalyzer.h"
 #include "ftg/rootdefanalysis/RDNode.h"
+#include "ftg/utils/ASTUtil.h"
 
 using namespace llvm;
 using namespace ftg;
+
+class TestRDAnalyzer : public ::testing::Test {
+protected:
+  std::unique_ptr<IRAccessHelper> AH;
+  std::unique_ptr<SourceCollection> SC;
+
+  bool load(std::string Code) {
+    auto CH = TestHelperFactory().createCompileHelper(
+        Code, "test", "-O0 -g", CompileHelper::SourceType_CPP);
+    if (!CH)
+      return false;
+
+    SC = CH->load();
+    if (!SC)
+      return false;
+
+    AH = std::make_unique<IRAccessHelper>(SC->getLLVMModule());
+    if (!AH)
+      return false;
+
+    return true;
+  }
+
+  std::set<RDNode> find(std::string FuncName, unsigned BIdx, unsigned IIdx,
+                        unsigned OIdx, std::vector<std::string> FuncsToExplore,
+                        RDExtension *Extension) {
+    if (!AH)
+      return {};
+
+    auto *I = AH->getInstruction(FuncName, BIdx, IIdx);
+    if (!I)
+      return {};
+
+    if (I->getNumOperands() <= OIdx)
+      return {};
+
+    const auto &U = I->getOperandUse(OIdx);
+
+    std::vector<llvm::Function *> Funcs;
+    for (const auto &Func : FuncsToExplore) {
+      auto *F = AH->getFunction(Func);
+      if (!F)
+        return {};
+
+      Funcs.push_back(F);
+    }
+
+    RDAnalyzer Analyzer(0, Extension);
+    Analyzer.setSearchSpace(Funcs);
+    return Analyzer.getRootDefinitions(U);
+  }
+};
+
+TEST_F(TestRDAnalyzer, NoResultHandleRegisterN) {
+  std::string Code = "extern \"C\" {\n"
+                     "int sub2(int P) { return P; }\n"
+                     "int sub1(int P) {\n"
+                     "  int V1 = P;\n"
+                     "  return sub2(V1);"
+                     "}\n"
+                     "void test() {\n"
+                     "  int V1 = 1;\n"
+                     "  int V2 = sub1(V1);\n"
+                     "}\n"
+                     "}\n";
+  ASSERT_TRUE(load(Code) && AH);
+
+  auto Nodes = find("test", 0, 7, 0, {"test"}, nullptr);
+  ASSERT_EQ(Nodes.size(), 1);
+
+  auto *I = AH->getInstruction("test", 0, 3);
+  ASSERT_TRUE(I);
+  ASSERT_NE(Nodes.find(RDNode(0, *I)), Nodes.end());
+}
+
+TEST_F(TestRDAnalyzer, SameRouteDiffTargetP) {
+  std::string Code = "extern \"C\" {\n"
+                     "int test() {\n"
+                     "  int V1 = 10;\n"
+                     "  int V2 = 0;\n"
+                     "  int i = 0;\n"
+                     "  while (i++ < 10) {\n"
+                     "    if (i < 5) {\n"
+                     "      V2 += V1;\n"
+                     "    }\n"
+                     "  }\n"
+                     "  return V2;\n"
+                     "}}";
+  ASSERT_TRUE(load(Code));
+
+  auto Nodes = find("test", 5, 1, 0, {"test"}, nullptr);
+  ASSERT_EQ(Nodes.size(), 2);
+
+  auto *I = AH->getInstruction("test", 0, 4);
+  ASSERT_TRUE(I);
+  ASSERT_NE(Nodes.find(RDNode(0, *I)), Nodes.end());
+
+  I = AH->getInstruction("test", 0, 6);
+  ASSERT_TRUE(I);
+  ASSERT_NE(Nodes.find(RDNode(0, *I)), Nodes.end());
+}
+
+TEST_F(TestRDAnalyzer, NonGlobalOrArgContinueP) {
+  std::string Code = "extern \"C\" {\n"
+                     "int sub2(int p) { return p * 10; }\n"
+                     "int sub1() {\n"
+                     "  int V = 0;\n"
+                     "  int i = 0;\n"
+                     "  while (i++ < 10) {\n"
+                     "    if (i < 5) {\n"
+                     "      V += sub2(V);\n"
+                     "    }\n"
+                     "  }\n"
+                     "  return V;\n"
+                     "}\n"
+                     "void test() {\n"
+                     "  int V = sub1();\n"
+                     "}}\n";
+  ASSERT_TRUE(load(Code));
+
+  auto Nodes = find("test", 0, 3, 0, {"test"}, nullptr);
+  ASSERT_EQ(Nodes.size(), 1);
+
+  auto *I = AH->getInstruction("sub1", 0, 3);
+  ASSERT_TRUE(I);
+  ASSERT_NE(Nodes.find(RDNode(0, *I)), Nodes.end());
+}
+
+TEST_F(TestRDAnalyzer, RecursionFunctionVisitP) {
+  std::string Code = "extern \"C\" {\n"
+                     "void api(int);\n"
+                     "int test(int *p) {\n"
+                     "  while (*p < 10) {\n"
+                     "    *p += test(p);\n"
+                     "    api(*p);\n"
+                     "  }\n"
+                     "  return *p;\n"
+                     "}\n"
+                     "}";
+  ASSERT_TRUE(load(Code));
+
+  // NOTE: This test may run forever if visit mechanism is malfunction.
+  auto Nodes = find("test", 2, 8, 0, {"test"}, nullptr);
+  ASSERT_EQ(Nodes.size(), 1);
+
+  auto *I = AH->getInstruction("test", 0, 1);
+  ASSERT_TRUE(I);
+  ASSERT_NE(Nodes.find(RDNode(0, *I)), Nodes.end());
+}
+
+TEST_F(TestRDAnalyzer, MethodInvocationVisitP) {
+  std::string Code = "extern \"C\" {\n"
+                     "class CLS {\n"
+                     "public:\n"
+                     "  void M(int, CLS *);\n"
+                     "};\n"
+                     "void api(CLS *);\n"
+                     "void test() {\n"
+                     "  CLS V1;\n"
+                     "  int V2 = 10;\n"
+                     "  for (int i = 0; i < 10; ++i) {\n"
+                     "    V1.M(V2, &V1);\n"
+                     "  }\n"
+                     "  api(&V1);\n"
+                     "}}\n";
+  ASSERT_TRUE(load(Code));
+
+  RDExtension Extension;
+  for (const auto *Method :
+       util::collectNonStaticClassMethods(SC->getASTUnits())) {
+    ASSERT_TRUE(Method);
+    Extension.addNonStaticClassMethod(
+        util::getMangledName(const_cast<clang::CXXMethodDecl *>(Method)));
+  }
+
+  // NOTE: This test may run forever if visit mechanism is malfunction.
+  auto Nodes = find("test", 4, 0, 0, {"test"}, &Extension);
+  ASSERT_EQ(Nodes.size(), 2);
+
+  auto *I = AH->getInstruction("test", 0, 5);
+  ASSERT_TRUE(I);
+  ASSERT_NE(Nodes.find(RDNode(0, *I)), Nodes.end());
+
+  auto *V = AH->getInstruction("test", 0, 0);
+  ASSERT_TRUE(V);
+  I = AH->getInstruction("test", 0, 5);
+  ASSERT_TRUE(I);
+  ASSERT_NE(Nodes.find(RDNode(*V, *I)), Nodes.end());
+}
 
 #define LOAD(CODE, IsC)                                                        \
   CompileHelper::SourceType Type =                                             \

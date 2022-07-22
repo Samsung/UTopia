@@ -1,31 +1,10 @@
-#include "TestHelper.h"
-#include "ftg/astirmap/DebugInfoMap.h"
-#include "ftg/inputanalysis/ASTIRNode.h"
-#include "ftg/inputanalysis/DefMapGenerator.h"
-#include "ftg/inputfilter/ArrayGroupFilter.h"
-#include "ftg/inputfilter/CompileConstantFilter.h"
-#include "ftg/inputfilter/ConstIntArrayLenFilter.h"
-#include "ftg/inputfilter/ExternalFilter.h"
-#include "ftg/inputfilter/InaccessibleGlobalFilter.h"
-#include "ftg/inputfilter/InvalidLocationFilter.h"
-#include "ftg/inputfilter/NullPointerFilter.h"
-#include "ftg/inputfilter/RawStringFilter.h"
-#include "ftg/inputfilter/TypeUnavailableFilter.h"
-#include "ftg/inputfilter/UnsupportTypeFilter.h"
-#include "ftg/propanalysis/AllocAnalyzer.h"
+#include "TestInputAnalysisBase.hpp"
 #include "testutil/SourceFileManager.h"
 
-#include <gtest/gtest.h>
-
-using namespace ftg;
-
-class TestDefMapGenerator : public testing::Test {
-
+class TestDefMapGenerator : public TestInputAnalysisBase {
 protected:
-  InputAnalysisReport InputReport;
   std::shared_ptr<IRAccessHelper> IRAccess;
   std::unique_ptr<ASTIRMap> ASTMap;
-  std::unique_ptr<UTLoader> Loader;
 
   std::shared_ptr<ASTIRNode> generateASTIRNode(const RDNode &Node) {
     std::vector<RDNode> Nodes = {Node};
@@ -52,29 +31,6 @@ protected:
       Result.emplace_back(*ADN, Node);
     }
     return Result;
-  }
-
-  bool load(std::string SrcDir, std::vector<std::string> CodePaths) {
-    auto CH = TestHelperFactory().createCompileHelper(
-        SrcDir, CodePaths, "-O0 -g -w", CompileHelper::SourceType_CPP);
-    if (!CH)
-      return false;
-
-    Loader =
-        std::make_unique<UTLoader>(CH, nullptr, std::vector<std::string>());
-    if (!Loader)
-      return false;
-
-    const auto &SC = Loader->getSourceCollection();
-    IRAccess = std::make_shared<IRAccessHelper>(SC.getLLVMModule());
-    if (!IRAccess)
-      return false;
-
-    ASTMap = std::make_unique<DebugInfoMap>(SC);
-    if (!ASTMap)
-      return false;
-
-    return true;
   }
 
   std::shared_ptr<Definition> generateDefinition(std::string FuncName,
@@ -199,6 +155,27 @@ protected:
     Node->setIdx(-1);
     return Node;
   }
+
+  bool init(std::string SrcDir, std::string CodePath) {
+    std::vector<std::string> CodePaths = { CodePath };
+    return init(SrcDir, CodePaths);
+  }
+
+  bool init(std::string SrcDir, std::vector<std::string> CodePaths) {
+    if (!load(SrcDir, CodePaths))
+      return false;
+
+    const auto &SC = Loader->getSourceCollection();
+    IRAccess = std::make_shared<IRAccessHelper>(SC.getLLVMModule());
+    if (!IRAccess)
+      return false;
+
+    ASTMap = std::make_unique<DebugInfoMap>(SC);
+    if (!ASTMap)
+      return false;
+
+    return true;
+  }
 };
 
 TEST_F(TestDefMapGenerator, generate_ArrayGroupP) {
@@ -220,7 +197,7 @@ TEST_F(TestDefMapGenerator, generate_ArrayGroupP) {
   SourceFileManager SFM;
   SFM.createFile("test.cpp", Code);
   std::vector<std::string> Srcs = {SFM.getFilePath("test.cpp")};
-  ASSERT_TRUE(load(SFM.getBaseDirPath(), Srcs));
+  ASSERT_TRUE(init(SFM.getBaseDirPath(), Srcs));
 
   ArrayAnalysisReport ArrayReport;
   ArrayReport.set("API1", 0, 1);
@@ -282,7 +259,7 @@ TEST_F(TestDefMapGenerator, generate_ArrayGroupN) {
   SourceFileManager SFM;
   SFM.createFile("test.cpp", Code);
   std::vector<std::string> Srcs = {SFM.getFilePath("test.cpp")};
-  ASSERT_TRUE(load(SFM.getBaseDirPath(), Srcs));
+  ASSERT_TRUE(init(SFM.getBaseDirPath(), Srcs));
 
   auto Node1 = generateRDNode("test", 0, 8, -1);
   auto Node2 = generateRDNode("test", 0, 11, -1);
@@ -334,7 +311,7 @@ TEST_F(TestDefMapGenerator, generate_AssignOperatorRequiredP) {
   SourceFileManager SFM;
   SFM.createFile("test.cpp", Code);
   std::vector<std::string> Srcs = {SFM.getFilePath("test.cpp")};
-  ASSERT_TRUE(load(SFM.getBaseDirPath(), Srcs));
+  ASSERT_TRUE(init(SFM.getBaseDirPath(), Srcs));
 
   std::vector<InstIndex> SrcInsts = {{"test_basic", 0, 0, -1},
                                      {"test_st_1", 0, 0, -1},
@@ -360,7 +337,7 @@ TEST_F(TestDefMapGenerator, generate_AssignOperatorRequiredN) {
   SourceFileManager SFM;
   SFM.createFile("test.cpp", Code);
   std::vector<std::string> Srcs = {SFM.getFilePath("test.cpp")};
-  ASSERT_TRUE(load(SFM.getBaseDirPath(), Srcs));
+  ASSERT_TRUE(init(SFM.getBaseDirPath(), Srcs));
 
   std::vector<InstIndex> SrcInsts = {
       {"test_basic", 0, 2, -1},
@@ -393,7 +370,7 @@ TEST_F(TestDefMapGenerator, generate_DeclP) {
   SourceFileManager SFM;
   SFM.createFile("test.cpp", Code);
   std::vector<std::string> Srcs = {SFM.getFilePath("test.cpp")};
-  ASSERT_TRUE(load(SFM.getBaseDirPath(), Srcs));
+  ASSERT_TRUE(init(SFM.getBaseDirPath(), Srcs));
 
   std::shared_ptr<Definition> D;
   // int GVar;
@@ -437,7 +414,7 @@ TEST_F(TestDefMapGenerator, generate_DeclN) {
   SourceFileManager SFM;
   SFM.createFile("test.cpp", Code);
   std::vector<std::string> Srcs = {SFM.getFilePath("test.cpp")};
-  ASSERT_TRUE(load(SFM.getBaseDirPath(), Srcs));
+  ASSERT_TRUE(init(SFM.getBaseDirPath(), Srcs));
 
   std::shared_ptr<Definition> D;
   // Var = 1;
@@ -514,7 +491,7 @@ TEST_F(TestDefMapGenerator, generate_FiltersP) {
   SFM.createFile("header.h", HeaderCode);
   SFM.createFile("test.cpp", SourceCode);
   std::vector<std::string> Srcs = {SFM.getFilePath("test.cpp")};
-  ASSERT_TRUE(load(SFM.getBaseDirPath(), Srcs));
+  ASSERT_TRUE(init(SFM.getBaseDirPath(), Srcs));
 
   std::shared_ptr<Definition> D;
   D = generateDefinition("test_compileconst", 0, 4, 0);
@@ -569,7 +546,7 @@ TEST_F(TestDefMapGenerator, generate_FiltersN) {
   SourceFileManager SFM;
   SFM.createFile("test.cpp", Code);
   std::vector<std::string> Srcs = {SFM.getFilePath("test.cpp")};
-  ASSERT_TRUE(load(SFM.getBaseDirPath(), Srcs));
+  ASSERT_TRUE(init(SFM.getBaseDirPath(), Srcs));
 
   std::shared_ptr<Definition> D;
   D = generateDefinition("test_input", 0, 0, 0);
@@ -587,7 +564,7 @@ TEST_F(TestDefMapGenerator, generate_LocationP) {
   SourceFileManager SFM;
   SFM.createFile("test.cpp", Code);
   std::vector<std::string> Srcs = {SFM.getFilePath("test.cpp")};
-  ASSERT_TRUE(load(SFM.getBaseDirPath(), Srcs));
+  ASSERT_TRUE(init(SFM.getBaseDirPath(), Srcs));
 
   std::vector<InstIndex> SrcInsts = {{"test", 0, 0, -1}, {"test", 0, 4, -1}};
   auto RNodes = generateRDNodes(SrcInsts);
@@ -622,7 +599,7 @@ TEST_F(TestDefMapGenerator, generate_NamespaceP) {
   SourceFileManager SFM;
   SFM.createFile("test.cpp", Code);
   std::vector<std::string> Srcs = {SFM.getFilePath("test.cpp")};
-  ASSERT_TRUE(load(SFM.getBaseDirPath(), Srcs));
+  ASSERT_TRUE(init(SFM.getBaseDirPath(), Srcs));
 
   std::shared_ptr<Definition> D;
   // GVar1;
@@ -651,7 +628,7 @@ TEST_F(TestDefMapGenerator, generate_NamespaceN) {
   SourceFileManager SFM;
   SFM.createFile("test.cpp", Code);
   std::vector<std::string> Srcs = {SFM.getFilePath("test.cpp")};
-  ASSERT_TRUE(load(SFM.getBaseDirPath(), Srcs));
+  ASSERT_TRUE(init(SFM.getBaseDirPath(), Srcs));
 
   std::shared_ptr<Definition> D;
   // GVar;
@@ -687,7 +664,7 @@ TEST_F(TestDefMapGenerator, generate_PropertiesP) {
   SourceFileManager SFM;
   SFM.createFile("test.cpp", Code);
   std::vector<std::string> Srcs = {SFM.getFilePath("test.cpp")};
-  ASSERT_TRUE(load(SFM.getBaseDirPath(), Srcs) && Loader);
+  ASSERT_TRUE(init(SFM.getBaseDirPath(), Srcs) && Loader);
 
   AllocAnalysisReport AllocReport;
   AllocReport.set("API_2", 0, Alloc_Size);
@@ -766,7 +743,7 @@ TEST_F(TestDefMapGenerator, generate_PropertiesN) {
   SourceFileManager SFM;
   SFM.createFile("test.cpp", Code);
   std::vector<std::string> Srcs = {SFM.getFilePath("test.cpp")};
-  ASSERT_TRUE(load(SFM.getBaseDirPath(), Srcs) && Loader);
+  ASSERT_TRUE(init(SFM.getBaseDirPath(), Srcs) && Loader);
 
   std::shared_ptr<Definition> D;
   D = generateDefinition("test", 0, 2, -1);
@@ -783,6 +760,46 @@ TEST_F(TestDefMapGenerator, generate_PropertiesN) {
   ASSERT_FALSE(Defs[1].ArrayLen);
 }
 
+TEST_F(TestDefMapGenerator, generate_TypeP) {
+  const std::string Code =
+      R"(
+      extern "C" {
+      void API(const void *);
+      void test_void() {
+        API("Hello");
+      }
+      }
+      )";
+  SourceFileManager SFM;
+  SFM.createFile("test.cpp", Code);
+  ASSERT_TRUE(init(SFM.getBaseDirPath(), SFM.getFilePath("test.cpp")));
+
+  auto D = generateDefinition("test_void", 0, 0, 0);
+  ASSERT_TRUE(D);
+  ASSERT_TRUE(D->DataType);
+  ASSERT_EQ(D->DataType->getASTTypeName(), "char *");
+}
+
+TEST_F(TestDefMapGenerator, generate_TypeN) {
+  const std::string Code =
+      R"(
+      extern "C" {
+      void API(const void *);
+      void test_void() {
+        API(nullptr);
+      }
+      }
+      )";
+  SourceFileManager SFM;
+  SFM.createFile("test.cpp", Code);
+  ASSERT_TRUE(init(SFM.getBaseDirPath(), SFM.getFilePath("test.cpp")));
+
+  auto D = generateDefinition("test_void", 0, 0, 0);
+  ASSERT_TRUE(D);
+  ASSERT_TRUE(D->DataType);
+  ASSERT_EQ(D->DataType->getASTTypeName(), "const void *");
+}
+
 TEST_F(TestDefMapGenerator, generate_ValueP) {
   const std::string Code = "extern \"C\" {\n"
                            "extern int GVar;\n"
@@ -795,7 +812,7 @@ TEST_F(TestDefMapGenerator, generate_ValueP) {
   SourceFileManager SFM;
   SFM.createFile("test.cpp", Code);
   std::vector<std::string> Srcs = {SFM.getFilePath("test.cpp")};
-  ASSERT_TRUE(load(SFM.getBaseDirPath(), Srcs));
+  ASSERT_TRUE(init(SFM.getBaseDirPath(), Srcs));
 
   Json::Value Root;
   const std::string JsonStr = R"(
@@ -847,7 +864,7 @@ TEST_F(TestDefMapGenerator, generate_ValueN) {
   SourceFileManager SFM;
   SFM.createFile("test.cpp", Code);
   std::vector<std::string> Srcs = {SFM.getFilePath("test.cpp")};
-  ASSERT_TRUE(load(SFM.getBaseDirPath(), Srcs));
+  ASSERT_TRUE(init(SFM.getBaseDirPath(), Srcs));
 
   std::shared_ptr<Definition> D;
 
@@ -866,7 +883,7 @@ TEST_F(TestDefMapGenerator, getIDP) {
   SourceFileManager SFM;
   SFM.createFile("test.cpp", Code);
   std::vector<std::string> SrcPaths = {SFM.getFilePath("test.cpp")};
-  ASSERT_TRUE(load(SFM.getBaseDirPath(), SrcPaths));
+  ASSERT_TRUE(init(SFM.getBaseDirPath(), SrcPaths));
 
   std::vector<InstIndex> Srcs = {{"test", 0, 3, -1}, {"test", 0, 5, -1}};
   auto Nodes = generateRDNodes(Srcs);
@@ -887,7 +904,7 @@ TEST_F(TestDefMapGenerator, getIDN) {
   SourceFileManager SFM;
   SFM.createFile("test.cpp", Code);
   std::vector<std::string> Srcs = {SFM.getFilePath("test.cpp")};
-  ASSERT_TRUE(load(SFM.getBaseDirPath(), Srcs));
+  ASSERT_TRUE(init(SFM.getBaseDirPath(), Srcs));
 
   auto RNode = generateRDNode("test", 0, 3, -1);
   ASSERT_TRUE(RNode);

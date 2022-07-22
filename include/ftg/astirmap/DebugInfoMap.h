@@ -34,11 +34,15 @@ private:
   std::unique_ptr<MacroMapper> Mapper;
   std::set<LocIndex> Macros;
 
+  std::unique_ptr<ASTDefNode> getArgumentNode(clang::Expr &E, unsigned ArgNo,
+                                              clang::ASTUnit &U) const;
   ASTNode *getFromCallMap(const llvm::CallBase &CB) const;
   ASTDefNode *getFromArgMap(const llvm::CallBase &CB, unsigned ArgNo);
   ASTDefNode *getFromDefMap(const llvm::Instruction &I) const;
   ASTDefNode *getFromGVMap(const llvm::GlobalValue &G) const;
   clang::VarDecl *getConstVarDecl(ASTDefNode &Node) const;
+  bool isArgsInMacro(const ASTDefNode &Node, clang::Expr &E, unsigned ArgNo,
+                     clang::ASTUnit &U) const;
   bool isNullType(const ASTDefNode &Node) const;
   bool isTemplateType(const ASTDefNode &Node) const;
   void update(clang::ASTUnit &Unit);

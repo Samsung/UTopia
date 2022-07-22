@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+enum EnumWithAlias {
+  option allow_alias = true;
+  EnumWithAlias_Val0 = 0;
+  EnumWithAlias_Val1 = 0;
+  EnumWithAlias_Val2 = 0;
+}
+
+message TestEnumWithAliasP {
+  .EnumWithAlias Flag1 = 1;
+}
+

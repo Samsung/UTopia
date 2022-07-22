@@ -4,7 +4,6 @@
 #include "ftg/utanalysis/TargetAPIFinder.h"
 
 #include "ftg/utils/FileUtil.h"
-#include "ftg/utils/PublicAPI.h"
 #include "testutil/APIManualLoader.h"
 
 #include "clang/Frontend/ASTUnit.h"
@@ -274,13 +273,6 @@ bool GenTestHelper::generateDirectories() const {
   }
 
   return true;
-}
-
-std::set<std::string> GenTestHelper::getPublicAPIs() const {
-
-  PublicAPI Parser;
-  Parser.loadJson(getPublicAPIPath(ProjectName));
-  return Parser.getPublicAPIList();
 }
 
 bool GenTestHelper::storeTargetAnalysisReport(std::string DirPath) {
