@@ -11,39 +11,41 @@ using namespace ftg;
 
 int main(int argc, const char **argv) {
   cl::ResetCommandLineParser();
-  cl::opt<bool> OptionHelp("help", cl::desc("Display available options"));
-  cl::opt<std::string> OptionOutFilePath(
-      "out", cl::desc("Output filepath <needed>"), cl::value_desc("filepath"));
-  cl::opt<std::string> OptionEntryJsonPath(
-      "entry", cl::desc("project_entry.json"), cl::value_desc("filepath"));
-  cl::opt<std::string> OptionLibraryName("name", cl::desc("library name"),
-                                         cl::value_desc("name"));
-  cl::opt<std::string> OptionAST("ast", cl::desc("AST directory to analyze"),
-                                 cl::value_desc("dir"));
-  cl::opt<std::string> OptionLLVMIR("ir",
-                                    cl::desc("LLVM IR filepath to analyze"),
-                                    cl::value_desc("filepath"));
-  cl::opt<std::string> OptionExternLibDir(
-      "extern", cl::desc("Pre-Analyzed TargetLib Analysis Results directory"),
-      cl::value_desc("dir"));
-  cl::opt<std::string> OptionPublicAPI(
-      "public", cl::desc("PublicAPI json filepath to analyze"),
+  cl::opt<bool> OptHelp("help", cl::desc("Display available options"),
+                        cl::ValueDisallowed, cl::callback([](const bool &) {
+                          cl::PrintHelpMessage();
+                          exit(0);
+                        }));
+  cl::opt<bool> OptVersion("version", cl::desc("Display version"),
+                           cl::ValueDisallowed, cl::callback([](const bool &) {
+                             llvm::outs() << "version: " << FTG_VERSION << "\n";
+                             exit(0);
+                           }));
+  cl::opt<std::string> OutFilePath("out",
+                                   cl::desc("<Required> Output filepath"),
+                                   cl::value_desc("filepath"), cl::Required);
+  cl::opt<std::string> ProjectEntryPath(
+      "entry", cl::desc("<Required> project_entry.json path"),
+      cl::value_desc("filepath"), cl::Required);
+  cl::opt<std::string> LibraryName("name", cl::desc("<Required> Library name"),
+                                   cl::value_desc("name"), cl::Required);
+  cl::opt<std::string> ExternReportDir(
+      "extern", cl::desc("Pre-Analyzed TargetLib analysis results directory"),
+      cl::value_desc("dir_path"));
+  cl::opt<std::string> PublicAPIJsonPath(
+      "public", cl::desc("PublicAPI.json filepath to analyze"),
       cl::value_desc("filepath"));
-  cl::opt<std::string> OptionExportsNDeps(
+  cl::opt<std::string> ExportsNDepsJsonPath(
       "exports-deps", cl::desc("exports_and_dependencies.json filepath"),
       cl::value_desc("filepath"));
 
   cl::ParseCommandLineOptions(argc, argv, "Target Analyzer\n");
 
-  std::string ProjectEntryPath = OptionEntryJsonPath;
-  std::string LibraryName = OptionLibraryName;
-  std::string ExternLibDir = OptionExternLibDir;
-  std::string OutFilePath = OptionOutFilePath;
-  std::string PublicAPIJsonPath = OptionPublicAPI;
-  std::string ExportsNDepsJsonPath = OptionExportsNDeps;
-
-  if (ExportsNDepsJsonPath.empty() && PublicAPIJsonPath.empty())
+  if (ExportsNDepsJsonPath.empty() && PublicAPIJsonPath.empty()) {
+    llvm::errs()
+        << "PublicAPI.json or exports_and_dependencies.json must be provided\n";
     return 1;
+  }
 
   std::shared_ptr<APILoader> AL;
   if (!ExportsNDepsJsonPath.empty())
@@ -55,7 +57,7 @@ int main(int argc, const char **argv) {
   try {
     TargetLibAnalyzer Analyzer(
         std::make_shared<BuildDBLoader>(ProjectEntryPath, LibraryName), AL,
-        ExternLibDir);
+        ExternReportDir);
     if (!Analyzer.analyze())
       return 1;
 
