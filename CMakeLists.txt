@@ -1,5 +1,10 @@
-project(fuzz_test_generation)
 cmake_minimum_required(VERSION 3.5)
+project(fuzz_test_generation
+    VERSION 0.1.0
+    LANGUAGES CXX
+    )
+
+add_compile_definitions(FTG_VERSION="${CMAKE_PROJECT_VERSION}")
 # Reference cmake : https://github.com/nsumner/clang-plugins-demo/CMakeLists.txt
 
 ## Please define LLVM_DIR with -D<LLVM_DIR>
@@ -12,10 +17,6 @@ message(STATUS "!!!LLVM_DIR: ${LLVM_DIR}")
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules/")
 list(APPEND CMAKE_MODULE_PATH "${LLVM_DIR}")
-
-set(PACKAGE_NAME fuzz_test_generation)
-set(PACKAGE_VERSION 0.1)
-set(PACKAGE_STRING "${PACKAGE_NAME} ${PACKAGE_VERSION}")
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 

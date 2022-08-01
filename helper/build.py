@@ -164,7 +164,19 @@ class Builder:
         if os.path.exists(output):
             shutil.rmtree(output)
 
-        cmd = [tool, src_dir, self.target_path, utpath, self.api_path, output]
+        cmd = [
+            tool,
+            "--src",
+            src_dir,
+            "--target",
+            self.target_path,
+            "--ut",
+            utpath,
+            "--public",
+            self.api_path,
+            "--out",
+            output,
+        ]
         if not self.__execute(cmd):
             return False
         return True if output.exists() else False
