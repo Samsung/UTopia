@@ -14,7 +14,7 @@ targets:
     repo:
       dir: assimp
       cmd:
-        - git clone --recursive https://github.com/assimp/assimp.git --config user.name autofuzz --config user.email autofuzz@autofuzz.com
+        - git clone --recursive https://github.com/assimp/assimp.git --config user.name=autofuzz --config user.email=autofuzz@autofuzz.com
         - cd assimp && git checkout a9b29abee64a5061e78de4f60a918d67dbe39ce0 -b autofuzz_base
     compile:
       org:
@@ -41,7 +41,7 @@ targets:
       dir: bsdiff
       cmd:
         - apt-get update && apt-get install -y libbrotli-dev libbz2-dev libdivsufsort-dev
-        - mkdir bsdiff && cd bsdiff && git clone https://android.googlesource.com/platform/external/bsdiff --config user.name autofuzz --config user.email autofuzz@autofuzz.com
+        - mkdir bsdiff && cd bsdiff && git clone https://android.googlesource.com/platform/external/bsdiff --config user.name=autofuzz --config user.email=autofuzz@autofuzz.com
         - cd bsdiff/bsdiff && git checkout be81a990b3e1b1827602cf0fd23c5b55dce3a4de -b autofuzz_base
         - mv bsdiff/bsdiff/.git bsdiff/
         - cd bsdiff && git rm `git status | grep deleted | awk '{print $2}'` && git add bsdiff
@@ -75,7 +75,7 @@ targets:
     repo:
       dir: cpu_features
       cmd:
-        - git clone https://android.googlesource.com/platform/external/cpu_features --config user.name autofuzz --config user.email autofuzz@autofuzz.com
+        - git clone https://android.googlesource.com/platform/external/cpu_features --config user.name=autofuzz --config user.email=autofuzz@autofuzz.com
         - cd cpu_features && git checkout 99eb6aeb118b624ccf0c3ba371c806462b9f9519 -b autofuzz_base
         - "sed -i 's/master/main/g' cpu_features/cmake/googletest.CMakeLists.txt.in"
         - cd cpu_features && git commit -am "Base Commit"
@@ -119,7 +119,7 @@ targets:
     repo:
       dir: cpuinfo
       cmd:
-        - git clone https://android.googlesource.com/platform/external/cpuinfo --config user.name autofuzz --config user.email autofuzz@autofuzz.com
+        - git clone https://android.googlesource.com/platform/external/cpuinfo --config user.name=autofuzz --config user.email=autofuzz@autofuzz.com
         - cd cpuinfo && git checkout 6ca2549f6b2ec107937292581826dbe810f75bfb -b autofuzz_base
     compile:
       org:
@@ -146,7 +146,7 @@ targets:
     repo:
       dir: jsonnet
       cmd:
-        - git clone https://github.com/google/jsonnet.git --config user.name autofuzz --config user.email autofuzz@autofuzz.com
+        - git clone https://github.com/google/jsonnet.git --config user.name=autofuzz --config user.email=autofuzz@autofuzz.com
         - cd jsonnet && git checkout 80762b936484fb82e561876d2792ee6a3126edc4 && git checkout -b autofuzz_base
         - sed -i 's/<< std::endl/<< "\\n"/g' jsonnet/core/parser_test.cpp
         - sed -i 's/<< std::endl/<< "\\n"/g' jsonnet/core/lexer_test.cpp
@@ -179,7 +179,7 @@ targets:
       dir: ledger
       cmd:
         - apt-get update && apt-get install -y libmpfr-dev libboost-all-dev
-        - git clone https://github.com/ledger/ledger --config user.name autofuzz --config user.email autofuzz@autofuzz.com
+        - git clone https://github.com/ledger/ledger --config user.name=autofuzz --config user.email=autofuzz@autofuzz.com
         - cd ledger && git checkout 5d033adce84319bd3d10217ccf3e20c7c0734c7a -b autofuzz_base
         - sed -i 's/add_library(libledger SHARED/add_library(libledger STATIC/g' ledger/src/CMakeLists.txt
         - sed -i 's/add_executable(MathTests t_amount.cc t_commodity.cc t_balance.cc t_expr.cc t_value.cc)/add_executable(MathTests t_commodity.cc t_value.cc)/g' ledger/test/unit/CMakeLists.txt
@@ -212,7 +212,7 @@ targets:
       dir: leveldb
       cmd:
         - apt-get update && apt-get install -y make autoconf automake libtool gettext pkg-config build-essential
-        - mkdir leveldb && cd leveldb && git clone --recurse-submodules https://github.com/google/leveldb.git --config user.name autofuzz --config user.email autofuzz@autofuzz.com
+        - mkdir leveldb && cd leveldb && git clone --recurse-submodules https://github.com/google/leveldb.git --config user.name=autofuzz --config user.email=autofuzz@autofuzz.com
         - cd leveldb/leveldb && git checkout 5d94ad4d95c09d3ac203ddaf9922e55e730706a8 && git checkout -b autofuzz_base
         - cd leveldb/leveldb/third_party/benchmark && git checkout 7d0d9061d83b663ce05d9de5da3d5865a3845b79 && git checkout -b autofuzz_base
         - cd leveldb/leveldb/third_party/googletest && git checkout 662fe38e44900c007eccb65a5d2ea19df7bd520e && git checkout -b autofuzz_base
@@ -240,7 +240,7 @@ targets:
     repo:
       dir: libaom
       cmd:
-        - git clone https://aomedia.googlesource.com/aom libaom --config user.name autofuzz --config user.email autofuzz@autofuzz.com
+        - git clone https://aomedia.googlesource.com/aom libaom --config user.name=autofuzz --config user.email=autofuzz@autofuzz.com
         - apt-get install -y yasm
         - cd libaom && git checkout ab8fddcfc19b54d2a2243dd8a396f4ea3c19b188 -b autofuzz_base
     compile:
@@ -264,7 +264,7 @@ targets:
     repo:
       dir: libhtp
       cmd:
-        - git clone https://github.com/OISF/libhtp.git --config user.name autofuzz --config user.email autofuzz@autofuzz.com
+        - git clone https://github.com/OISF/libhtp.git --config user.name=autofuzz --config user.email=autofuzz@autofuzz.com
         - cd libhtp && git checkout 5aaea8cdc7ceac907b3cdbe265e8a2b5fe74d918 -b autofuzz_base
         - sed -i '389s/^/\/\//g' ./libhtp/test/test_utils.cpp
         - sed -i '388s/)/);/g' ./libhtp/test/test_utils.cpp
@@ -304,7 +304,7 @@ targets:
       cmd:
         - apt-get update --fix-missing
         - apt-get install -y libicu-dev libboost-thread-dev openjdk-8-jdk
-        - git clone https://github.com/google/libphonenumber --config user.name autofuzz --config user.email autofuzz@autofuzz.com
+        - git clone https://github.com/google/libphonenumber --config user.name=autofuzz --config user.email=autofuzz@autofuzz.com
         - cd libphonenumber && git checkout 10c40f6a583d97318449b3204a26f917dc6e308 -b autofuzz_base
         - sed -i '1s/^/#ifndef AUTOFUZZ_TEST_UTIL_H\n#define AUTOFUZZ_TEST_UTIL_H\n/' libphonenumber/cpp/test/phonenumbers/test_util.h
         - echo "#endif" >> libphonenumber/cpp/test/phonenumbers/test_util.h
@@ -333,7 +333,7 @@ targets:
      repo:
        dir: libvpx
        cmd:
-         - git clone https://chromium.googlesource.com/webm/libvpx --config user.name autofuzz --config user.email autofuzz@autofuzz.com
+         - git clone https://chromium.googlesource.com/webm/libvpx --config user.name=autofuzz --config user.email=autofuzz@autofuzz.com
          - apt-get install -y yasm
          - cd libvpx && git checkout b8273e -b autofuzz_base
      compile:
@@ -361,7 +361,7 @@ targets:
       dir: minijail
       cmd:
         - apt-get update && apt-get install -y libcap-dev
-        - mkdir minijail && cd minijail && git clone https://android.googlesource.com/platform/external/minijail --config user.name autofuzz --config user.email autofuzz@autofuzz.com
+        - mkdir minijail && cd minijail && git clone https://android.googlesource.com/platform/external/minijail --config user.name=autofuzz --config user.email=autofuzz@autofuzz.com
         - cd minijail/minijail && git checkout ceb800091b03171c3998a57e37c25ac523c23b4d -b autofuzz_base
         - mv minijail/minijail/.git minijail/
         - mv minijail/minijail/.gitignore minijail/
@@ -400,7 +400,7 @@ targets:
     repo:
       dir: muduo
       cmd:
-        - git clone https://github.com/chenshuo/muduo --config user.name autofuzz --config user.email autofuzz@autofuzz.com
+        - git clone https://github.com/chenshuo/muduo --config user.name=autofuzz --config user.email=autofuzz@autofuzz.com
         - cd muduo && git checkout 9aaeda812bde476d231495212e6cf331ae2792b4 -b autofuzz_base
     compile:
       org:
@@ -430,7 +430,7 @@ targets:
     repo:
       dir: node
       cmd:
-        - git clone --recursive https://github.com/nodejs/node --config user.name autofuzz --config user.email autofuzz@autofuzz.com
+        - git clone --recursive https://github.com/nodejs/node --config user.name=autofuzz --config user.email=autofuzz@autofuzz.com
         - cd node && git checkout fa86b36124ec022544256828bb9936ba3ed42ec0 -b autofuzz_base
         - sed -i 's/crsT/qc/g' node/tools/gyp/pylib/gyp/generator/make.py
         - cd node && git add tools/gyp/pylib/gyp/generator/make.py && git commit -m "Base Commit"
@@ -460,7 +460,7 @@ targets:
       dir: openh264
       cmd:
         - apt update && apt install -y nasm
-        - git clone https://github.com/cisco/openh264.git --config user.name autofuzz --config user.email autofuzz@autofuzz.com
+        - git clone https://github.com/cisco/openh264.git --config user.name=autofuzz --config user.email=autofuzz@autofuzz.com
         - cd openh264 && git checkout ca0e43e864c8c57ec76a7763af6436be4e76c8d0 -b autofuzz_base
         - sed -i '195d' openh264/Makefile
         - sed -i '14,18d' openh264/test/api/simple_test.cpp
@@ -505,7 +505,7 @@ targets:
     repo:
       dir: pthreadpool
       cmd:
-        - git clone https://android.googlesource.com/platform/external/pthreadpool --config user.name autofuzz --config user.email autofuzz@autofuzz.com
+        - git clone https://android.googlesource.com/platform/external/pthreadpool --config user.name=autofuzz --config user.email=autofuzz@autofuzz.com
         - cd pthreadpool && git checkout bf08f8656c6cb12f73122b1aacc16726cbf8d6ce -b autofuzz_base
     compile:
       org:
@@ -530,7 +530,7 @@ targets:
       dir: puffin
       cmd:
         - apt-get update && apt-get install -y libgoogle-glog-dev
-        - git clone https://android.googlesource.com/platform/external/puffin --config user.name autofuzz --config user.email autofuzz@autofuzz.com
+        - git clone https://android.googlesource.com/platform/external/puffin --config user.name=autofuzz --config user.email=autofuzz@autofuzz.com
         - cd puffin && git checkout d51726bde3cac59456126b86eb52d43035e4b245 -b autofuzz_base
         - sed -i 's/bit\_io\_unittest\.cc/unittest\_common\.cc bit\_io\_unittest\.cc/g' puffin/Makefile
         - sed -i 's/libpuffin.so/libpuffin.a/g' puffin/Makefile
@@ -557,9 +557,9 @@ targets:
       dir: sfntly
       cmd:
         - apt-get install -y libicu-dev
-        - git clone https://android.googlesource.com/platform/external/sfntly --config user.name autofuzz --config user.email autofuzz@autofuzz.com
+        - git clone https://android.googlesource.com/platform/external/sfntly --config user.name=autofuzz --config user.email=autofuzz@autofuzz.com
         - cd sfntly && git checkout 2dcabc8c562e5a63ead0256bef8c02ef872aa36f -b autofuzz_base
-        - git clone https://github.com/google/googletest.git sfntly/cpp/ext --config user.name autofuzz --config user.email autofuzz@autofuzz.com
+        - git clone https://github.com/google/googletest.git sfntly/cpp/ext --config user.name=autofuzz --config user.email=autofuzz@autofuzz.com
         - cd sfntly/cpp/ext && git checkout 53495a2a7d6ba7e0691a7f3602e9a5324bba6e45 -b autofuzz_base
         - mv sfntly/cpp/ext/googletest sfntly/cpp/ext/gtest
         - rm sfntly/cpp/src/test/cmap_test.cc
@@ -594,7 +594,7 @@ targets:
       dir: snappy
       cmd:
         - mkdir -p snappy
-        - cd snappy && git clone git://git.tizen.org/platform/upstream/snappy --depth 1 src --config user.name autofuzz --config user.email autofuzz@autofuzz.com
+        - cd snappy && git clone git://git.tizen.org/platform/upstream/snappy --depth 1 src --config user.name=autofuzz --config user.email=autofuzz@autofuzz.com
         - cd snappy/src && git checkout 4f7bd2dbfd12bfda77488baf46c2f7648c9f1999 -b autofuzz_base
         - sed -i 's/${GFLAGS_LIBRARIES}/${GFLAGS_LIBRARIES} gtest pthread/g' snappy/src/CMakeLists.txt
         - mv snappy/src/.git snappy
@@ -622,9 +622,9 @@ targets:
       dir: tesseract
       cmd:
         - apt-get update && apt-get install -y libpng-dev libjpeg8-dev libtiff5-dev zlib1g-dev libleptonica-dev libicu-dev libpango1.0-dev libcairo2-dev cabextract curl
-        - git clone https://github.com/tesseract-ocr/tesseract.git --config user.name autofuzz --config user.email autofuzz@autofuzz.com
-        - if [ ! -d langdata_lstm ]; then git clone https://github.com/tesseract-ocr/langdata_lstm.git --config user.name autofuzz --config user.email autofuzz@autofuzz.com && cd langdata_lstm && git checkout f0714d60cdc221fceb11787acb5e35b3937643ae -b autofuzz_base; fi
-        - if [ ! -d tessdata ]; then git clone https://github.com/tesseract-ocr/tessdata.git --config user.name autofuzz --config user.email autofuzz@autofuzz.com && cd tessdata && git checkout 4767ea922bcc460e70b87b1d303ebdfed0897da8 -b autofuzz_base; fi
+        - git clone https://github.com/tesseract-ocr/tesseract.git --config user.name=autofuzz --config user.email=autofuzz@autofuzz.com
+        - if [ ! -d langdata_lstm ]; then git clone https://github.com/tesseract-ocr/langdata_lstm.git --config user.name=autofuzz --config user.email=autofuzz@autofuzz.com && cd langdata_lstm && git checkout f0714d60cdc221fceb11787acb5e35b3937643ae -b autofuzz_base; fi
+        - if [ ! -d tessdata ]; then git clone https://github.com/tesseract-ocr/tessdata.git --config user.name=autofuzz --config user.email=autofuzz@autofuzz.com && cd tessdata && git checkout 4767ea922bcc460e70b87b1d303ebdfed0897da8 -b autofuzz_base; fi
         - cd tesseract && git checkout 75e6c3ea4c8eae740fb65a84e77dbf0c8d092240 -b autofuzz_base
         - cd tesseract && git submodule update --init
         - cd tesseract && ./autogen.sh
@@ -672,7 +672,7 @@ targets:
       dir: uriparser
       cmd:
         - apt-get install -y make autoconf automake wget sudo libtool cmake
-        - git clone https://github.com/uriparser/uriparser --config user.name autofuzz --config user.email autofuzz@autofuzz.com
+        - git clone https://github.com/uriparser/uriparser --config user.name=autofuzz --config user.email=autofuzz@autofuzz.com
         - cd uriparser && git checkout 1762d5ff025fb07b4b8ccd1a8a9635009b2e9e34 && git checkout -b autofuzz_base
         - cd uriparser && sed -i ':a;N;$!ba;s/${API_HEADER_FILES}\n *${LIBRARY_CODE_FILES}\n *)\n\n    target/${API_HEADER_FILES})\n\n    target/g' CMakeLists.txt
         - cd uriparser && sed -i ':a;N;$!ba;s/target_link_libraries(testrunner PUBLIC/target_link_libraries(testrunner PUBLIC uriparser/g' CMakeLists.txt
@@ -700,7 +700,7 @@ targets:
       dir: vowpal_wabbit
       cmd:
         - apt-get update && apt-get install -y libboost-all-dev
-        - git clone https://github.com/VowpalWabbit/vowpal_wabbit --config user.name autofuzz --config user.email autofuzz@autofuzz.com
+        - git clone https://github.com/VowpalWabbit/vowpal_wabbit --config user.name=autofuzz --config user.email=autofuzz@autofuzz.com
         - cd vowpal_wabbit && git checkout 8786469ee0b062c6c443c10b86c6c9cedd6e47b7
         - cd vowpal_wabbit && git submodule update --init --recursive
         - sed -i '/set(unix_static_flag/d' vowpal_wabbit/CMakeLists.txt
@@ -734,7 +734,7 @@ targets:
       dir: wabt
       cmd:
         - apt-get update && apt-get install -y cmake libtool make python
-        - git clone --recursive https://github.com/WebAssembly/wabt --config user.name autofuzz --config user.email autofuzz@autofuzz.com
+        - git clone --recursive https://github.com/WebAssembly/wabt --config user.name=autofuzz --config user.email=autofuzz@autofuzz.com
         - cd wabt && git checkout e808dfe3fc7ec890be4ef59d4772afaa19af4847 && git checkout -b autofuzz_base
         - cd wabt/third_party/gtest && git checkout 703bd9caab50b139428cea1aaff9974ebee5742e
         - cd wabt/third_party/ply && git checkout d776a2ece6c12bf8f8b6a0e65b48546ac6078765

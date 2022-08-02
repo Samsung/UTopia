@@ -45,6 +45,10 @@ class Builder:
     def target_path(self) -> Path:
         return self.gen_path / "target"
 
+    @property
+    def extern_path(self) -> Path:
+        return Path(__file__).absolute().parent / "external"
+
     def get_ent_path(self, name: str) -> Path:
         return (
             self.prj_path / "output" / "entry" / f"{name}_project_entry.json"
@@ -105,7 +109,7 @@ class Builder:
             "--entry",
             entpath,
             "--extern",
-            "external",
+            self.extern_path,
             "--name",
             libname,
             "--public",
@@ -135,7 +139,7 @@ class Builder:
             "--name",
             ut_name,
             "--extern",
-            "external",
+            self.extern_path,
             "--ut",
             self.framework,
             "--target",
