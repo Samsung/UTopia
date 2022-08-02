@@ -92,4 +92,4 @@ RUN apt-get install -y liblzma-dev \
     && rm -rf libprotobuf-mutator
 
 ### Setup Compiler Hooker
-COPY --chmod=755 base/hooks /usr/local/bin/
+COPY --chmod=755 docker/hooks /usr/local/bin/
