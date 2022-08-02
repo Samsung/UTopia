@@ -1,6 +1,4 @@
-<p align="center">
-  <img src="res/UTopia.png">
-</p>
+# UTopia
 
 ## Introduction
 
@@ -10,10 +8,6 @@
 familiar with fuzzing can save significant time by generating fuzz drivers automatically.
 
 *UTopia* supports C/C++ libraries which have unit tests with GoogleTest, Boost.Test or Tizen TCT.
-
-## Trophy
-
-To see bugs found by *UTopia*, visit [Trophy](Trophy.md) page. You can also see some *UTopia*-based fuzzers there.
 
 ## Docker
 
@@ -40,6 +34,9 @@ cmake --build build -j$(nproc)
 ```
 
 ## Run
+For some selected projects, you can use helper script to run our tool without further effort. Please
+refer [helper/README.md](helper/README.md).
+For other projects, please check following manual.
 
 ### target_analyzer
 
@@ -140,7 +137,7 @@ and [ut_analyzer](#ut_analyzer).
 Mandatory command line options are below.
 
 ```shell
-fuzz_generator ${src_path} ${target_analyzer_report_path} ${ut_analyzer_report_path} ${api_json_path} ${output_dir}
+fuzz_generator --src ${src_path} --target ${target_analyzer_report_path} --ut ${ut_analyzer_report_path} --public ${api_json_path} --out ${output_dir}
 ```
 
 #### src_path
