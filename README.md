@@ -9,6 +9,10 @@ familiar with fuzzing can save significant time by generating fuzz drivers autom
 
 *UTopia* supports C/C++ libraries which have unit tests with GoogleTest, Boost.Test or Tizen TCT.
 
+## Trophy
+
+To see bugs found by *UTopia*, visit [Trophy](Trophy.md) page. You can also see some *UTopia*-based fuzzers there.
+
 ## Docker
 
 For easy set up, we provide docker image for running *UTopia*.
