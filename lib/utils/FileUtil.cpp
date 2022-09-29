@@ -86,7 +86,7 @@ std::string readFile(const char *filePath) {
     inputFile.read(&fileContext[0], fileSize);
     inputFile >> fileContext;
 
-    std::cerr << "file opened: " << filePath << std::endl;
+    std::cout << "file opened: " << filePath << std::endl;
     return fileContext;
   } else {
     std::cerr << "Failed Open File: " << filePath << std::endl;
