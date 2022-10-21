@@ -130,11 +130,15 @@ UT Analyzer analyzes unit test code for a target library and generates a result 
 Mandatory command line options are below.
 
 ```shell
-ut_analyzer --entry ${entry_path} --extern ${extern_path} --name ${lib_name} --public ${api_json_path} --out ${output_path}
+ut_analyzer --entry ${entry_path} --extern ${extern_path} --ut ${ut_type} --name ${lib_name} --public ${api_json_path} --out ${output_path}
 ```
 
-All options are same as the [target_analyzer](#target_analyzer).
+Most options are same as the [target_analyzer](#target_analyzer).
 Note that, *entry_path* should specify AST/IR files for a unit test executable, not library.
+
+#### ut_type
+
+Framework used by the target project, could be `tct`, `gtest`, or `boost`.
 
 ### fuzz_generator
 
