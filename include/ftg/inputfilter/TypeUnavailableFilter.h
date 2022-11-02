@@ -12,6 +12,13 @@ public:
 
 protected:
   bool check(const ASTIRNode &Node) const override;
+
+private:
+  // TODO: DeclTypeInfo should be vector to include all redecls of the same
+  // variable declaration. Currently, this code will not give proper result
+  // for the case.
+  bool hasConstRedecls(const ASTDefNode &ADN) const;
+  bool isUndefinedType(const ASTDefNode &ADN) const;
 };
 
 } // namespace ftg

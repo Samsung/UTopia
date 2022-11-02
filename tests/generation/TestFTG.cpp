@@ -1,5 +1,7 @@
 #include "TestHelper.h"
+#include "ftg/generation/ProtobufMutator.h"
 #include "testutil/APIManualLoader.h"
+#include "testutil/SourceFileManager.h"
 #include <experimental/filesystem>
 
 namespace fs = std::experimental::filesystem;
@@ -236,8 +238,7 @@ TEST_F(TestFTG, PointerTypeP) {
 
 TEST_F(TestFTG, UnsupportedTypeN) {
 
-  std::set<std::string> TestAPISet{"inputUnion",
-                                   "inputUnsupportedStruct",
+  std::set<std::string> TestAPISet{"inputUnion", "inputUnsupportedStruct",
                                    "inputCallBackPtr"};
 
   ASSERT_TRUE(Helper);
@@ -260,6 +261,129 @@ TEST_F(TestFTG, NoInputN) {
     auto APIReport = APIReportPair.second;
     EXPECT_EQ(NOT_FUZZABLE_NO_INPUT, APIReport->APIStatus.second);
   }
+}
+
+class TestIntegration : public ::testing::Test {
+protected:
+};
+
+TEST_F(TestIntegration, cppCopyFromP) {
+  const std::string HeaderCode = "extern \"C\" void API(int *P1, int P2);\n";
+  const std::string TargetCode = "#include \"lib.h\"\n"
+                                 "extern \"C\" void API(int *P1, int P2) {\n"
+                                 "  for (int S = 0; S < P2; ++S) {\n"
+                                 "    P1[S] += S;\n"
+                                 "  }\n"
+                                 "}";
+  const std::string UTCode = "#include \"lib.h\"\n"
+                             "#include <gtest/gtest.h>\n"
+                             "TEST(Test, Group) {\n"
+                             "  int Var[10] = {0,};\n"
+                             "  if (Var[0] == 0) API(Var, 10);\n"
+                             "  else API(Var, 5);\n"
+                             "}\n";
+  SourceFileManager SFM;
+  SFM.createFile("lib.h", HeaderCode);
+  SFM.createFile("lib.cpp", TargetCode);
+  SFM.createFile("ut.cpp", UTCode);
+
+  std::vector<std::string> SrcPaths = {SFM.getFilePath("lib.cpp")};
+  auto TAHelper = TestHelperFactory().createTATestHelper(
+      SFM.getSrcDirPath(), SrcPaths, CompileHelper::SourceType_CPP);
+  ASSERT_TRUE(TAHelper);
+  ASSERT_TRUE(TAHelper->analyze());
+
+  std::vector<std::string> APINames = {"API"};
+  SrcPaths = {SFM.getFilePath("ut.cpp")};
+  auto UAHelper = TestHelperFactory().createUATestHelper(
+      SFM.getSrcDirPath(), SrcPaths, CompileHelper::SourceType_CPP);
+  ASSERT_TRUE(UAHelper);
+  UAHelper->addTA(TAHelper);
+  ASSERT_TRUE(
+      UAHelper->analyze(std::make_shared<APIManualLoader>(std::set<std::string>(
+                            APINames.begin(), APINames.end())),
+                        "gtest"));
+
+  auto Helper = std::make_unique<GenTestHelper>(UAHelper);
+  ASSERT_TRUE(Helper);
+  ASSERT_TRUE(
+      Helper->generate(SFM.getSrcDirPath(), SFM.getOutDirPath(), APINames));
+
+  std::vector<std::string> VerifyFiles;
+  const std::set<std::string> GenFiles = {
+      "ut.cpp", InputMutator::DefaultEntryName,
+      ProtobufMutator::DescriptorName + ".proto"};
+  const std::set<std::string> TestCaseNames = {"Test_Group_Test"};
+  for (const auto &GenFile : GenFiles) {
+    for (const auto &TestCaseName : TestCaseNames) {
+      VerifyFiles.emplace_back((fs::path(SFM.getOutDirPath()) /
+                                fs::path(TestCaseName) / fs::path(GenFile))
+                                   .string());
+    }
+  }
+  verifyFiles(VerifyFiles);
+}
+
+TEST_F(TestIntegration, cppEnumP) {
+  const std::string HeaderCode = "enum E1 { E1_M1, E1_M2 };\n"
+                                 "typedef enum { E2_M1, E2_M2 } E2;\n"
+                                 "typedef E2 E3;\n"
+                                 "typedef E3 E4;\n"
+                                 "extern \"C\" void API1(E1 P);\n"
+                                 "extern \"C\" void API2(E2 P);\n";
+  const std::string TargetCode = "#include \"lib.h\"\n"
+                                 "extern \"C\" void API1(E1 P) {}\n"
+                                 "extern \"C\" void API2(E2 P) {}\n";
+  const std::string UTCode = "#include \"lib.h\"\n"
+                             "#include <gtest/gtest.h>\n"
+                             "TEST(Test, Enum) {\n"
+                             "  API1(E1_M1);\n"
+                             "  API2(E2_M1);\n"
+                             "  E3 Var1 = E2_M1;\n"
+                             "  API2(Var1);\n"
+                             "  E4 Var2 = E2_M1;\n"
+                             "  API2(Var2);\n"
+                             "}\n";
+  SourceFileManager SFM;
+  SFM.createFile("lib.h", HeaderCode);
+  SFM.createFile("lib.cpp", TargetCode);
+  SFM.createFile("ut.cpp", UTCode);
+
+  std::vector<std::string> SrcPaths = {SFM.getFilePath("lib.cpp")};
+  auto TAHelper = TestHelperFactory().createTATestHelper(
+      SFM.getSrcDirPath(), SrcPaths, CompileHelper::SourceType_CPP);
+  ASSERT_TRUE(TAHelper);
+  ASSERT_TRUE(TAHelper->analyze());
+
+  std::vector<std::string> APINames = {"API1", "API2"};
+  SrcPaths = {SFM.getFilePath("ut.cpp")};
+  auto UAHelper = TestHelperFactory().createUATestHelper(
+      SFM.getSrcDirPath(), SrcPaths, CompileHelper::SourceType_CPP);
+  ASSERT_TRUE(UAHelper);
+  UAHelper->addTA(TAHelper);
+  ASSERT_TRUE(
+      UAHelper->analyze(std::make_shared<APIManualLoader>(std::set<std::string>(
+                            APINames.begin(), APINames.end())),
+                        "gtest"));
+
+  auto Helper = std::make_unique<GenTestHelper>(UAHelper);
+  ASSERT_TRUE(Helper);
+  ASSERT_TRUE(
+      Helper->generate(SFM.getSrcDirPath(), SFM.getOutDirPath(), APINames));
+
+  std::vector<std::string> VerifyFiles;
+  const std::set<std::string> GenFiles = {
+      "ut.cpp", InputMutator::DefaultEntryName,
+      ProtobufMutator::DescriptorName + ".proto"};
+  const std::set<std::string> TestCaseNames = {"Test_Enum_Test"};
+  for (const auto &GenFile : GenFiles) {
+    for (const auto &TestCaseName : TestCaseNames) {
+      VerifyFiles.emplace_back((fs::path(SFM.getOutDirPath()) /
+                                fs::path(TestCaseName) / fs::path(GenFile))
+                                   .string());
+    }
+  }
+  verifyFiles(VerifyFiles);
 }
 
 } // namespace ftg

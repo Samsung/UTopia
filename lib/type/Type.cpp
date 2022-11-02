@@ -1,6 +1,6 @@
 #include "ftg/type/Type.h"
-#include "ftg/targetanalysis/TargetLibAnalyzer.h"
 #include "ftg/utils/ASTUtil.h"
+#include "json/json.h"
 
 using namespace llvm;
 
@@ -23,12 +23,13 @@ std::shared_ptr<Type> Type::createCharPointerType() {
 
 std::shared_ptr<Type> Type::createType(const clang::QualType &T,
                                        const clang::ASTContext &ASTCtx,
-                                       llvm::Argument *A, TargetLib *TL) {
+                                       llvm::Argument *A,
+                                       const TypeAnalysisReport *Report) {
   std::shared_ptr<Type> Result = nullptr;
   if (util::isPointerType(T)) {
-    Result = Type::createPointerType(T, ASTCtx, A, TL);
+    Result = Type::createPointerType(T, ASTCtx, A, Report);
   } else if (T->isEnumeralType()) {
-    Result = Type::createEnumType(T, TL);
+    Result = Type::createEnumType(T, ASTCtx, Report);
   } else if (util::isPrimitiveType(T)) {
     Result = Type::createPrimitiveType(T, ASTCtx);
   }
@@ -66,40 +67,42 @@ std::shared_ptr<Type> Type::createPrimitiveType(const clang::QualType &T,
 }
 
 std::shared_ptr<Type> Type::createEnumType(const clang::QualType &T,
-                                           TargetLib *TL) {
-  if (T->isEnumeralType()) {
-    auto Result = std::make_shared<Type>(Type::TypeID_Enum);
-    Result->setUnsigned(T->isUnsignedIntegerType());
-    Result->setBoolean(T->isBooleanType());
+                                           const clang::ASTContext &Ctx,
+                                           const TypeAnalysisReport *Report) {
+  if (!T->isEnumeralType())
+    return nullptr;
 
-    clang::TagDecl *TD = T->getAsTagDecl();
-    // NOTE: Below condition is to handle when tagDecl is nullptr.
-    //       Previous code does not define behavior of above case, thus
-    //       conservative handling is inserted.
-    if (!TD)
-      return nullptr;
-    auto EnumName = TD->getQualifiedNameAsString();
-    if (auto *TypedefDecl = TD->getTypedefNameForAnonDecl())
-      EnumName = TypedefDecl->getQualifiedNameAsString();
-    Result->setTypeName(EnumName);
-    if (TL)
-      Result->setGlobalDef(TL->getEnum(EnumName));
-    return Result;
+  auto *D = T->getAsTagDecl();
+  if (!D)
+    return nullptr;
+
+  auto Result = std::make_shared<Type>(Type::TypeID_Enum);
+  Result->setUnsigned(T->isUnsignedIntegerType());
+  Result->setBoolean(T->isBooleanType());
+  auto EnumName = D->getQualifiedNameAsString();
+  if (auto *TD = D->getTypedefNameForAnonDecl())
+    EnumName = TD->getQualifiedNameAsString();
+  Result->setTypeName(EnumName);
+  if (Report) {
+    const auto &Enums = Report->getEnums();
+    auto Iter = Enums.find(EnumName);
+    if (Iter != Enums.end())
+      Result->setGlobalDef(Iter->second);
   }
-  return nullptr;
+  return Result;
 }
 
-std::shared_ptr<Type> Type::createPointerType(const clang::QualType &T,
-                                              const clang::ASTContext &ASTCtx,
-                                              llvm::Argument *A,
-                                              TargetLib *TL) {
+std::shared_ptr<Type>
+Type::createPointerType(const clang::QualType &T,
+                        const clang::ASTContext &ASTCtx, llvm::Argument *A,
+                        const TypeAnalysisReport *Report) {
   auto Result = std::make_shared<Type>(Type::TypeID_Pointer);
   if (!Result)
     return nullptr;
 
   Result->setPtrKind(Type::PtrKind::PtrKind_Normal);
   clang::QualType PointeeT = util::getPointeeTy(T);
-  Result->setPointeeType(Type::createType(PointeeT, ASTCtx, A, TL));
+  Result->setPointeeType(Type::createType(PointeeT, ASTCtx, A, Report));
   Result->updateArrayInfoFromAST(T);
   return Result;
 }
@@ -113,6 +116,14 @@ Type::Type(Type::TypeID ID) : ID(ID) {
   if (ID == TypeID_Pointer)
     this->PtrInfo =
         std::make_shared<PointerInfo>(Type::PtrKind::PtrKind_Normal);
+}
+
+Type::Type(Json::Value Json) {
+  assert(fromJson(Json) && "Unexpected Program State");
+}
+
+Type::Type(Json::Value Json, const TypeAnalysisReport *Report) {
+  assert(fromJson(Json, Report) && "Unexpected Program State");
 }
 
 Type::TypeID Type::getKind() const { return ID; }
@@ -182,7 +193,7 @@ size_t Type::getTypeSize() const { return TypeSize; }
 
 std::string Type::getTypeName() const { return TypeName; }
 
-const Enum *Type::getGlobalDef() const { return GlobalDef; }
+const Enum *Type::getGlobalDef() const { return GlobalDef.get(); }
 
 const ArrayInfo *Type::getArrayInfo() const {
   assert(PtrInfo && "Unexpected Program State");
@@ -219,7 +230,9 @@ void Type::setTypeName(std::string TypeName) { this->TypeName = TypeName; }
 
 void Type::setBoolean(bool Boolean) { this->Boolean = Boolean; }
 
-void Type::setGlobalDef(Enum *GlobalDef) { this->GlobalDef = GlobalDef; }
+void Type::setGlobalDef(std::shared_ptr<Enum> GlobalDef) {
+  this->GlobalDef = GlobalDef;
+}
 
 void Type::setUnsigned(bool Unsigned) { this->Unsigned = Unsigned; }
 
@@ -236,6 +249,58 @@ void Type::setPointeeType(std::shared_ptr<Type> PointeeType) {
 void Type::setPtrKind(Type::PtrKind Kind) {
   assert(PtrInfo && "Unexpected Program State");
   this->PtrInfo->setPtrKind(Kind);
+}
+
+Json::Value Type::toJson() const {
+  Json::Value Json;
+
+  Json["ASTTypeName"] = ASTTypeName;
+  Json["TypeID"] = ID;
+  Json["NameSpace"] = NameSpace;
+  Json["TypeSize"] = TypeSize;
+  Json["TypeName"] = TypeName;
+  Json["GlobalDef"] = GlobalDef ? GlobalDef->toJson() : Json::nullValue;
+  Json["IsBoolean"] = Boolean;
+  Json["IsUnsigned"] = Unsigned;
+  Json["IsAnyCharacter"] = AnyCharacter;
+  Json["PointerInfo"] = PtrInfo ? PtrInfo->toJson() : Json::nullValue;
+
+  return Json;
+}
+
+bool Type::fromJson(Json::Value Json) { return Type::fromJson(Json, nullptr); }
+
+bool Type::fromJson(Json::Value Json, const TypeAnalysisReport *Report) {
+  try {
+    if (Json.isNull() || Json.empty() || !Json["ASTTypeName"].isString() ||
+        !Json["TypeID"].isUInt() || !Json["NameSpace"].isString() ||
+        !Json["TypeSize"].isUInt() || !Json["TypeName"].isString() ||
+        !Json["IsBoolean"].isBool() || !Json["IsUnsigned"].isBool() ||
+        !Json["IsAnyCharacter"].isBool())
+      throw Json::LogicError("Abnormal Json Value");
+    ASTTypeName = Json["ASTTypeName"].asString();
+    ID = static_cast<TypeID>(Json["TypeID"].asUInt());
+    NameSpace = Json["NameSpace"].asString();
+    TypeSize = Json["TypeSize"].asUInt();
+    TypeName = Json["TypeName"].asString();
+    GlobalDef = nullptr;
+    if (Report) {
+      const auto &Enums = Report->getEnums();
+      auto Iter = Enums.find(TypeName);
+      if (Iter != Enums.end())
+        GlobalDef = Iter->second;
+    }
+    Boolean = Json["IsBoolean"].asBool();
+    Unsigned = Json["IsUnsigned"].asBool();
+    AnyCharacter = Json["IsAnyCharacter"].asBool();
+    PtrInfo = Json["PointerInfo"].isNull()
+                  ? nullptr
+                  : std::make_shared<PointerInfo>(Json["PointerInfo"], Report);
+  } catch (Json::LogicError &E) {
+    llvm::outs() << "[E] " << E.what() << "\n";
+    return false;
+  }
+  return true;
 }
 
 ArrayInfo::LengthType ArrayInfo::getLengthType() const { return LengthTy; }
@@ -255,6 +320,15 @@ void ArrayInfo::setLengthType(LengthType LengthTy) {
 void ArrayInfo::setMaxLength(size_t MaxLength) { this->MaxLength = MaxLength; }
 
 Type::PointerInfo::PointerInfo(PtrKind Kind) : Kind(Kind) {}
+
+Type::PointerInfo::PointerInfo(Json::Value Json) {
+  assert(fromJson(Json) && "Unexpected Program State");
+}
+
+Type::PointerInfo::PointerInfo(Json::Value Json,
+                               const TypeAnalysisReport *Report) {
+  assert(fromJson(Json, Report) && "Unexpected Program State");
+}
 
 void Type::PointerInfo::updateArrayInfoFromAST(Type *BaseType,
                                                const clang::QualType &QT) {
@@ -308,6 +382,40 @@ const ArrayInfo *Type::PointerInfo::getArrayInfo() const {
 
 void Type::PointerInfo::setArrayInfo(std::shared_ptr<ArrayInfo> ArrInfo) {
   this->ArrInfo = ArrInfo;
+}
+
+Json::Value Type::PointerInfo::toJson() const {
+  Json::Value Json;
+
+  Json["PointerKind"] = Kind;
+  Json["PointeeType"] = PointeeType ? PointeeType->toJson() : Json::nullValue;
+  Json["ArrayInfo"] = ArrInfo ? ArrInfo->toJson() : Json::nullValue;
+
+  return Json;
+}
+
+bool Type::PointerInfo::fromJson(Json::Value Json) {
+  return fromJson(Json, nullptr);
+}
+
+bool Type::PointerInfo::fromJson(Json::Value Json,
+                                 const TypeAnalysisReport *Report) {
+  try {
+    if (Json.isNull() || Json.empty() || !Json["PointerKind"].isInt())
+      throw Json::LogicError("Abnormal Json Value");
+    Kind = static_cast<PtrKind>(Json["PointerKind"].asInt());
+    if (!Json["PointeeType"].isNull()) {
+      PointeeType = std::make_shared<Type>(Json["PointeeType"], Report);
+    }
+    if (!Json["ArrayInfo"].isNull()) {
+      ArrInfo = std::make_unique<ArrayInfo>();
+      ArrInfo->fromJson(Json["ArrayInfo"]);
+    }
+  } catch (Json::LogicError &E) {
+    llvm::outs() << "[E] " << E.what() << "\n";
+    return false;
+  }
+  return true;
 }
 
 Json::Value ArrayInfo::toJson() const {

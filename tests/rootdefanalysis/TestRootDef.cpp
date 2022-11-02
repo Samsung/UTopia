@@ -2,39 +2,20 @@
 #include "ftg/rootdefanalysis/RDAnalyzer.h"
 #include "ftg/rootdefanalysis/RDNode.h"
 #include "ftg/utils/ASTUtil.h"
+#include "ftg/utils/LLVMUtil.h"
 
 using namespace llvm;
 using namespace ftg;
 
-class TestRDAnalyzer : public ::testing::Test {
+class TestRDAnalyzer : public TestBase {
 protected:
-  std::unique_ptr<IRAccessHelper> AH;
-  std::unique_ptr<SourceCollection> SC;
-
-  bool load(std::string Code) {
-    auto CH = TestHelperFactory().createCompileHelper(
-        Code, "test", "-O0 -g", CompileHelper::SourceType_CPP);
-    if (!CH)
-      return false;
-
-    SC = CH->load();
-    if (!SC)
-      return false;
-
-    AH = std::make_unique<IRAccessHelper>(SC->getLLVMModule());
-    if (!AH)
-      return false;
-
-    return true;
-  }
-
   std::set<RDNode> find(std::string FuncName, unsigned BIdx, unsigned IIdx,
                         unsigned OIdx, std::vector<std::string> FuncsToExplore,
                         RDExtension *Extension) {
-    if (!AH)
+    if (!IRAH)
       return {};
 
-    auto *I = AH->getInstruction(FuncName, BIdx, IIdx);
+    auto *I = IRAH->getInstruction(FuncName, BIdx, IIdx);
     if (!I)
       return {};
 
@@ -45,7 +26,7 @@ protected:
 
     std::vector<llvm::Function *> Funcs;
     for (const auto &Func : FuncsToExplore) {
-      auto *F = AH->getFunction(Func);
+      auto *F = IRAH->getFunction(Func);
       if (!F)
         return {};
 
@@ -70,12 +51,12 @@ TEST_F(TestRDAnalyzer, NoResultHandleRegisterN) {
                      "  int V2 = sub1(V1);\n"
                      "}\n"
                      "}\n";
-  ASSERT_TRUE(load(Code) && AH);
+  ASSERT_TRUE(loadCPP(Code));
 
   auto Nodes = find("test", 0, 7, 0, {"test"}, nullptr);
   ASSERT_EQ(Nodes.size(), 1);
 
-  auto *I = AH->getInstruction("test", 0, 3);
+  auto *I = IRAH->getInstruction("test", 0, 3);
   ASSERT_TRUE(I);
   ASSERT_NE(Nodes.find(RDNode(0, *I)), Nodes.end());
 }
@@ -93,16 +74,16 @@ TEST_F(TestRDAnalyzer, SameRouteDiffTargetP) {
                      "  }\n"
                      "  return V2;\n"
                      "}}";
-  ASSERT_TRUE(load(Code));
+  ASSERT_TRUE(loadCPP(Code));
 
   auto Nodes = find("test", 5, 1, 0, {"test"}, nullptr);
   ASSERT_EQ(Nodes.size(), 2);
 
-  auto *I = AH->getInstruction("test", 0, 4);
+  auto *I = IRAH->getInstruction("test", 0, 4);
   ASSERT_TRUE(I);
   ASSERT_NE(Nodes.find(RDNode(0, *I)), Nodes.end());
 
-  I = AH->getInstruction("test", 0, 6);
+  I = IRAH->getInstruction("test", 0, 6);
   ASSERT_TRUE(I);
   ASSERT_NE(Nodes.find(RDNode(0, *I)), Nodes.end());
 }
@@ -123,12 +104,12 @@ TEST_F(TestRDAnalyzer, NonGlobalOrArgContinueP) {
                      "void test() {\n"
                      "  int V = sub1();\n"
                      "}}\n";
-  ASSERT_TRUE(load(Code));
+  ASSERT_TRUE(loadCPP(Code));
 
   auto Nodes = find("test", 0, 3, 0, {"test"}, nullptr);
   ASSERT_EQ(Nodes.size(), 1);
 
-  auto *I = AH->getInstruction("sub1", 0, 3);
+  auto *I = IRAH->getInstruction("sub1", 0, 3);
   ASSERT_TRUE(I);
   ASSERT_NE(Nodes.find(RDNode(0, *I)), Nodes.end());
 }
@@ -144,14 +125,34 @@ TEST_F(TestRDAnalyzer, RecursionFunctionVisitP) {
                      "  return *p;\n"
                      "}\n"
                      "}";
-  ASSERT_TRUE(load(Code));
+  ASSERT_TRUE(loadCPP(Code));
 
   // NOTE: This test may run forever if visit mechanism is malfunction.
   auto Nodes = find("test", 2, 8, 0, {"test"}, nullptr);
   ASSERT_EQ(Nodes.size(), 1);
 
-  auto *I = AH->getInstruction("test", 0, 1);
+  auto *I = IRAH->getInstruction("test", 0, 1);
   ASSERT_TRUE(I);
+  ASSERT_NE(Nodes.find(RDNode(0, *I)), Nodes.end());
+}
+
+TEST_F(TestRDAnalyzer, RecursionFunctionVisitN) {
+  std::string Code = "extern \"C\" {\n"
+                     "void api(int);\n"
+                     "int sub(int P) {\n"
+                     "  if (P == 0) return 0;\n"
+                     "  return sub(P-1);\n"
+                     "}\n"
+                     "void test() {\n"
+                     "  api(sub(10));\n"
+                     "}\n"
+                     "}";
+  ASSERT_TRUE(loadCPP(Code));
+
+  // NOTE: This test may run forever if visit mechanism is malfunction.
+  auto Nodes = find("test", 0, 1, 0, {"test"}, nullptr);
+  ASSERT_EQ(Nodes.size(), 1);
+  auto *I = IRAH->getInstruction("sub", 1, 0);
   ASSERT_NE(Nodes.find(RDNode(0, *I)), Nodes.end());
 }
 
@@ -170,40 +171,31 @@ TEST_F(TestRDAnalyzer, MethodInvocationVisitP) {
                      "  }\n"
                      "  api(&V1);\n"
                      "}}\n";
-  ASSERT_TRUE(load(Code));
+  ASSERT_TRUE(loadCPP(Code));
 
   RDExtension Extension;
   for (const auto *Method :
        util::collectNonStaticClassMethods(SC->getASTUnits())) {
     ASSERT_TRUE(Method);
-    Extension.addNonStaticClassMethod(
-        util::getMangledName(const_cast<clang::CXXMethodDecl *>(Method)));
+    for (auto &MangledName : util::getMangledNames(*Method)) {
+      Extension.addNonStaticClassMethod(MangledName);
+    }
   }
 
   // NOTE: This test may run forever if visit mechanism is malfunction.
   auto Nodes = find("test", 4, 0, 0, {"test"}, &Extension);
   ASSERT_EQ(Nodes.size(), 2);
 
-  auto *I = AH->getInstruction("test", 0, 5);
+  auto *I = IRAH->getInstruction("test", 0, 5);
   ASSERT_TRUE(I);
   ASSERT_NE(Nodes.find(RDNode(0, *I)), Nodes.end());
 
-  auto *V = AH->getInstruction("test", 0, 0);
+  auto *V = IRAH->getInstruction("test", 0, 0);
   ASSERT_TRUE(V);
-  I = AH->getInstruction("test", 0, 5);
+  I = IRAH->getInstruction("test", 0, 5);
   ASSERT_TRUE(I);
   ASSERT_NE(Nodes.find(RDNode(*V, *I)), Nodes.end());
 }
-
-#define LOAD(CODE, IsC)                                                        \
-  CompileHelper::SourceType Type =                                             \
-      IsC ? CompileHelper::SourceType_C : CompileHelper::SourceType_CPP;       \
-  auto CH = TestHelperFactory().createCompileHelper(CODE, "test_rd", "-O0 -g", \
-                                                    Type);                     \
-  ASSERT_TRUE(CH);                                                             \
-  auto SC = CH->load();                                                        \
-  ASSERT_TRUE(SC);                                                             \
-  IRAccessHelper IRAccess(SC->getLLVMModule());
 
 #define BUILD(Timeout, Extension, ...)                                         \
   auto Analyzer = std::make_unique<RDAnalyzer>(Timeout, Extension);            \
@@ -211,7 +203,7 @@ TEST_F(TestRDAnalyzer, MethodInvocationVisitP) {
     std::vector<std::string> Names = {__VA_ARGS__};                            \
     std::vector<llvm::Function *> Funcs;                                       \
     for (auto Name : Names) {                                                  \
-      auto *F = IRAccess.getFunction(Name);                                    \
+      auto *F = IRAH->getFunction(Name);                                       \
       ASSERT_NE(F, nullptr);                                                   \
       Funcs.push_back(F);                                                      \
     }                                                                          \
@@ -230,7 +222,7 @@ TEST_F(TestRDAnalyzer, MethodInvocationVisitP) {
 #define FIND(FIdx, BIdx, IIdx, AIdx)                                           \
   std::set<RDNode> RootDefs;                                                   \
   do {                                                                         \
-    auto *I = IRAccess.getInstruction(FIdx, BIdx, IIdx);                       \
+    auto *I = IRAH->getInstruction(FIdx, BIdx, IIdx);                          \
     ASSERT_NE(I, nullptr);                                                     \
     RootDefs = Analyzer->getRootDefinitions(I->getOperandUse(AIdx));           \
   } while (0)
@@ -239,7 +231,7 @@ TEST_F(TestRDAnalyzer, MethodInvocationVisitP) {
 
 #define VERIFY_INST(FIdx, BIdx, IIdx, ArgIdx)                                  \
   do {                                                                         \
-    auto *I = IRAccess.getInstruction(FIdx, BIdx, IIdx);                       \
+    auto *I = IRAH->getInstruction(FIdx, BIdx, IIdx);                          \
     ASSERT_NE(I, nullptr);                                                     \
     bool Found = false;                                                        \
     for (auto &RootDef : RootDefs) {                                           \
@@ -253,7 +245,7 @@ TEST_F(TestRDAnalyzer, MethodInvocationVisitP) {
 
 #define VERIFY_GLOBAL(Name, ArgIdx)                                            \
   do {                                                                         \
-    auto *G = IRAccess.getGlobalVariable(Name);                                \
+    auto *G = IRAH->getGlobalVariable(Name);                                   \
     ASSERT_NE(G, nullptr);                                                     \
     bool Found = false;                                                        \
     for (auto &RootDef : RootDefs) {                                           \
@@ -270,7 +262,9 @@ bool exist(const RDNode &Node, llvm::Value &V, int Idx) {
   return Result.first == &V && Result.second == Idx;
 }
 
-TEST(RootDefAnalyzer, DefinitionsP) {
+class TestRootDefAnalyzer : public TestBase {};
+
+TEST_F(TestRootDefAnalyzer, DefinitionsP) {
   const char *CODE =
       "extern \"C\" {\n"
       "typedef struct _ST1 {\n"
@@ -317,7 +311,7 @@ TEST(RootDefAnalyzer, DefinitionsP) {
       "}\n"
       "}\n";
 
-  LOAD(CODE, false);
+  ASSERT_TRUE(loadCPP(CODE));
   BUILD(0, nullptr, "test");
   {
     // API_1(Var1) -> int Var1 = 0 (Local Value Delcaration)
@@ -398,7 +392,7 @@ TEST(RootDefAnalyzer, DefinitionsP) {
   }
 }
 
-TEST(RootDefAnalyzer, PathP) {
+TEST_F(TestRootDefAnalyzer, PathP) {
   const char *CODE = "extern \"C\" {\n"
                      "int GVar1 = 30;\n"
                      "void API_1(int);\n"
@@ -447,7 +441,7 @@ TEST(RootDefAnalyzer, PathP) {
                      "  API_1(Var1);\n"
                      "}\n"
                      "}\n";
-  LOAD(CODE, false);
+  ASSERT_TRUE(loadCPP(CODE));
   BUILD(0, nullptr, "test_1", "test_2");
 
   {
@@ -518,7 +512,9 @@ bool addOutParam(DirectionAnalysisReport &DirectionReport,
   return true;
 }
 
-TEST(DFAnalyzer, ExternalP) {
+class TestDFAnalyzer : public TestBase {};
+
+TEST_F(TestDFAnalyzer, ExternalP) {
   const char *CODE =
       "extern \"C\" {\n"
       "typedef struct _ST1 { long long a; long long b; long long c; } ST1;\n"
@@ -556,7 +552,7 @@ TEST(DFAnalyzer, ExternalP) {
       "  Var5 = API_9(&Var1, GVar1);\n"
       "}}";
 
-  LOAD(CODE, false);
+  ASSERT_TRUE(loadCPP(CODE));
 
   auto DirectionReport = std::make_shared<DirectionAnalysisReport>();
   ASSERT_TRUE(
@@ -659,7 +655,7 @@ TEST(DFAnalyzer, ExternalP) {
   }
 }
 
-TEST(RootDefAnalyzer, 1N) {
+TEST_F(TestRootDefAnalyzer, 1N) {
   RDAnalyzer Analyzer;
   try {
     Analyzer.setSearchSpace({nullptr});
@@ -668,14 +664,14 @@ TEST(RootDefAnalyzer, 1N) {
   }
 }
 
-TEST(RootDefAnalyzer, UninitializedN) {
+TEST_F(TestRootDefAnalyzer, UninitializedN) {
   const char *CODE = "extern \"C\" {\n"
                      "void API_1(int*);\n"
                      "void test() {\n"
                      "  int Var1[10];\n"
                      "  API_1(Var1);\n"
                      "}}\n";
-  LOAD(CODE, false);
+  ASSERT_TRUE(loadCPP(CODE));
   BUILD(0, nullptr, "test");
 
   {
@@ -685,14 +681,14 @@ TEST(RootDefAnalyzer, UninitializedN) {
   }
 }
 
-TEST(RootDefAnalyzer, NoPrevInstN) {
+TEST_F(TestRootDefAnalyzer, NoPrevInstN) {
   const char *CODE = "extern \"C\" {\n"
                      "void API_1(int**);\n"
                      "void test() {\n"
                      "  int* Var1;\n"
                      "  API_1(&Var1);\n"
                      "}}\n";
-  LOAD(CODE, false);
+  ASSERT_TRUE(loadCPP(CODE));
   BUILD(0, nullptr, "test");
 
   {
@@ -702,7 +698,7 @@ TEST(RootDefAnalyzer, NoPrevInstN) {
   }
 }
 
-TEST(RootDefAnalyzer, TerminationP) {
+TEST_F(TestRootDefAnalyzer, TerminationP) {
   const char *CODE = "extern \"C\" {\n"
                      "void API_1(const char* P1);\n"
                      "void API_2(const char* P1, int* P2);\n"
@@ -717,7 +713,7 @@ TEST(RootDefAnalyzer, TerminationP) {
                      "  API_3(Var3);\n"
                      "}}";
 
-  LOAD(CODE, false);
+  ASSERT_TRUE(loadCPP(CODE));
 
   auto DirectionReport = std::make_shared<DirectionAnalysisReport>();
   ASSERT_TRUE(DirectionReport);
@@ -760,14 +756,14 @@ TEST(RootDefAnalyzer, TerminationP) {
   }
 }
 
-TEST(RootDefAnalyzer, TerminationN) {
+TEST_F(TestRootDefAnalyzer, TerminationN) {
   const char *CODE = "extern \"C\" {\n"
                      "void API_1(const char* P1);\n"
                      "void test() {\n"
                      "  const char *Var1 = \"World.txt\";\n"
                      "  API_1(Var1);\n"
                      "}}";
-  LOAD(CODE, false);
+  ASSERT_TRUE(loadCPP(CODE));
 
   RDExtension Extension;
   Extension.addTermination("API_2", 0);
@@ -783,7 +779,7 @@ TEST(RootDefAnalyzer, TerminationN) {
   }
 }
 
-TEST(RootDefAnalyzer, AliasP) {
+TEST_F(TestRootDefAnalyzer, AliasP) {
   const char *CODE = "extern \"C\" {\n"
                      "void API_1(int);\n"
                      "int EXT_1(int);\n"
@@ -796,7 +792,7 @@ TEST(RootDefAnalyzer, AliasP) {
                      "  sub(&Var1, &Var2);\n"
                      "  API_1(Var1);\n"
                      "}}";
-  LOAD(CODE, false);
+  ASSERT_TRUE(loadCPP(CODE));
   BUILD(0, nullptr, "test");
 
   {
@@ -808,7 +804,7 @@ TEST(RootDefAnalyzer, AliasP) {
   }
 }
 
-TEST(RootDefAnalyzer, AliasN) {
+TEST_F(TestRootDefAnalyzer, AliasN) {
   const char *CODE = "extern \"C\" {\n"
                      "void API_1(int);\n"
                      "void test() {\n"
@@ -819,7 +815,7 @@ TEST(RootDefAnalyzer, AliasN) {
                      "  Var3 = &Var1;\n"
                      "}}\n";
 
-  LOAD(CODE, false);
+  ASSERT_TRUE(loadCPP(CODE));
   BUILD(0, nullptr, "test");
 
   {
@@ -836,14 +832,14 @@ TEST(RootDefAnalyzer, AliasN) {
     return RET;                                                                \
   } while (0)
 
-static inline bool verifyFirstUse(IRAccessHelper &IRAccess,
+static inline bool verifyFirstUse(IRAccessHelper *IRAH,
                                   RootDefAnalyzer &Analyzer,
                                   std::string FuncName, unsigned BIdx,
                                   unsigned IIdx, unsigned AIdx,
                                   std::set<RDArgIndex> Answers,
                                   bool Debug = false) {
 
-  auto *I = IRAccess.getInstruction(FuncName, BIdx, IIdx);
+  auto *I = IRAH->getInstruction(FuncName, BIdx, IIdx);
   if (!I) {
     llvm::outs() << FuncName << " : " << BIdx << " : " << IIdx << "\n";
     RETURN_ERR(false);
@@ -892,7 +888,7 @@ static inline bool verifyFirstUse(IRAccessHelper &IRAccess,
   return true;
 }
 
-TEST(RootDefAnalyzer, FirstUseP) {
+TEST_F(TestRootDefAnalyzer, FirstUseP) {
 
   const char *CODE =
       "extern \"C\" {\n"
@@ -945,30 +941,30 @@ TEST(RootDefAnalyzer, FirstUseP) {
       "  CLS(Var1, 3);\n"
       "}\n";
 
-  LOAD(CODE, false);
+  ASSERT_TRUE(loadCPP(CODE));
 
   {
     BUILD(0, nullptr, "test_directFU");
 
     std::set<RDArgIndex> Answers;
-    auto *I = IRAccess.getInstruction("test_directFU", 0, 0);
+    auto *I = IRAH->getInstruction("test_directFU", 0, 0);
     ASSERT_TRUE(I);
     ASSERT_TRUE(isa<CallBase>(I));
     Answers.emplace(*dyn_cast<CallBase>(I), 0);
-    ASSERT_TRUE(
-        verifyFirstUse(IRAccess, *Analyzer, "test_directFU", 0, 0, 0, Answers));
+    ASSERT_TRUE(verifyFirstUse(IRAH.get(), *Analyzer, "test_directFU", 0, 0, 0,
+                               Answers));
   }
 
   {
     BUILD(0, nullptr, "test_indirectFU");
 
     std::set<RDArgIndex> Answers;
-    auto *I = IRAccess.getInstruction("test_indirectFU", 0, 7);
+    auto *I = IRAH->getInstruction("test_indirectFU", 0, 7);
     ASSERT_TRUE(I);
     ASSERT_TRUE(isa<CallBase>(I));
     Answers.emplace(*dyn_cast<CallBase>(I), 0);
-    ASSERT_TRUE(verifyFirstUse(IRAccess, *Analyzer, "test_indirectFU", 0, 7, 0,
-                               Answers));
+    ASSERT_TRUE(verifyFirstUse(IRAH.get(), *Analyzer, "test_indirectFU", 0, 7,
+                               0, Answers));
   }
 
   {
@@ -976,23 +972,23 @@ TEST(RootDefAnalyzer, FirstUseP) {
 
     std::set<RDArgIndex> Answers;
 
-    auto *I1 = IRAccess.getInstruction("test_unionFU", 1, 1);
+    auto *I1 = IRAH->getInstruction("test_unionFU", 1, 1);
     ASSERT_TRUE(I1);
     ASSERT_TRUE(isa<CallBase>(I1));
     Answers.emplace(*dyn_cast<CallBase>(I1), 0);
 
-    auto *I2 = IRAccess.getInstruction("test_unionFU", 3, 1);
+    auto *I2 = IRAH->getInstruction("test_unionFU", 3, 1);
     ASSERT_TRUE(I2);
     ASSERT_TRUE(isa<CallBase>(I2));
     Answers.emplace(*dyn_cast<CallBase>(I2), 0);
 
-    auto *I3 = IRAccess.getInstruction("test_unionFU", 6, 1);
+    auto *I3 = IRAH->getInstruction("test_unionFU", 6, 1);
     ASSERT_TRUE(I3);
     ASSERT_TRUE(isa<CallBase>(I3));
     Answers.emplace(*dyn_cast<CallBase>(I3), 0);
 
-    ASSERT_TRUE(
-        verifyFirstUse(IRAccess, *Analyzer, "test_unionFU", 6, 1, 0, Answers));
+    ASSERT_TRUE(verifyFirstUse(IRAH.get(), *Analyzer, "test_unionFU", 6, 1, 0,
+                               Answers));
   }
 
   {
@@ -1000,11 +996,11 @@ TEST(RootDefAnalyzer, FirstUseP) {
 
     std::set<RDArgIndex> Answers;
 
-    auto *I = IRAccess.getInstruction("sub_1", 0, 4);
+    auto *I = IRAH->getInstruction("sub_1", 0, 4);
     ASSERT_TRUE(I);
     ASSERT_TRUE(isa<CallBase>(I));
     Answers.emplace(*dyn_cast<CallBase>(I), 0);
-    ASSERT_TRUE(verifyFirstUse(IRAccess, *Analyzer, "test_subroutineFU", 0, 1,
+    ASSERT_TRUE(verifyFirstUse(IRAH.get(), *Analyzer, "test_subroutineFU", 0, 1,
                                0, Answers));
   }
 
@@ -1012,21 +1008,21 @@ TEST(RootDefAnalyzer, FirstUseP) {
     BUILD(0, nullptr, "_Z14test_classUTFUv");
 
     std::set<RDArgIndex> Answers;
-    auto *I = IRAccess.getInstruction("_ZN3CLSC2EPii", 0, 12);
+    auto *I = IRAH->getInstruction("_ZN3CLSC2EPii", 0, 12);
     ASSERT_TRUE(I);
     ASSERT_TRUE(isa<CallBase>(I));
     Answers.emplace(*dyn_cast<CallBase>(I), 0);
-    ASSERT_TRUE(verifyFirstUse(IRAccess, *Analyzer, "_ZN3CLSC2EPii", 0, 12, 0,
+    ASSERT_TRUE(verifyFirstUse(IRAH.get(), *Analyzer, "_ZN3CLSC2EPii", 0, 12, 0,
                                Answers));
 
     Answers.clear();
     Answers.emplace(*dyn_cast<CallBase>(I), 1);
-    ASSERT_TRUE(verifyFirstUse(IRAccess, *Analyzer, "_ZN3CLSC2EPii", 0, 12, 1,
+    ASSERT_TRUE(verifyFirstUse(IRAH.get(), *Analyzer, "_ZN3CLSC2EPii", 0, 12, 1,
                                Answers));
   }
 }
 
-TEST(RootDefAnalyzer, FirstUseN) {
+TEST_F(TestRootDefAnalyzer, FirstUseN) {
 
   const char *CODE =
       "extern \"C\" {\n"
@@ -1059,7 +1055,7 @@ TEST(RootDefAnalyzer, FirstUseN) {
                          // is copied parameter that can not be a defiition.
       "  SUB_1(Var1);\n"
       "}}";
-  LOAD(CODE, false);
+  ASSERT_TRUE(loadCPP(CODE));
 
   {
     BUILD(0, nullptr, "test_noFU_definedfunc");
@@ -1073,12 +1069,12 @@ TEST(RootDefAnalyzer, FirstUseN) {
   {
     BUILD(0, nullptr, "test_noFU_prevFU");
 
-    auto *API_1 = IRAccess.getInstruction("test_noFU_prevFU", 0, 6);
+    auto *API_1 = IRAH->getInstruction("test_noFU_prevFU", 0, 6);
     ASSERT_TRUE(API_1);
 
     Analyzer->getRootDefinitions(API_1->getOperandUse(0));
 
-    auto *SUB_1 = IRAccess.getInstruction("test_noFU_prevFU", 0, 4);
+    auto *SUB_1 = IRAH->getInstruction("test_noFU_prevFU", 0, 4);
     ASSERT_TRUE(SUB_1);
 
     auto RDs = Analyzer->getRootDefinitions(SUB_1->getOperandUse(0));
@@ -1091,7 +1087,7 @@ TEST(RootDefAnalyzer, FirstUseN) {
   {
     BUILD(0, nullptr, "test_noFU_subroutine");
 
-    auto *SUB_1 = IRAccess.getInstruction("test_noFU_subroutine", 0, 6);
+    auto *SUB_1 = IRAH->getInstruction("test_noFU_subroutine", 0, 6);
     ASSERT_TRUE(SUB_1);
 
     auto RDs = Analyzer->getRootDefinitions(SUB_1->getOperandUse(0));
@@ -1102,7 +1098,7 @@ TEST(RootDefAnalyzer, FirstUseN) {
   }
 }
 
-TEST(RootDefAnalyzer, ContinueFromCacheInLoopP) {
+TEST_F(TestRootDefAnalyzer, ContinueFromCacheInLoopP) {
 
   const char *CODE = "void API(int *P);\n"
                      "int sub(int *P) { return *P; }\n"
@@ -1116,7 +1112,7 @@ TEST(RootDefAnalyzer, ContinueFromCacheInLoopP) {
                      "  API(&Var2);\n"
                      "}";
 
-  LOAD(CODE, true);
+  ASSERT_TRUE(loadC(CODE));
   BUILD(0, nullptr, "test");
 
   FIND("test", 4, 0, 0);
@@ -1125,7 +1121,7 @@ TEST(RootDefAnalyzer, ContinueFromCacheInLoopP) {
   VERIFY_INST("test", 0, 6, -1);
 }
 
-TEST(RootDefAnalyzer, CyclicMemorySSA) {
+TEST_F(TestRootDefAnalyzer, CyclicMemorySSA) {
 
   const char *CODE = "void API(int*);\n"
                      "void test() {\n"
@@ -1139,7 +1135,7 @@ TEST(RootDefAnalyzer, CyclicMemorySSA) {
                      "  API(&Var1);\n"
                      "}";
 
-  LOAD(CODE, true);
+  ASSERT_TRUE(loadC(CODE));
   BUILD(0, nullptr, "test");
 
   FIND("test", 5, 0, 0);
@@ -1149,7 +1145,7 @@ TEST(RootDefAnalyzer, CyclicMemorySSA) {
 }
 
 /*
-TEST(RootDefAnalyzer, ConstExprP) {
+TEST_F(TestRootDefAnalyzer, ConstExprP) {
   const char* CODE =
     "extern \"C\" {\n"
     "char *GVar1 = nullptr;\n"
@@ -1157,7 +1153,7 @@ TEST(RootDefAnalyzer, ConstExprP) {
     "void test() {\n"
     "  API_1(&GVar1);\n"
     "}}\n";
-  LOAD(CODE, false);
+  ASSERT_TRUE(loadCPP(CODE));
   BUILD("test");
   FIND("test", 0, 0, 0);
   VERIFY_NUM(1);

@@ -11,9 +11,26 @@ TypeUnavailableFilter::TypeUnavailableFilter(
     : InputFilter(FilterName, std::move(NextFilter)) {}
 
 bool TypeUnavailableFilter::check(const ASTIRNode &Node) const {
-  auto &AST = Node.AST;
-  auto &Assignee = AST.getAssignee();
-  auto *Assigned = AST.getAssigned();
+  return hasConstRedecls(Node.AST) || isUndefinedType(Node.AST);
+}
+
+bool TypeUnavailableFilter::hasConstRedecls(const ASTDefNode &ADN) const {
+  auto *D = ADN.getAssignee().getNode().get<VarDecl>();
+  if (!D)
+    return false;
+
+  if (!D->getType().isConstQualified())
+    return false;
+
+  if (!D->isFirstDecl())
+    return true;
+
+  return D != D->getMostRecentDecl();
+}
+
+bool TypeUnavailableFilter::isUndefinedType(const ASTDefNode &ADN) const {
+  auto &Assignee = ADN.getAssignee();
+  auto *Assigned = ADN.getAssigned();
 
   auto T = Assignee.getType().getTypePtrOrNull();
   if (Assignee.getNodeType() == ASTNode::CALL && Assigned)
@@ -40,7 +57,7 @@ bool TypeUnavailableFilter::check(const ASTIRNode &Node) const {
   if (!D)
     return false;
 
-  auto &SrcManager = AST.getAssignee().getASTUnit().getSourceManager();
+  auto &SrcManager = ADN.getAssignee().getASTUnit().getSourceManager();
   auto FID = SrcManager.getFileID(D->getBeginLoc());
   assert(FID.isValid() && "Unexpected Program State");
 

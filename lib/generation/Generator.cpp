@@ -1,7 +1,6 @@
 #include "ftg/generation/Generator.h"
 #include "ftg/generation/CorpusGenerator.h"
 #include "ftg/generation/FuzzerSrcGenerator.h"
-#include "ftg/targetanalysis/TargetLibLoadUtil.h"
 #include "ftg/utils/FileUtil.h"
 #include "ftg/utils/StringUtil.h"
 #include <experimental/filesystem>
@@ -120,7 +119,7 @@ void Generator::exportReportJson(std::vector<std::shared_ptr<Fuzzer>> &Fuzzers,
   Reporter = std::make_unique<FuzzGenReporter>(PublicAPIList);
   for (auto &F : Fuzzers) {
     assert(F && "Unexpected Program State");
-    Reporter->addFuzzer(*F, Loader.getTargetReport());
+    Reporter->addFuzzer(*F);
   }
 
   // Add APIs that has no input parameter (forceful overwrite)
@@ -151,7 +150,7 @@ void Generator::exportReportJson(std::vector<std::shared_ptr<Fuzzer>> &Fuzzers,
 
     bool HasInputParam = false;
     for (unsigned S = BeginIndex; S < ParamSize; ++S) {
-      if (DirectionReport.has(PublicAPI, S) &&
+      if (!DirectionReport.has(PublicAPI, S) ||
           DirectionReport.get(PublicAPI, S) != Dir::Dir_Out) {
         HasInputParam = true;
         break;

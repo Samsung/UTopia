@@ -11,6 +11,9 @@ void InputMutator::initFromFuzzer(const Fuzzer &F,
                                   const SourceAnalysisReport &SourceReport) {
   for (auto IDInput : F.getFuzzInputMap()) {
     auto FuzzingInput = IDInput.second;
+    assert(FuzzingInput && "Unexpected Program State");
+    if (FuzzingInput->getCopyFrom())
+      continue;
     addInput(*FuzzingInput);
   }
   auto UTHeaders = SourceReport.getIncludedHeaders(F.getUT().getFilePath());

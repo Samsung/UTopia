@@ -32,6 +32,7 @@ public:
   const Definition *ArrayLenDef;
 
   FuzzInput(std::shared_ptr<const Definition> Def);
+  const FuzzInput *getCopyFrom() const;
   unsigned getID() const;
   const Definition &getDef() const;
   std::shared_ptr<const Definition> &getDefPtr();
@@ -42,8 +43,10 @@ public:
 
   std::string getFuzzVarName() const;
   std::string getProtoVarName() const;
+  void setCopyFrom(std::shared_ptr<FuzzInput> CopyFrom);
 
 private:
+  std::shared_ptr<FuzzInput> CopyFrom;
   std::shared_ptr<const Definition> Def;
   AssignVar LocalVar;
   AssignVar LocalPtrVar;
@@ -172,8 +175,6 @@ public:
   FuzzInputFactory() = default;
   std::shared_ptr<FuzzInput>
   generate(std::shared_ptr<const Definition> &Def) const;
-  std::pair<std::shared_ptr<FuzzInput>, std::shared_ptr<FuzzInput>>
-  generateArrayDefs(std::shared_ptr<const Definition> &Def) const;
 };
 
 } // end namespace ftg

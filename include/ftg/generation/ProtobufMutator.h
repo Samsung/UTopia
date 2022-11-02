@@ -20,7 +20,8 @@ public:
   ProtobufMutator();
   void addInput(FuzzInput &Input) override;
   void genEntry(const std::string &OutDir,
-                const std::string &FileName = DefaultEntryName) override;
+                const std::string &FileName = DefaultEntryName,
+                const std::string &Signature = "") override;
 
 private:
   static const std::string DescriptorObjName;

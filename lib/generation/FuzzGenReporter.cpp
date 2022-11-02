@@ -6,17 +6,12 @@
 namespace fs = std::experimental::filesystem;
 namespace ftg {
 
-static inline void updateUTProtobufFiles(Json::Value &Root,
-                                         std::string ProtobufDir) {
-  std::string ProtobufFiles[] = {
-      "FuzzArgsProfile.pb.h", "FuzzArgsProfile.pb.cc", "FuzzArgsProfile.proto"};
-  for (auto ProtobufFile : ProtobufFiles) {
-    auto Path = ProtobufFile;
-    if (!ProtobufDir.empty()) {
-      Path = ProtobufDir + PATH_SEPARATOR + Path;
-    }
-    Root["ProtobufFiles"].append(Path);
-  }
+static inline void updateUTProtobufFile(Json::Value &Root,
+                                        std::string ProtobufDir) {
+  std::string Path = "FuzzArgsProfile.proto";
+  if (!ProtobufDir.empty())
+    Path = (fs::path(ProtobufDir) / fs::path(Path)).string();
+  Root["ProtobufFile"] = Path;
 }
 
 FuzzGenReporter::FuzzGenReporter(std::set<std::string> &PublicAPINames)
@@ -41,8 +36,7 @@ void FuzzGenReporter::addAPI(std::string APIName, FuzzStatus Status,
   APIReport->HasUT = true;
 }
 
-void FuzzGenReporter::addFuzzer(const Fuzzer &F,
-                                const TargetLib &TargetReport) {
+void FuzzGenReporter::addFuzzer(const Fuzzer &F) {
   auto UT = F.getUT();
   auto UTFileName =
       util::getNormalizedPath(fs::path(UT.getFilePath()).filename().string());
@@ -152,7 +146,7 @@ Json::Value FuzzGenReporter::exportUTsReportJson() const {
       UTJson["FuzzEntryPath"] =
           UTReport->UTDir + PATH_SEPARATOR + UTJson["FuzzEntryPath"].asString();
     }
-    updateUTProtobufFiles(UTJson, UTReport->UTDir);
+    updateUTProtobufFile(UTJson, UTReport->UTDir);
     UTsJson.append(UTJson);
   }
   return UTsJson;
@@ -190,14 +184,14 @@ Json::Value FuzzGenReporter::exportStatsJson() const {
   size_t UTCountFuzzable = UTCountFuzzSrcNotGenerated + UTCountFuzzSrcGenerated;
   size_t UTCountTotal = UTCountNotFuzzable + UTCountFuzzable;
 
-  RetJson["UTCountTotal"] = UTCountTotal;
+  RetJson["UTCount_Total"] = UTCountTotal;
   RetJson["UTCount_NoCallSequence"] = UTCountNotAnalyzed;
   RetJson["UTCount_NoInputParam"] = UTCountNoInput;
   RetJson["UTCount_UnidentifiedParam"] = UTCountUnidentified;
-  RetJson["UTCountFuzzSrcNotGenerated"] = UTCountFuzzSrcNotGenerated;
-  RetJson["UTCountFuzzSrcGenerated"] = UTCountFuzzSrcGenerated;
-  RetJson["UTCountNotFuzzable"] = UTCountNotFuzzable;
-  RetJson["UTCountFuzzable"] = UTCountFuzzable;
+  RetJson["UTCount_FuzzSrcNotGenerated"] = UTCountFuzzSrcNotGenerated;
+  RetJson["UTCount_FuzzSrcGenerated"] = UTCountFuzzSrcGenerated;
+  RetJson["UTCount_NotFuzzable"] = UTCountNotFuzzable;
+  RetJson["UTCount_Fuzzable"] = UTCountFuzzable;
 
   size_t APICountInputParamNotInUT = getAPIList(UNINITIALIZED).size();
   size_t APICountNoInputParam = getAPIList(NOT_FUZZABLE_NO_INPUT).size();
@@ -219,14 +213,14 @@ Json::Value FuzzGenReporter::exportStatsJson() const {
     }
   }
 
-  RetJson["APICountTotal"] = APICountTotal;
+  RetJson["APICount_Total"] = APICountTotal;
   RetJson["APICount_NoUT"] = APICountInputParamNotInUT;
-  RetJson["APICountNoInputParam"] = APICountNoInputParam;
-  RetJson["APICountUnidentifiedParam"] = APICountUnidentifiedParam;
-  RetJson["APICountFuzzSrcNotGenerated"] = APICountFuzzSrcNotGenerated;
-  RetJson["APICountFuzzSrcGenerated"] = APICountFuzzSrcGenerated;
-  RetJson["APICountNotFuzzable"] = APICountNotFuzzable;
-  RetJson["APICountFuzzable"] = APICountFuzzable;
+  RetJson["APICount_NoInputParam"] = APICountNoInputParam;
+  RetJson["APICount_UnidentifiedParam"] = APICountUnidentifiedParam;
+  RetJson["APICount_FuzzSrcNotGenerated"] = APICountFuzzSrcNotGenerated;
+  RetJson["APICount_FuzzSrcGenerated"] = APICountFuzzSrcGenerated;
+  RetJson["APICount_NotFuzzable"] = APICountNotFuzzable;
+  RetJson["APICount_Fuzzable"] = APICountFuzzable;
   RetJson["APICount_InCallSequence"] = APICountUTAnalyzed;
 
   // To be updated by FTG Helper

@@ -68,15 +68,15 @@ TEST_F(TestProtobufDescriptor, TestEnumP) {
   for (int Idx = 0; Idx < 3; ++Idx) {
     Enumerators.emplace_back("Val" + std::to_string(Idx), Idx);
   }
-  Enum E1("EnumWithZero", Enumerators);
-  ET1.setGlobalDef(&E1);
+  auto E1 = std::make_shared<Enum>("EnumWithZero", Enumerators);
+  ET1.setGlobalDef(E1);
   Descriptor->addField(ET1, "Flag1");
 
   Type ET2(Type::TypeID_Enum);
   ET2.setTypeName("EnumWithoutZero");
   Enumerators.erase(Enumerators.cbegin());
-  Enum E2("EnumWithoutZero", Enumerators);
-  ET2.setGlobalDef(&E2);
+  auto E2 = std::make_shared<Enum>("EnumWithoutZero", Enumerators);
+  ET2.setGlobalDef(E2);
   Descriptor->addField(ET2, "Flag2");
   Descriptor->addField(ET2, "Flag3");
   verifyProto();
@@ -89,8 +89,8 @@ TEST_F(TestProtobufDescriptor, TestEnumWithAliasP) {
   for (int Idx = 0; Idx < 3; ++Idx) {
     Enumerators.emplace_back("Val" + std::to_string(Idx), 0);
   }
-  Enum E1("EnumWithAlias", Enumerators);
-  ET1.setGlobalDef(&E1);
+  auto E1 = std::make_shared<Enum>("EnumWithAlias", Enumerators);
+  ET1.setGlobalDef(E1);
   Descriptor->addField(ET1, "Flag1");
   verifyProto();
 }

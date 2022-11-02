@@ -5,7 +5,6 @@
 
 namespace ftg {
 
-std::string getClangVersion();
 std::string getTmpDirPath();
 std::string getUniqueFilePath(std::string Dir, std::string Name,
                               std::string Ext = "");

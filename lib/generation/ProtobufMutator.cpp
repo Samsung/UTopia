@@ -27,14 +27,16 @@ void ProtobufMutator::addInput(FuzzInput &Input) {
   FuzzVarAssigns.emplace_back(genFuzzVarAssign(Input));
   if (!Input.getDef().ArrayLen) {
     assert(Input.getFTGType().getRealType() && "Unexpected Program State");
-    Descriptor.addField(*Input.getFTGType().getRealType(),
-                        Input.getProtoVarName());
+    if (!Descriptor.addField(*Input.getFTGType().getRealType(),
+                             Input.getProtoVarName()))
+      assert(false && "Unexpected Program State");
   }
 }
 
 void ProtobufMutator::genEntry(const std::string &OutDir,
-                               const std::string &FileName) {
-  std::string Code;
+                               const std::string &FileName,
+                               const std::string &Signature) {
+  std::string Code(Signature);
   // Headers
   for (const auto &Header : getHeaders())
     Code += SrcGenerator::genIncludeStmt(Header);
@@ -212,7 +214,7 @@ ProtobufMutator::saveMutationToFile(const std::string &MutationVarName) {
   auto FuzzFilePathVar = MutationVarName + "_filepath";
   auto FuzzFileDesc = MutationVarName + "_fd";
   Code += "std::string " + FuzzFilePathVar + "(FUZZ_FILEPATH_PREFIX + " +
-          MutationVarName + "_file);";
+          +"std::string(\"" + MutationVarName + "_file\"));";
   Code += "int " + FuzzFileDesc + " = open(" + FuzzFilePathVar +
           ".c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);";
   Code += "if (" + FuzzFileDesc + " != -1) {";

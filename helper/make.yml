@@ -22,8 +22,8 @@ targets:
         - cd build && cmake -DBUILD_SHARED_LIBS=OFF k#:cmake_org_flags:# ..
         - rm -f output/build.log
         - cd build && export COMPILE_LOG="$(realpath ../output/build.log)" && make -j8 V=1
-        - sed -i 's/-DASSIMP_TEST_MODELS_DIR="\/root\/fuzz-test-generation\/exp\/assimp\/test\/models"/-DASSIMP_TEST_MODELS_DIR=\\"\/root\/fuzz-test-generation\/exp\/assimp\/test\/models\\"/g' output/build.log
-        - sed -i 's/-DASSIMP_TEST_MODELS_NONBSD_DIR="\/root\/fuzz-test-generation\/exp\/assimp\/test\/models-nonbsd"/-DASSIMP_TEST_MODELS_NONBSD_DIR=\\"\/root\/fuzz-test-generation\/exp\/assimp\/test\/models-nonbsd\\"/g' output/build.log
+        - sed -i 's/-DASSIMP_TEST_MODELS_DIR="\(.*\)models"/-DASSIMP_TEST_MODELS_DIR=\\"\1models\\"/g' output/build.log
+        - sed -i 's/-DASSIMP_TEST_MODELS_NONBSD_DIR="\(.*\)nonbsd"/-DASSIMP_TEST_MODELS_NONBSD_DIR=\\"\1nonbsd\\"/g' output/build.log
         - cp build/lib/libassimp.a output/
       fuzzer:
         - rm -rf build && mkdir -p build
@@ -141,6 +141,19 @@ targets:
         - cd build && make -j16 > /dev/null 2>&1
         - cp build/libcpuinfo.a output/libcpuinfo_profile.a
         - cp build/libcpuinfo_internals.a output/libcpuinfo_internals_profile.a
+
+  # https://github.com/google/filament/blob/main/BUILDING.md
+  filament:
+    repo:
+      dir: filament
+      cmd:
+        - git clone https://github.com/google/filament.git --config user.name=autofuzz --config user.email=autofuzz@autofuzz.com
+        - apt install -y libglu1-mesa-dev libc++-7-dev libc++abi-7-dev libxi-dev libc++-dev libc++abi-dev libx11-dev
+    compile:
+      org:
+        - rm -rf build_afz && mkdir -p build_afz && rm -rf output && mkdir -p output
+        - cmake -G Ninja -B build_afz k#:cmake_org_flags:# -DFILAMENT_ENABLE_JAVA=OFF -DTNT_DEV=ON .
+        - export COMPILE_LOG="$(pwd)/output/build.log" &&  cd build_afz && ninja
 
   jsonnet:
     repo:
@@ -260,6 +273,29 @@ targets:
         - cd build && make -j16 V=1
         - cp build/libaom.a output/libaom_profile.a
 
+  libaom_v1:
+    repo:
+      dir: libaom_v1
+      cmd:
+        - git clone https://aomedia.googlesource.com/aom libaom_v1 --config user.name=autofuzz --config user.email=autofuzz@autofuzz.com
+        - cd libaom_v1 && git checkout v1.0.0 -b autofuzz_base
+    compile:
+      org:
+        - rm -f output/build.log && rm -rf build && git checkout -- build
+        - cd build && cmake k#:cmake_org_flags:# .. || true 1
+        - export COMPILE_LOG="$(realpath output/build.log)" && cd build && make -j16 V=1
+        - cp build/libaom.a output
+      fuzzer:
+        - rm -rf build && git checkout -- build
+        - cd build && cmake k#:cmake_fuzzer_flags:# .. || true 1
+        - cd build && make -j16 V=1
+        - cp build/libaom.a output/libaom_fuzzer.a
+      profile:
+        - rm -rf build && git checkout -- build
+        - cd build && cmake k#:cmake_profile_flags:# .. || true 1
+        - cd build && make -j16 V=1
+        - cp build/libaom.a output/libaom_profile.a
+
   libhtp:
     repo:
       dir: libhtp
@@ -355,6 +391,18 @@ targets:
          - cd build && make -j8
          - cp build/libvp9rc.a output/libvp9rc_profile.a
          - cp build/libvpx.a output/libvpx_profile.a
+
+  mediapipe:
+    repo:
+      dir: mediapipe
+      cmd:
+        - git clone --recursive https://github.com/google/mediapipe.git --config user.name=autofuzz --config user.email=autofuzz@autofuzz.com
+        - apt install -y libopencv-core-dev libopencv-highgui-dev libopencv-calib3d-dev libopencv-features2d-dev libopencv-imgproc-dev libopencv-video-dev
+        - apt install -y mesa-common-dev libegl1-mesa-dev libgles2-mesa-dev
+        - cd mediapipe && bazel fetch //...  --keep_going --repository_cache=/root/fuzz-test-generation/exp/mediapipe/fetch_cache
+    compile:
+      org:
+        - export GLOG_logtostderr=1 &&  k#:bazel_org_flags:# bazel test --action_env=COMPILE_LOG="$(pwd)/output/build.log" --host_action_env=COMPILE_LOG="$(pwd)/output/build.log" --define MEDIAPIPE_DISABLE_GPU=1 --distdir=/root/fuzz-test-generation/exp/mediapipe/fetch_cache --repository_cache=/root/fuzz-test-generation/exp/mediapipe/fectch_cache --keep_going mediapipe/framework/...
 
   minijail:
     repo:

@@ -7,8 +7,8 @@
 #include "ftg/inputanalysis/Definition.h"
 #include "ftg/type/Type.h"
 #include "ftg/utanalysis/UTLoader.h"
-#include "ftg/utils/json/json.h"
 #include "clang/AST/RecursiveASTVisitor.h"
+#include "json/json.h"
 
 namespace ftg {
 
@@ -66,20 +66,19 @@ private:
   generateIDDefMap(std::vector<std::shared_ptr<Definition>> &Definitions) const;
   std::tuple<std::string, unsigned, unsigned>
   generateLocation(const ASTDefNode &ADN) const;
-  std::shared_ptr<Type> generateType(ASTDefNode &Node) const;
+  std::shared_ptr<Type> generateType(ASTDefNode &Node,
+                                     const TypeAnalysisReport &Report) const;
   ASTValue generateValue(ASTDefNode &Node,
                          const ConstAnalyzerReport &ConstReport) const;
   bool isAggregateDeclInitWOAssignOperator(const ASTDefNode &Node) const;
   bool isAssignOperatorRequired(const ASTDefNode &Node) const;
   bool isBufferAllocSize(const ASTIRNode &Node,
-                         const AllocAnalysisReport &AllocReport) const;
+                         const AllocSizeAnalysisReport &AllocSizeReport) const;
   bool isFilePath(ASTIRNode &Node,
                   const FilePathAnalysisReport &FilePathReport) const;
   bool isLoopExit(const RDNode &Node,
                   const LoopAnalysisReport &LoopReport) const;
   bool isVarReference(const ASTDefNode &Node) const;
-  Definition loadDefinition(const Json::Value &Root,
-                            TargetLib &TargetReport) const;
   void updateDefinitions(
       const std::map<unsigned, std::set<unsigned>> &ArrayIDMap,
       const std::map<unsigned, std::set<unsigned>> &ArrayLenIDMap);
@@ -87,4 +86,4 @@ private:
 
 } // namespace ftg
 
-#endif // FTG_INPUTANALYSIS_DEFMANAGER_H
+#endif // FTG_INPUTANALYSIS_DEFMAPGENERATOR_H

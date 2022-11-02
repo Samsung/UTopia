@@ -18,13 +18,13 @@ public:
   const InputAnalysisReport &getInputReport() const;
   const ParamNumberAnalysisReport &getParamNumberReport() const;
   const SourceAnalysisReport &getSourceReport() const;
-  const TargetLib &getTargetReport() const;
+  const TypeAnalysisReport &getTypeReport() const;
 
 private:
-  std::unique_ptr<TargetLib> TargetReport;
   DirectionAnalysisReport DirectionReport;
   InputAnalysisReport InputReport;
   ParamNumberAnalysisReport ParamNumberReport;
+  TypeAnalysisReport TypeReport;
   SourceAnalysisReport SourceReport;
 
   bool loadTarget(const std::string &TargetReportDir);

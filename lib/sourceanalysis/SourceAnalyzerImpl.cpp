@@ -27,7 +27,7 @@ SourceAnalyzerImpl::SourceAnalyzerImpl(const SourceCollection &SC) {
     }
 
     Report.addSourceInfo(
-        util::getNormalizedPath(ASTUnit->getOriginalSourceFileName()),
+        util::getNormalizedPath(ASTUnit->getOriginalSourceFileName().str()),
         getEndOffset(*ASTUnit), getIncludes(*ASTUnit));
   }
   Report.setSrcBaseDir(SC.getBaseDir());

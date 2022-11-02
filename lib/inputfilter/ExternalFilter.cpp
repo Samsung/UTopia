@@ -1,5 +1,6 @@
 #include "ftg/inputfilter/ExternalFilter.h"
 #include "ftg/utils/ASTUtil.h"
+#include "ftg/utils/LLVMUtil.h"
 #include "ftg/utils/StringUtil.h"
 
 using namespace ftg;
@@ -29,12 +30,7 @@ bool ExternalFilter::check(const ASTIRNode &Node) const {
   if (Def.second == -1)
     return false;
 
-  auto *CV = CB->getCalledValue();
-  if (!CV)
-    return false;
-
-  CV = CV->stripPointerCasts();
-  auto *F = llvm::dyn_cast_or_null<llvm::Function>(CV);
+  auto *F = util::getCalledFunction(*CB);
   if (!F)
     return false;
 

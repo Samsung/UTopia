@@ -15,9 +15,8 @@ protected:
     auto Factory = createTCAnalyzerFactory("gtest");
     if (!Factory)
       return false;
-    
-    auto Extractor =
-        Factory->createTCExtractor(Loader->getSourceCollection());
+
+    auto Extractor = Factory->createTCExtractor(Loader->getSourceCollection());
     if (!Extractor)
       return false;
 
@@ -49,31 +48,29 @@ protected:
 };
 
 TEST_F(TestInputAnalysisReport, fromJsonP) {
-  const std::string Code =
-      "#include <gtest/gtest.h>\n"
-      "extern \"C\" {\n"
-      "void API1(int);\n"
-      "TEST(Test, Test) {\n"
-      "  int Var1 = 1;\n"
-      "  API1(Var1);\n"
-      "}"
-      "}";
+  const std::string Code = "#include <gtest/gtest.h>\n"
+                           "extern \"C\" {\n"
+                           "void API1(int);\n"
+                           "TEST(Test, Test) {\n"
+                           "  int Var1 = 1;\n"
+                           "  API1(Var1);\n"
+                           "}"
+                           "}";
   SourceFileManager SFM;
   SFM.createFile("test.cpp", Code);
-  ASSERT_TRUE(init(SFM.getBaseDirPath(), SFM.getFilePath("test.cpp"),
-                   { "API1" }));
+  ASSERT_TRUE(init(SFM.getSrcDirPath(), SFM.getFilePath("test.cpp"), {"API1"}));
 
   InputAnalysisReport NewInputReport;
-  TargetLib EmptyTargetLib;
+  TypeAnalysisReport EmptyTypeReport;
   auto SerializedReport = Analyzer->get().toJson();
-  NewInputReport.fromJson(SerializedReport, EmptyTargetLib);
+  NewInputReport.fromJson(SerializedReport, EmptyTypeReport);
   ASSERT_EQ(SerializedReport, NewInputReport.toJson());
 }
 
 TEST_F(TestInputAnalysisReport, fromJsonN) {
   InputAnalysisReport Report;
   Json::Value EmptyValue;
-  TargetLib EmptyTargetLib;
+  TypeAnalysisReport EmptyTypeReport;
   ASSERT_DEATH(Report.fromJson(EmptyValue), "Not Implemented");
-  ASSERT_TRUE(Report.fromJson(EmptyValue, EmptyTargetLib));
+  ASSERT_TRUE(Report.fromJson(EmptyValue, EmptyTypeReport));
 }

@@ -5,6 +5,7 @@
 #include "ftg/Analyzer.h"
 #include "clang/Frontend/ASTUnit.h"
 #include "llvm/IR/Module.h"
+#include <set>
 
 namespace ftg {
 

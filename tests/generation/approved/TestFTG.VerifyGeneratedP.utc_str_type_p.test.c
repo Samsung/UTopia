@@ -1,3 +1,24 @@
+/*****************************************************************************
+*                 .::::.
+*             ..:::...::::..
+*         ..::::..      ..::::.
+*      ..:::..              ..:::..
+*   .::::.                      .::::.
+*  .::.                            .::.
+*  .::                         ..:. ::.  UTopia
+*  .:: .::.                ..::::: .::.  Unit Tests to Fuzzing
+*  .:: .:::             .::::::..  .::.  https://github.com/Samsung/UTopia
+*  .:: .:::            ::::...     .::.
+*  .:: .:::      ...   .....::     .::.  Base UT: utc_str_type_p
+*  .:: .:::      .::.  ..::::.     .::.
+*  .:: .::: .:.  .:::  :::..       .::.  This file was generated automatically
+*  .::. ... .::: .:::  ....        .::.  by UTopia v[version]
+*   .::::..  .:: .:::  .:::    ..:::..
+*      ..:::...   :::  ::.. .::::..
+*          ..:::.. ..  ...:::..
+*             ..::::..::::.
+*                 ..::..
+*****************************************************************************/
 #include "../lib/lib.h"
 #include "autofuzz.h"
 #ifdef __cplusplus
@@ -15,28 +36,44 @@ extern int autofuzz36;
 typedef void (*void_fun_ptr)(void);
 typedef void (*tc_fun_ptr)(void);
 typedef struct testcase_s {
-    const char* name;
-    tc_fun_ptr function;
-    void_fun_ptr startup;
-    void_fun_ptr cleanup;
+  const char *name;
+  tc_fun_ptr function;
+  void_fun_ptr startup;
+  void_fun_ptr cleanup;
 } testcase;
 
 void utc_startup_1() {}
 void utc_cleanup_1() {}
 
-int g_input[20] = {1,2,3,};
+int g_input[20] = {
+    1,
+    2,
+    3,
+};
 int g_input2[20];
-static int s_input[20] = {1,2,3,};
+static int s_input[20] = {
+    1,
+    2,
+    3,
+};
 static int s_input2[20];
 #define MAX 50
 
-void utc_defined_type_p(){
+void utc_defined_type_p() {
   const enum _e1 var1 = A;
   e1 var2;
   inputEnum(var1, var2);
 
   int Buf[MAX];
-  struct _s1 struct1 = {5, "CString", 1.1, 1.1f, {0,}, Buf, MAX};
+  struct _s1 struct1 = {5,
+                        "CString",
+                        1.1,
+                        1.1f,
+                        {
+                            0,
+                        },
+                        Buf,
+                        MAX};
   s1 struct2;
   struct2.a = 1;
   inputStruct(struct1, struct2);
@@ -45,7 +82,7 @@ void utc_defined_type_p(){
 #define MACRO_1(Var) sizeof(Var) / sizeof(Var[0])
 
 void utc_macro_func_assign_n() {
-  char* Msg = "Hello";
+  char *Msg = "Hello";
   int MsgLen = MACRO_1(Msg);
   inputCStrStrLen(Msg, MsgLen);
 }
@@ -62,7 +99,11 @@ void utc_fixed_length_array_p() {
   int input[20];
   inputArr(input);
 
-  int input2[20] = {1,2,3,};
+  int input2[20] = {
+      1,
+      2,
+      3,
+  };
   inputArr(input2);
 
   // with global and static variables
@@ -71,21 +112,39 @@ void utc_fixed_length_array_p() {
   inputArr(s_input);
   inputArr(s_input2);
 
-  int input3[MAX] = {1,2,3,};
+  int input3[MAX] = {
+      1,
+      2,
+      3,
+  };
   inputArr(input3);
 
   // fixed length string
-  char input4[MAX] = {1,2,3,};
+  char input4[MAX] = {
+      1,
+      2,
+      3,
+  };
   inputArr(input4);
 
-  char input5[5] = {1,2,3,};
+  char input5[5] = {
+      1,
+      2,
+      3,
+  };
   inputArr(input5);
 
   // fixed length array with arr-len relation
-  int input9[20] = {1,2,3,};
+  int input9[20] = {
+      1,
+      2,
+      3,
+  };
   inputArrArrLen(input9, 20);
 
-  char input10[20] = { 0, };
+  char input10[20] = {
+      0,
+  };
   inputArrArrLen(input10, 20);
 
   // multiple definition at one line
@@ -96,7 +155,11 @@ void utc_fixed_length_array_p() {
 
 void utc_fixed_length_array_n() {
   // fixed length string array
-  char *StringArray[20] = {"a", "b", "c",};
+  char *StringArray[20] = {
+      "a",
+      "b",
+      "c",
+  };
   inputStringArr(StringArray);
 
   // fixed length struct array
@@ -110,7 +173,7 @@ void utc_primitive_type_p() {
   inputChar('a');
   _Bool b = 1;
   inputInt(b);
-//  inputBool(true);
+  //  inputBool(true);
   inputFloat(1.1f);
   inputDouble(1.1);
 }
@@ -119,9 +182,9 @@ void utc_str_type_p() {
   char *Str1 = autofuzz32;
   inputCStr(Str1);
   inputCStr(autofuzz33);
-  inputVoidPtr("dummy3");
+  inputVoidPtr((void *)"dummy3");
 
-  //char* as array with arraylen
+  // char* as array with arraylen
   char *Str2 = autofuzz35;
   inputVoidArrArrLen(Str2, autofuzz36);
 }
@@ -164,18 +227,23 @@ void utc_no_input_n() {
 }
 
 testcase tc_array[] = {
-  {"utc_defined_type_p", utc_defined_type_p, utc_startup_1, utc_cleanup_1},
-  {"utc_macro_func_assign_n", utc_macro_func_assign_n, utc_startup_1, utc_cleanup_1},
-  {"utc_variable_length_array_n", utc_variable_length_array_n, utc_startup_1, utc_cleanup_1},
-  {"utc_fixed_length_array_p", utc_fixed_length_array_p,utc_startup_1, utc_cleanup_1},
-  {"utc_fixed_length_array_n", utc_fixed_length_array_n,utc_startup_1, utc_cleanup_1},
-  {"utc_primitive_type_p", utc_primitive_type_p, utc_startup_1, utc_cleanup_1},
-  {"utc_str_type_p", utc_str_type_p, utc_startup_1, utc_cleanup_1},
-  {"utc_pointer_type_p", utc_pointer_type_p, utc_startup_1, utc_cleanup_1},
-  {"utc_property_p", utc_property_p, 0, 0},
-  {"utc_unsupported_type_n", utc_unsupported_type_n, utc_startup_1, utc_cleanup_1},
-  {"utc_no_input_n", utc_no_input_n, utc_startup_1, utc_cleanup_1}
-};
+    {"utc_defined_type_p", utc_defined_type_p, utc_startup_1, utc_cleanup_1},
+    {"utc_macro_func_assign_n", utc_macro_func_assign_n, utc_startup_1,
+     utc_cleanup_1},
+    {"utc_variable_length_array_n", utc_variable_length_array_n, utc_startup_1,
+     utc_cleanup_1},
+    {"utc_fixed_length_array_p", utc_fixed_length_array_p, utc_startup_1,
+     utc_cleanup_1},
+    {"utc_fixed_length_array_n", utc_fixed_length_array_n, utc_startup_1,
+     utc_cleanup_1},
+    {"utc_primitive_type_p", utc_primitive_type_p, utc_startup_1,
+     utc_cleanup_1},
+    {"utc_str_type_p", utc_str_type_p, utc_startup_1, utc_cleanup_1},
+    {"utc_pointer_type_p", utc_pointer_type_p, utc_startup_1, utc_cleanup_1},
+    {"utc_property_p", utc_property_p, 0, 0},
+    {"utc_unsupported_type_n", utc_unsupported_type_n, utc_startup_1,
+     utc_cleanup_1},
+    {"utc_no_input_n", utc_no_input_n, utc_startup_1, utc_cleanup_1}};
 
 
 

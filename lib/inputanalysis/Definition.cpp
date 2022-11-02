@@ -1,6 +1,6 @@
 #include "ftg/inputanalysis/Definition.h"
-#include "ftg/targetanalysis/TargetLibLoadUtil.h"
 #include "ftg/utils/FileUtil.h"
+#include "json/json.h"
 
 using namespace ftg;
 
@@ -10,7 +10,8 @@ Definition::Definition()
       Declaration(DeclType_None), AssignOperatorRequired(false), TypeOffset(0),
       EndOffset(0) {}
 
-bool Definition::fromJson(const Json::Value &Root, TargetLib &TargetReport) {
+bool Definition::fromJson(const Json::Value &Root,
+                          const TypeAnalysisReport &Report) {
   try {
     Array = Root["Array"].asBool();
     for (auto &ArrayID : Root["ArrayIDs"])
@@ -20,10 +21,9 @@ bool Definition::fromJson(const Json::Value &Root, TargetLib &TargetReport) {
       ArrayLenIDs.emplace(ArrayLenID.asUInt());
     AssignOperatorRequired = Root["AssignOperatorRequired"].asBool();
     BufferAllocSize = Root["BufferAllocSize"].asBool();
-    if (Root["DataType"].isNull())
-      DataType = nullptr;
-    else
-      DataType = typeFromJson(Root["DataType"].toStyledString(), &TargetReport);
+    DataType = Root["DataType"].isNull()
+                   ? nullptr
+                   : std::make_shared<Type>(Root["DataType"], &Report);
     Declaration = (Definition::DeclType)Root["Declaration"].asUInt();
     EndOffset = Root["EndOffset"].asUInt();
     FilePath = Root["FilePath"].asBool();
@@ -69,7 +69,7 @@ Json::Value Definition::toJson() const {
 
   Result["LoopExit"] = LoopExit;
 
-  Result["DataType"] = typeToJson(DataType.get());
+  Result["DataType"] = DataType ? DataType->toJson() : Json::nullValue;
   Result["Declaration"] = Declaration;
   Result["AssignOperatorRequired"] = AssignOperatorRequired;
   Result["TypeOffset"] = TypeOffset;

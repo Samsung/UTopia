@@ -10,12 +10,11 @@
 #include "ftg/inputfilter/RawStringFilter.h"
 #include "ftg/inputfilter/TypeUnavailableFilter.h"
 #include "ftg/inputfilter/UnsupportTypeFilter.h"
-#include "ftg/targetanalysis/TargetLibExportUtil.h"
 #include "ftg/utils/ASTUtil.h"
+#include "ftg/utils/LLVMUtil.h"
 #include "clang/AST/Type.h"
 
 using namespace clang;
-using namespace ast_type_traits;
 
 namespace ftg {
 
@@ -87,7 +86,7 @@ bool DefMapGenerator::isAggregateDeclInitWOAssignOperator(
   if (!Assigned)
     return false;
 
-  const auto &SrcManager =
+  auto &SrcManager =
       const_cast<ASTNode *>(&Assignee)->getASTUnit().getSourceManager();
   auto AssigneeLoc = util::getTopMacroCallerLoc(Assignee.getNode(), SrcManager);
   auto AssignedLoc = util::getTopMacroCallerLoc(
@@ -98,28 +97,17 @@ bool DefMapGenerator::isAggregateDeclInitWOAssignOperator(
   if (FileID != SrcManager.getFileID(AssignedLoc))
     return false;
 
-  bool CharDataInvalid = false;
-  const auto &Entry = SrcManager.getSLocEntry(FileID, &CharDataInvalid);
-  if (CharDataInvalid || !Entry.isFile())
-    return false;
-
-  auto *ContentCache = Entry.getFile().getContentCache();
-  if (!ContentCache)
-    return false;
-
-  const auto *Buffer = ContentCache->getBuffer(
-      SrcManager.getDiagnostics(), SrcManager.getFileManager(),
-      SourceLocation(), &CharDataInvalid);
-  if (CharDataInvalid || !Buffer)
-    return false;
-
   auto SOffset = Assignee.getOffset();
   auto EOffset = Assigned->getOffset();
   if (SOffset >= EOffset)
     return false;
 
   auto Length = EOffset - SOffset;
-  auto Code = std::string(Buffer->getBufferStart() + SOffset, Length);
+  auto Content = util::getFileContent(FileID, SrcManager);
+  if (Content.size() < SOffset + Length)
+    return false;
+
+  auto Code = std::string(Content.substr(SOffset, Length));
   return Code.find("=") == std::string::npos;
 }
 
@@ -128,7 +116,8 @@ bool DefMapGenerator::isAssignOperatorRequired(const ASTDefNode &Node) const {
 }
 
 bool DefMapGenerator::isBufferAllocSize(
-    const ASTIRNode &Node, const AllocAnalysisReport &AllocReport) const {
+    const ASTIRNode &Node,
+    const AllocSizeAnalysisReport &AllocSizeReport) const {
   const auto *AN = Node.AST.getNodeForType();
   if (!AN)
     return false;
@@ -140,17 +129,18 @@ bool DefMapGenerator::isBufferAllocSize(
   auto &TNode = *const_cast<RDNode *>(&Node.IR);
   if (auto *CB = llvm::dyn_cast<llvm::CallBase>(&TNode.getLocation())) {
     if (auto *F = CB->getCalledFunction()) {
+      auto FuncName = F->getName().str();
       if (TNode.getIdx() >= 0 &&
-          AllocReport.has(F->getName(), TNode.getIdx()) &&
-          AllocReport.get(F->getName(), TNode.getIdx()) == Alloc_Size)
+          AllocSizeReport.has(FuncName, TNode.getIdx()) &&
+          AllocSizeReport.get(FuncName, TNode.getIdx()))
         return true;
     }
   }
 
   for (auto &FirstUse : TNode.getFirstUses()) {
     auto FuncName = FirstUse.getFunctionName();
-    if (AllocReport.has(FuncName, FirstUse.ArgNo) &&
-        AllocReport.get(FuncName, FirstUse.ArgNo) == Alloc_Size)
+    if (AllocSizeReport.has(FuncName, FirstUse.ArgNo) &&
+        AllocSizeReport.get(FuncName, FirstUse.ArgNo))
       return true;
   }
 
@@ -208,7 +198,9 @@ DefMapGenerator::generateLocation(const ASTDefNode &Node) const {
   return std::make_tuple(Path, Offset, Length);
 }
 
-std::shared_ptr<Type> DefMapGenerator::generateType(ASTDefNode &Node) const {
+std::shared_ptr<Type>
+DefMapGenerator::generateType(ASTDefNode &Node,
+                              const TypeAnalysisReport &Report) const {
   const auto *AN = Node.getNodeForType();
   if (!AN)
     return nullptr;
@@ -225,7 +217,7 @@ std::shared_ptr<Type> DefMapGenerator::generateType(ASTDefNode &Node) const {
     }
   }
 
-  auto Result = Type::createType(T, Ctx);
+  auto Result = Type::createType(T, Ctx, nullptr, &Report);
   if (!Result)
     return nullptr;
   return Result;
@@ -313,48 +305,33 @@ DefMapGenerator::getFirstVarDeclhasSameBeginLoc(const VarDecl &D) const {
   if (Finder.Result)
     return *Finder.Result->decl_begin();
 
-  const auto *DCtx = D.getDeclContext();
-  if (!DCtx)
-    return nullptr;
-
-  for (const auto *GDecl : DCtx->decls()) {
+  for (const auto *GDecl : DC->decls()) {
     if (isa<VarDecl>(GDecl) && GDecl->getBeginLoc() == D.getBeginLoc())
       return GDecl;
   }
-  return nullptr;
+  return &D;
 }
 
 std::pair<unsigned, std::string>
 DefMapGenerator::getDeclTypeInfo(const VarDecl &D,
                                  const SourceManager &SrcManager) const {
   auto MacroCallerLoc = SrcManager.getTopMacroCallerLoc(D.getBeginLoc());
-  auto FileID = SrcManager.getFileID(MacroCallerLoc);
-  auto Offset = SrcManager.getFileOffset(MacroCallerLoc);
-  bool CharDataInvalid = false;
-  const auto &Entry = SrcManager.getSLocEntry(FileID, &CharDataInvalid);
-  if (CharDataInvalid || !Entry.isFile())
-    return std::make_pair(0, "");
-
-  auto *ContentCache = Entry.getFile().getContentCache();
-  if (!ContentCache)
-    return std::make_pair(0, "");
-
-  const auto *Buffer = ContentCache->getBuffer(
-      SrcManager.getDiagnostics(), SrcManager.getFileManager(),
-      SourceLocation(), &CharDataInvalid);
-  if (CharDataInvalid)
-    return std::make_pair(0, "");
-
   auto *Base = getFirstVarDeclhasSameBeginLoc(D);
   assert(Base && "Unexpected Program State");
 
-  auto BaseLoc = SrcManager.getTopMacroCallerLoc(Base->getLocation());
-  int BaseOffset = SrcManager.getFileOffset(BaseLoc);
-  const auto Data = std::string(Buffer->getBufferStart() + Offset);
-  int Length = BaseOffset - (int)Offset;
-  if (Length <= 0 || Length >= (int)Data.size())
+  auto Offset = SrcManager.getFileOffset(MacroCallerLoc);
+  int Length = SrcManager.getFileOffset(
+                   SrcManager.getTopMacroCallerLoc(Base->getLocation())) -
+               (int)Offset;
+  if (Length <= 0)
     return std::make_pair(0, "");
-  return std::make_pair(Offset, Data.substr(0, Length));
+
+  auto Content =
+      util::getFileContent(SrcManager.getFileID(MacroCallerLoc), SrcManager);
+  if (Content.size() < Offset + Length)
+    return std::make_pair(0, "");
+
+  return std::make_pair(Offset, Content.substr(Offset, Length).str());
 }
 
 unsigned DefMapGenerator::getEndOffset(const VarDecl &D,
@@ -515,13 +492,16 @@ DefMapGenerator::generateDeclInfo(ASTDefNode &Node) const {
 
   auto NamespaceName = getNamespaceName(*D);
   auto VariableName = dyn_cast<NamedDecl>(D)->getName();
+  if (isa<DecompositionDecl>(D) && VariableName.empty())
+    return std::make_tuple(0, "", 0, "", "");
+
   assert(!VariableName.empty() && "Unexpected Program State");
 
   const auto &SrcManager = Node.getAssignee().getASTUnit().getSourceManager();
   auto Offset = getEndOffset(*D, SrcManager);
   auto DeclTypeInfo = getDeclTypeInfo(*D, SrcManager);
   return std::make_tuple(DeclTypeInfo.first, DeclTypeInfo.second, Offset,
-                         VariableName, NamespaceName);
+                         VariableName.str(), NamespaceName);
 }
 
 Definition::DeclType DefMapGenerator::generateDeclType(ASTDefNode &Node) const {
@@ -540,7 +520,7 @@ Definition DefMapGenerator::generateDefinition(ASTIRNode &Node,
                                                const UTLoader &Loader) const {
   Definition Result;
   Result.AssignOperatorRequired = isAssignOperatorRequired(Node.AST);
-  Result.BufferAllocSize = isBufferAllocSize(Node, Loader.getAllocReport());
+  Result.BufferAllocSize = isBufferAllocSize(Node, Loader.getAllocSizeReport());
   Result.FilePath = isFilePath(Node, Loader.getFilePathReport());
   Result.LoopExit = isLoopExit(Node.IR, Loader.getLoopReport());
   std::tie(Result.TypeOffset, Result.TypeString, Result.EndOffset,
@@ -548,7 +528,7 @@ Definition DefMapGenerator::generateDefinition(ASTIRNode &Node,
   Result.Declaration = generateDeclType(Node.AST);
   std::tie(Result.Path, Result.Offset, Result.Length) =
       generateLocation(Node.AST);
-  Result.DataType = generateType(Node.AST);
+  Result.DataType = generateType(Node.AST, Loader.getTypeReport());
   Result.Value = generateValue(Node.AST, Loader.getConstReport());
   return Result;
 }
@@ -625,15 +605,11 @@ bool DefMapGenerator::isFilePath(
   if (!CB || Def.second == -1)
     return false;
 
-  auto *CV = CB->getCalledValue();
-  if (!CV)
-    return false;
-
-  auto *F = llvm::dyn_cast_or_null<llvm::Function>(CV->stripPointerCasts());
+  auto *F = util::getCalledFunction(*CB);
   if (!F)
     return false;
 
-  auto FuncName = F->getName();
+  auto FuncName = F->getName().str();
   return FilePathReport.has(FuncName, Def.second) &&
          FilePathReport.get(FuncName, Def.second);
 }

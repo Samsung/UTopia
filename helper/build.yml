@@ -222,6 +222,16 @@ libaom:
       libalias: libaom.a
       srcpath: test
 
+libaom_v1:
+  name: libaom_v1
+  prjdir: libaom_v1
+  libs:
+    libaom.a:
+  uts:
+    test_libaom:
+      libalias: libaom.a
+      srcpath: test
+
 libhtp:
   name: libhtp
   prjdir: libhtp

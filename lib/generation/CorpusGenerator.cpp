@@ -5,12 +5,13 @@
 namespace ftg {
 
 std::string CorpusGenerator::generate(const Fuzzer &F) const {
-
   std::string Result;
-  for (auto Iter : F.getFuzzInputMap()) {
-    assert(Iter.second && "Unexpected Program State");
+  for (const auto &[ID, Input] : F.getFuzzInputMap()) {
+    assert(Input && "Unexpected Program State");
+    if (Input->getCopyFrom())
+      continue;
 
-    auto &Def = Iter.second->getDef();
+    const auto &Def = Input->getDef();
     if (Def.ArrayLen)
       continue;
 
@@ -20,7 +21,6 @@ std::string CorpusGenerator::generate(const Fuzzer &F) const {
 
     Result += CorpusValue + "\n";
   }
-
   return Result;
 }
 

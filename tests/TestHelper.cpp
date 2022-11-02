@@ -6,11 +6,13 @@
 #include "ftg/utils/FileUtil.h"
 #include "testutil/APIManualLoader.h"
 
+#include "clang/ASTMatchers/ASTMatchFinder.h"
+#include "clang/ASTMatchers/ASTMatchers.h"
 #include "clang/Frontend/ASTUnit.h"
 #include "clang/Frontend/CompilerInstance.h"
 #include "clang/Serialization/PCHContainerOperations.h"
 
-#include "approvals/ApprovalTests.hpp"
+#include "ApprovalTests.hpp"
 #include "llvm/IRReader/IRReader.h"
 
 #include <experimental/filesystem>
@@ -18,6 +20,32 @@
 namespace fs = std::experimental::filesystem;
 
 namespace ftg {
+
+std::unique_ptr<Enum> createEnum(std::string TypeName, clang::ASTContext &Ctx) {
+  std::string Tag(__FUNCTION__);
+  std::unique_ptr<clang::ast_matchers::DeclarationMatcher> Matcher;
+  if (TypeName.empty()) {
+    Matcher = std::make_unique<clang::ast_matchers::DeclarationMatcher>(
+        clang::ast_matchers::enumDecl(
+            clang::ast_matchers::unless(clang::ast_matchers::hasAnyName()))
+            .bind(Tag));
+  } else {
+    Matcher = std::make_unique<clang::ast_matchers::DeclarationMatcher>(
+        clang::ast_matchers::enumDecl(clang::ast_matchers::hasName(TypeName))
+            .bind(Tag));
+  }
+  if (!Matcher)
+    return nullptr;
+
+  for (const auto &Node : clang::ast_matchers::match(*Matcher, Ctx)) {
+    auto *Record = Node.getNodeAs<clang::EnumDecl>(Tag);
+    if (!Record)
+      continue;
+
+    return std::make_unique<Enum>(*Record);
+  }
+  return nullptr;
+}
 
 std::string getBaseDirPath() {
 
@@ -85,7 +113,9 @@ std::string getUTReportPath(std::string ProjectName) {
 void verifyFile(const std::string &FilePath) {
   ApprovalTests::Approvals::verifyExistingFile(
       FilePath,
-      ApprovalTests::Options(ApprovalTests::AutoApproveIfMissingReporter()));
+      ApprovalTests::Options(ApprovalTests::AutoApproveIfMissingReporter())
+          .withScrubber(ApprovalTests::Scrubbers::createRegexScrubber(
+              R"(UTopia v\.\d+\.\d+\.\d+)", "UTopia v[version]")));
 }
 
 void verifyFiles(const std::vector<std::string> &FilePaths) {
@@ -170,7 +200,7 @@ void UATestHelper::addTA(std::shared_ptr<TATestHelper> TA) {
   TAs.push_back(TA);
 }
 
-bool UATestHelper::analyze(std::shared_ptr<APILoader> AL) {
+bool UATestHelper::analyze(std::shared_ptr<APILoader> AL, std::string UTType) {
   auto TargetDirPath = getUniqueFilePath(getTmpDirPath(), "target", "");
   if (!fs::create_directories(TargetDirPath))
     return false;
@@ -193,7 +223,7 @@ bool UATestHelper::analyze(std::shared_ptr<APILoader> AL) {
   if (!fs::remove_all(TargetDirPath))
     return false;
 
-  return analyze(Loader);
+  return analyze(Loader, UTType);
 }
 
 bool UATestHelper::analyze(std::string TargetReportDirPath,
@@ -263,17 +293,6 @@ bool GenTestHelper::generate(std::string BaseDir, std::string OutputDir,
 }
 
 const Generator &GenTestHelper::getGenerator() const { return FuzzGenerator; }
-
-bool GenTestHelper::generateDirectories() const {
-
-  auto ProjectOutDirPath = getProjectOutDirPath(ProjectName);
-  if (!fs::exists(ProjectOutDirPath)) {
-    if (!fs::create_directories(ProjectOutDirPath))
-      return false;
-  }
-
-  return true;
-}
 
 bool GenTestHelper::storeTargetAnalysisReport(std::string DirPath) {
 
@@ -365,7 +384,6 @@ std::shared_ptr<TATestHelper>
 TestHelperFactory::createTATestHelper(std::string SrcDir,
                                       std::vector<std::string> SrcPaths,
                                       CompileHelper::SourceType Type) const {
-
   auto Compile = createCompileHelper(SrcDir, SrcPaths, "-O0", Type);
   if (!Compile)
     return nullptr;
@@ -395,45 +413,33 @@ TestHelperFactory::createUATestHelper(std::string SrcDir,
   return std::make_shared<UATestHelper>(Compile);
 }
 
-std::string TestHelperFactory::createPublicAPIJson(
-    std::vector<std::string> APINames) const {
-
-  std::string Json = "{ \"test\" : [ ";
-  for (int S = 0, E = (int)APINames.size(); S < E; ++S) {
-    Json += "\"" + APINames[S] + "\"";
-    if (S < E - 1)
-      Json += ", ";
-  }
-  Json += " ] }";
-
-  auto JsonPath = getUniqueFilePath(getTmpDirPath(), "api", "json");
-  if (!util::saveFile(JsonPath.c_str(), Json.c_str()))
-    return "";
-  return JsonPath;
-}
-
-bool TestBase::load(const std::string &CODE, std::string Name, std::string Opt,
+bool TestBase::load(const std::string &CODE, std::string Opt,
                     CompileHelper::SourceType Type) {
-
-  CH = TestHelperFactory().createCompileHelper(CODE, Name, Opt, Type);
+  CH = TestHelperFactory().createCompileHelper(CODE, "default_test", Opt, Type);
   if (!CH)
     return false;
 
-  const llvm::Module &M(*CH->getLLVMModule());
+  SC = CH->load();
+  if (!SC)
+    return false;
+
+  const auto &M = SC->getLLVMModule();
   IRAH = std::make_shared<IRAccessHelper>(M);
   if (!IRAH)
+    return false;
+
+  AIMap = std::make_unique<DebugInfoMap>(*SC);
+  if (!AIMap)
     return false;
 
   return true;
 }
 
-bool TestBase::loadC(const std::string &CODE, std::string Name,
-                     std::string Opt) {
-  return load(CODE, Name, Opt, CompileHelper::SourceType_C);
+bool TestBase::loadC(const std::string &CODE, std::string Opt) {
+  return load(CODE, Opt, CompileHelper::SourceType_C);
 }
 
-bool TestBase::loadCPP(const std::string &CODE, std::string Name,
-                       std::string Opt) {
-  return load(CODE, Name, Opt, CompileHelper::SourceType_CPP);
+bool TestBase::loadCPP(const std::string &CODE, std::string Opt) {
+  return load(CODE, Opt, CompileHelper::SourceType_CPP);
 }
 }; // namespace ftg

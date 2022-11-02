@@ -1,3 +1,24 @@
+/*****************************************************************************
+ *                 .::::.
+ *             ..:::...::::..
+ *         ..::::..      ..::::.
+ *      ..:::..              ..:::..
+ *   .::::.                      .::::.
+ *  .::.                            .::.
+ *  .::                         ..:. ::.  UTopia
+ *  .:: .::.                ..::::: .::.  Unit Tests to Fuzzing
+ *  .:: .:::             .::::::..  .::.  https://github.com/Samsung/UTopia
+ *  .:: .:::            ::::...     .::.
+ *  .:: .:::      ...   .....::     .::.  Base UT: utc_property_p
+ *  .:: .:::      .::.  ..::::.     .::.
+ *  .:: .::: .:.  .:::  :::..       .::.  This file was generated automatically
+ *  .::. ... .::: .:::  ....        .::.  by UTopia v[version]
+ *   .::::..  .:: .:::  .:::    ..:::..
+ *      ..:::...   :::  ::.. .::::..
+ *          ..:::.. ..  ...:::..
+ *             ..::::..::::.
+ *                 ..::..
+ *****************************************************************************/
 #include "../lib/lib.h"
 #include "FuzzArgsProfile.pb.h"
 #include "libprotobuf-mutator/src/libfuzzer/libfuzzer_macro.h"
@@ -10,7 +31,8 @@ int autofuzz41;
 }
 DEFINE_PROTO_FUZZER(const AutoFuzz::FuzzArgsProfile &autofuzz_mutation) {
   char *fuzzvar40;
-  std::string fuzzvar40_filepath(FUZZ_FILEPATH_PREFIX + fuzzvar40_file);
+  std::string fuzzvar40_filepath(FUZZ_FILEPATH_PREFIX +
+                                 std::string("fuzzvar40_file"));
   int fuzzvar40_fd =
       open(fuzzvar40_filepath.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
   if (fuzzvar40_fd != -1) {

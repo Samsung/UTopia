@@ -1,11 +1,11 @@
 //===-- TestConstAnalyzerReport.cpp - Unit tests for ConstAnalyzerReport --===//
 
-#include "approvals/ApprovalTests.hpp"
+#include "ApprovalTests.hpp"
 #include "ftg/constantanalysis/ConstAnalyzer.h"
 #include "ftg/constantanalysis/ConstAnalyzerReport.h"
-#include "ftg/utils/json/json.h"
 #include "clang/Tooling/Tooling.h"
 #include "gtest/gtest.h"
+#include "json/json.h"
 
 #include <sstream>
 

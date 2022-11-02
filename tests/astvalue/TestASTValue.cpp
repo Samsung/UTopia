@@ -8,43 +8,15 @@ namespace ftg {
 
 namespace TestASTValue {
 
-class TestASTValueBase {
+class TestASTValueBase : public TestBase {
 
 protected:
-  std::unique_ptr<ASTIRMap> AIMap;
-  std::unique_ptr<SourceCollection> SC;
-  std::unique_ptr<IRAccessHelper> IRAccess;
-
-  bool load(const std::string &CODE, bool IsC) {
-
-    auto SourceType =
-        IsC ? CompileHelper::SourceType_C : CompileHelper::SourceType_CPP;
-    auto Compile = TestHelperFactory().createCompileHelper(
-        CODE, "test_astvalue", "-O0 -g", SourceType);
-
-    if (!Compile)
-      return false;
-
-    SC = Compile->load();
-    if (!SC)
-      return false;
-
-    IRAccess = std::make_unique<IRAccessHelper>(SC->getLLVMModule());
-    if (!IRAccess)
-      return false;
-
-    AIMap = std::make_unique<DebugInfoMap>(*SC);
-    if (!AIMap)
-      return false;
-    return true;
-  }
-
   std::pair<clang::Expr *, clang::ASTContext *>
   getASTFromInst(std::string Func, unsigned BIdx, unsigned IIdx) {
-    if (!AIMap || !IRAccess)
+    if (!AIMap || !IRAH)
       return std::make_pair(nullptr, nullptr);
 
-    auto *I = IRAccess->getInstruction(Func, BIdx, IIdx);
+    auto *I = IRAH->getInstruction(Func, BIdx, IIdx);
     if (!I)
       return std::make_pair(nullptr, nullptr);
 
@@ -61,13 +33,13 @@ protected:
   }
 };
 
-class TestASTValue : public TestASTValueBase, public ::testing::Test {
+class TestASTValue : public TestASTValueBase {
 
 protected:
   std::pair<clang::Expr *, clang::ASTContext *>
   getASTFromArgument(std::string Func, unsigned BIdx, unsigned IIdx,
                      unsigned AIdx) {
-    auto *I = IRAccess->getInstruction(Func, BIdx, IIdx);
+    auto *I = IRAH->getInstruction(Func, BIdx, IIdx);
     if (!I || !isa<llvm::CallBase>(I))
       return std::make_pair(nullptr, nullptr);
 
@@ -107,7 +79,7 @@ TEST_F(TestASTValue, DeclUninitP) {
                            "  int Var1;\n"
                            "}\n";
 
-  ASSERT_TRUE(load(CODE, true));
+  ASSERT_TRUE(loadC(CODE));
 
   auto AST = getASTFromInst("test", 0, 0);
   ASSERT_FALSE(AST.first);
@@ -120,7 +92,7 @@ TEST_F(TestASTValue, IntP) {
                            "  int Var2 = -10;\n"
                            "}\n";
 
-  ASSERT_TRUE(load(CODE, true));
+  ASSERT_TRUE(loadC(CODE));
 
   auto AST = getASTFromInst("test", 0, 3);
   ASSERT_TRUE(AST.first && AST.second);
@@ -141,7 +113,7 @@ TEST_F(TestASTValue, FloatP) {
                            "  float Var3 = -10.3;\n"
                            "}\n";
 
-  ASSERT_TRUE(load(CODE, true));
+  ASSERT_TRUE(loadC(CODE));
 
   auto AST = getASTFromInst("test", 0, 4);
   ASSERT_TRUE(AST.first && AST.second);
@@ -165,7 +137,7 @@ TEST_F(TestASTValue, StringP) {
                            "  const char *Var1 = \"Hello\";\n"
                            "}\n";
 
-  ASSERT_TRUE(load(CODE, true));
+  ASSERT_TRUE(loadC(CODE));
 
   auto AST = getASTFromInst("test", 0, 2);
   ASSERT_TRUE(AST.first && AST.second);
@@ -179,7 +151,7 @@ TEST_F(TestASTValue, NegativeValueP) {
                            "  int Var1 = -1;\n"
                            "}\n";
 
-  ASSERT_TRUE(load(CODE, true));
+  ASSERT_TRUE(loadC(CODE));
 
   auto AST = getASTFromInst("test", 0, 2);
   ASSERT_TRUE(AST.first && AST.second);
@@ -193,7 +165,7 @@ TEST_F(TestASTValue, CastP) {
                            "  unsigned Var1 = -10;\n"
                            "}\n";
 
-  ASSERT_TRUE(load(CODE, true));
+  ASSERT_TRUE(loadC(CODE));
 
   auto AST = getASTFromInst("test", 0, 2);
   ASSERT_TRUE(AST.first && AST.second);
@@ -208,7 +180,7 @@ TEST_F(TestASTValue, ArgumentP) {
                            "  func1(10);\n"
                            "}\n";
 
-  ASSERT_TRUE(load(CODE, true));
+  ASSERT_TRUE(loadC(CODE));
 
   auto AST = getASTFromArgument("test", 0, 0, 0);
   ASSERT_TRUE(AST.first && AST.second);
@@ -225,7 +197,7 @@ TEST_F(TestASTValue, SizeOfP) {
                            "  int Var3 = sizeof(*Var2);\n"
                            "}\n";
 
-  ASSERT_TRUE(load(CODE, true));
+  ASSERT_TRUE(loadC(CODE));
 
   auto AST = getASTFromInst("test", 0, 4);
   ASSERT_TRUE(AST.first && AST.second);
@@ -246,7 +218,7 @@ TEST_F(TestASTValue, EnumP) {
       "  enum EN1 Var1 = EN1_E1;\n"
       "}\n";
 
-  ASSERT_TRUE(load(CODE, true));
+  ASSERT_TRUE(loadC(CODE));
 
   auto AST = getASTFromInst("test", 0, 2);
   ASSERT_TRUE(AST.first && AST.second);
@@ -261,7 +233,7 @@ TEST_F(TestASTValue, EnumClassP) {
                            "  EN Var1 = EN::EN3;\n"
                            "}";
 
-  ASSERT_TRUE(load(CODE, false));
+  ASSERT_TRUE(loadCPP(CODE));
 
   auto AST = getASTFromInst("_Z4testv", 0, 2);
   ASSERT_TRUE(AST.first && AST.second);
@@ -275,7 +247,7 @@ TEST_F(TestASTValue, ConstantExprP) {
                            "  int Var1 = 10 * (20 + 30);\n"
                            "}\n";
 
-  ASSERT_TRUE(load(CODE, true));
+  ASSERT_TRUE(loadC(CODE));
 
   auto AST = getASTFromInst("test", 0, 2);
   ASSERT_TRUE(AST.first && AST.second);
@@ -291,7 +263,7 @@ TEST_F(TestASTValue, StaticConstantP) {
                            "  int Var1 = CLS::F1;\n"
                            "}\n";
 
-  ASSERT_TRUE(load(CODE, false));
+  ASSERT_TRUE(loadCPP(CODE));
 
   auto AST = getASTFromInst("_Z4testv", 0, 3);
   ASSERT_TRUE(AST.first && AST.second);
@@ -305,7 +277,7 @@ TEST_F(TestASTValue, StringEscapeP) {
                            "  const char *Var1 = \"\\\\0\\\\n\\0\";\n"
                            "}\n";
 
-  ASSERT_TRUE(load(CODE, true));
+  ASSERT_TRUE(loadC(CODE));
 
   auto AST = getASTFromInst("test", 0, 2);
   ASSERT_TRUE(AST.first && AST.second);
@@ -321,7 +293,7 @@ TEST_F(TestASTValue, ArrayP) {
                            "  char* Var3[] = { \"Hello\", \"World\" };\n"
                            "}";
 
-  ASSERT_TRUE(load(CODE, true));
+  ASSERT_TRUE(loadC(CODE));
 
   {
     auto AST = getASTFromInst("test", 0, 5);
@@ -357,7 +329,7 @@ TEST_F(TestASTValue, ArrayP) {
   }
 }
 
-class TestSerialize : public TestASTValueBase, public ::testing::Test {
+class TestSerialize : public TestASTValueBase {
 
 protected:
   bool check(std::string FuncName, unsigned BIdx, unsigned IIdx) {
@@ -388,7 +360,7 @@ TEST_F(TestSerialize, ArrayN) {
                            "  const char* Var3 = \"Hello\";\n"
                            "}";
 
-  ASSERT_TRUE(load(CODE, true));
+  ASSERT_TRUE(loadC(CODE));
 
   check("test", 0, 4);
   check("test", 0, 6);
@@ -403,7 +375,7 @@ TEST_F(TestSerialize, ArrayP) {
                            "  char* Var3[] = { \"Hello\", \"World\" };\n"
                            "}";
 
-  ASSERT_TRUE(load(CODE, true));
+  ASSERT_TRUE(loadC(CODE));
 
   check("test", 0, 5);
   check("test", 0, 8);

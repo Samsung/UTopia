@@ -2,7 +2,7 @@
 #define FTG_SOURCEANALYSIS_SOURCEANALYSISREPORT_H
 
 #include "ftg/AnalyzerReport.h"
-#include "ftg/utanalysis/Location.h"
+#include "ftg/utils/Location.h"
 #include "clang/Frontend/ASTUnit.h"
 
 namespace ftg {

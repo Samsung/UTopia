@@ -1,6 +1,11 @@
 #include "ftg/generation/UTModify.h"
 #include "ftg/tcanalysis/TCAnalyzerFactory.h"
 #include "ftg/utils/AssignUtil.h"
+#include "ftg/utils/FileUtil.h"
+
+#include "clang/Frontend/TextDiagnosticPrinter.h"
+#include "clang/Rewrite/Core/Rewriter.h"
+
 #include <experimental/filesystem>
 
 using namespace llvm;
@@ -13,6 +18,20 @@ const std::string UTModify::HeaderName = "autofuzz.h";
 const std::string UTModify::UTEntryFuncName = "enterAutofuzz";
 
 UTModify::UTModify(const Fuzzer &F, const SourceAnalysisReport &SourceReport) {
+  clang::IntrusiveRefCntPtr<llvm::vfs::OverlayFileSystem> OverlayFS =
+      new llvm::vfs::OverlayFileSystem(llvm::vfs::getRealFileSystem());
+  FManager = new clang::FileManager(clang::FileSystemOptions(), OverlayFS);
+
+  clang::IntrusiveRefCntPtr<clang::DiagnosticOptions> DiagOpts =
+      new clang::DiagnosticOptions();
+  auto DiagnosticPrinter = std::make_unique<clang::TextDiagnosticPrinter>(
+      llvm::outs(), DiagOpts.get());
+  clang::IntrusiveRefCntPtr<clang::DiagnosticIDs> DiagID =
+      new clang::DiagnosticIDs();
+  auto Diagnostics = std::make_unique<clang::DiagnosticsEngine>(
+      DiagID, DiagOpts.get(), DiagnosticPrinter.get(), false);
+  SManager = std::make_unique<clang::SourceManager>(*Diagnostics, *FManager);
+
   std::map<std::string, std::string> FuzzVarDecls;
   std::map<std::string, std::vector<std::string>> FuzzVarFlagDecls;
   std::map<std::string, std::vector<UTModify::GlobalVarSetter>> Setters;
@@ -20,8 +39,10 @@ UTModify::UTModify(const Fuzzer &F, const SourceAnalysisReport &SourceReport) {
   for (const auto &Iter : F.getFuzzInputMap()) {
     auto &Input = Iter.second;
     assert(Input && "Unexpected Program State");
-    generateFuzzVarDeclarations(FuzzVarDecls, FuzzVarFlagDecls, *Input);
-    generateFuzzVarGlobalSetters(Setters, *Input);
+    if (!Input->getCopyFrom()) {
+      generateFuzzVarDeclarations(FuzzVarDecls, FuzzVarFlagDecls, *Input);
+      generateFuzzVarGlobalSetters(Setters, *Input);
+    }
     generateFuzzVarReplacements(*Input);
   }
   generateTop(FuzzVarDecls, FuzzVarFlagDecls, Setters, UTPath, SourceReport);
@@ -240,7 +261,9 @@ void UTModify::generateFuzzVarReplacements(const FuzzInput &Input) {
   if (Def.Declaration == Definition::DeclType_Global)
     return;
 
-  auto AssignStmt = generateAssignStatement(Input);
+  const auto *CopyFrom = Input.getCopyFrom();
+  const auto *AssignBase = CopyFrom ? CopyFrom : &Input;
+  auto AssignStmt = generateAssignStatement(*AssignBase);
   if (Def.Declaration == Definition::DeclType_StaticLocal) {
     auto FlagVarName = util::getStaticLocalFlagVarName(Input.getFuzzVarName());
     AssignStmt = " if (" + FlagVarName + ") { " + FlagVarName + " = 0; " +
@@ -284,7 +307,7 @@ bool UTModify::generateHeader(const std::string &BasePath) {
       "\n"
       "#define " +
       FilePathPrefix +
-      " ./\n"
+      " \"\"\n"
       "#endif // " +
       FilePathPrefix +
       "\n\n"
@@ -402,6 +425,42 @@ void UTModify::generateTop(
       Content += CPPMacroStart + ContentInCppMacro + CPPMacroEnd;
     addReplace(Replacement(Path, 0, 0, Content));
   }
+}
+
+void UTModify::genModifiedSrcs(const std::string &OrgSrcDir,
+                               const std::string &OutDir,
+                               const std::string &Signature) const {
+  for (auto Iter : FileReplaceMap) {
+    auto FilePath = Iter.first;
+    assert(!FilePath.empty() && "Unexpected Program State");
+    auto Replacements = Iter.second;
+
+    auto OutPath = util::rebasePath(FilePath, OrgSrcDir, OutDir);
+    applyReplacements(FilePath, OutPath, Replacements, Signature);
+  }
+
+  for (auto Iter : FileNewMap) {
+    auto FilePath = Iter.first;
+    assert(!FilePath.empty() && "Unexpected Program State");
+    auto Content = Signature + Iter.second;
+
+    auto OutPath = util::rebasePath(FilePath, OrgSrcDir, OutDir);
+    util::saveFile(OutPath.c_str(), Content.c_str());
+  }
+}
+
+void UTModify::applyReplacements(
+    const std::string &OrgFilePath, const std::string &OutFilePath,
+    const clang::tooling::Replacements &Replacements,
+    const std::string &Signature) const {
+  auto ID = SManager->getOrCreateFileID(FManager->getFile(OrgFilePath).get(),
+                                        clang::SrcMgr::C_User);
+  clang::Rewriter Rewrite(*SManager, clang::LangOptions());
+  clang::tooling::applyAllReplacements(Replacements, Rewrite);
+  std::error_code EC;
+  llvm::raw_fd_ostream OutFile(OutFilePath, EC, llvm::sys::fs::F_None);
+  Rewrite.InsertTextBefore(SManager->getLocForStartOfFile(ID), Signature);
+  Rewrite.getEditBuffer(ID).write(OutFile);
 }
 
 }; // end of namespace ftg

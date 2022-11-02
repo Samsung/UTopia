@@ -1,4 +1,5 @@
 #include "ftg/inputfilter/ConstIntArrayLenFilter.h"
+#include "ftg/utils/LLVMUtil.h"
 
 #include "clang/ASTMatchers/ASTMatchFinder.h"
 #include "clang/ASTMatchers/ASTMatchers.h"
@@ -44,26 +45,18 @@ bool ConstIntArrayLenFilter::check(const ASTIRNode &Node) const {
       continue;
 
     auto Loc = Record->getLocation();
-    auto FileID = SrcManager.getFileID(Loc);
-    bool CharDataInvalid = false;
-    auto &Entry = SrcManager.getSLocEntry(FileID, &CharDataInvalid);
-    if (CharDataInvalid || !Entry.isFile())
-      continue;
-
-    const auto *Buffer = Entry.getFile().getContentCache()->getBuffer(
-        SrcManager.getDiagnostics(), SrcManager.getFileManager(),
-        SourceLocation(), &CharDataInvalid);
-    if (CharDataInvalid)
-      continue;
-
     auto EndLoc = Record->getEndLoc();
     auto Offset = SrcManager.getFileOffset(Loc);
     int Length = SrcManager.getFileOffset(EndLoc) - Offset;
     if (Length < 0)
       continue;
-    Length += Lexer::MeasureTokenLength(EndLoc, SrcManager, LangOptions);
 
-    auto Data = std::string(Buffer->getBufferStart() + Offset, Length);
+    Length += Lexer::MeasureTokenLength(EndLoc, SrcManager, LangOptions);
+    auto Content = util::getFileContent(SrcManager.getFileID(Loc), SrcManager);
+    if (Content.size() < Offset + Length)
+      continue;
+
+    auto Data = std::string(Content.substr(Offset, Length));
     Data = Data.substr(Data.find("["), Data.find("="));
     if (Data.find(VarName) == std::string::npos)
       continue;

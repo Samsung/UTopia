@@ -1,9 +1,9 @@
 #include "ftg/astirmap/ASTDefNode.h"
 #include "ftg/utils/ASTUtil.h"
+#include "ftg/utils/LLVMUtil.h"
 #include "clang/AST/ExprCXX.h"
 
 using namespace clang;
-using namespace ast_type_traits;
 
 namespace ftg {
 
@@ -35,8 +35,8 @@ ASTDefNode::ASTDefNode(BinaryOperator &B, ASTUnit &Unit) {
   auto *RHS = B.getRHS();
   assert(LHS && RHS && "Unexpected Program State");
 
-  while (auto *BinOp = llvm::dyn_cast_or_null<BinaryOperator>(
-      RHS->IgnoreCasts())) {
+  while (auto *BinOp =
+             llvm::dyn_cast_or_null<BinaryOperator>(RHS->IgnoreCasts())) {
     if (!BinOp->isAssignmentOp())
       break;
 

@@ -16,10 +16,15 @@ add_executable(tests
     TestASTUtils.cpp
 
     astirmap/TestDebugInfoMap.cpp
+    astirmap/TestIRNode.cpp
     astirmap/TestMacroMapper.cpp
     astirmap/TestMatchers.cpp
+    astirmap/TestLocIndex.cpp
 
     utanalysis/TestTargetAPIFinder.cpp
+
+    analysis/TestTypeAnalysisReport.cpp
+    analysis/TestTypeAnalyzer.cpp
 
     astvalue/TestASTValue.cpp
 
@@ -27,24 +32,29 @@ add_executable(tests
     generation/TestFuzzInput.cpp
     generation/TestUTModify.cpp
 
+    inputanalysis/TestDefAnalyzer.cpp
     inputanalysis/TestDefMapGenerator.cpp
     inputanalysis/TestInputAnalysisReport.cpp
 
     utils/TestAssignUtil.cpp
     utils/TestStringUtil.cpp
     utils/TestFileUtil.cpp
+    utils/TestLLVMUtil.cpp
 
     apiloader/TestAPILoader.cpp
 
     sourceanalysis/TestSourceAnalyzerImpl.cpp
-    sourceloader/TestProjectEntry.cpp
-    sourceloader/TestCompileDB.cpp
+    sourceloader/TestBuildDB.cpp
     sourceloader/TestBuildDBLoader.cpp
     constantanalysis/TestConstAnalyzer.cpp
     constantanalysis/TestConstAnalyzerReport.cpp
-    propanalysis/TestAllocAnalyzer.cpp
+    propanalysis/TestAllocSizeAnalysisReport.cpp
+    propanalysis/TestAllocSizeAnalyzer.cpp
+    propanalysis/TestArrayAnalysisReport.cpp
     propanalysis/TestArrayAnalyzer.cpp
+    propanalysis/TestDirectionAnalysisReport.cpp
     propanalysis/TestDirectionAnalyzer.cpp
+    propanalysis/TestFilePathAnalysisReport.cpp
     propanalysis/TestFilePathAnalyzer.cpp
     propanalysis/TestLoopAnalyzer.cpp
 
@@ -57,11 +67,14 @@ add_executable(tests
     tcanalysis/TestTCTCallWriter.cpp
     tcanalysis/TestTCAnalyzerFactory.cpp
 
+    targetanalysis/TestTargetLib.cpp
+
     rootdefanalysis/TestRDSpace.cpp
     rootdefanalysis/TestRootDef.cpp
     rootdefanalysis/TestField.cpp
     rootdefanalysis/TestClass.cpp
     type/TestType.cpp
+    type/TestGlobalDef.cpp
     type/TestArrayInfo.cpp
     generation/TestFuzzStatus.cpp
     generation/TestProtobufDescriptor.cpp
@@ -77,6 +90,10 @@ if (Boost_FOUND)
     tcanalysis/TestBoostCallWriter.cpp
   )
 endif()
+
+target_include_directories(tests
+    PRIVATE ${CMAKE_SOURCE_DIR}/external/approvaltests
+)
 
 target_link_libraries(tests
   -Wl,--start-group
@@ -117,6 +134,7 @@ target_link_libraries(tests
   clangToolingCore
   clangTooling
   ${REQ_LLVM_LIBRARIES}
+  pthread
   -Wl,--end-group
 )
 
@@ -128,7 +146,10 @@ add_custom_target(link_resources ALL
 
 include(GoogleTest)
 if(${CMAKE_VERSION} VERSION_GREATER_EQUAL 3.10)
-  gtest_discover_tests(tests WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+  gtest_discover_tests(tests
+      WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+      XML_OUTPUT_DIR ${CMAKE_BINARY_DIR}/ut_result
+)
 else() # Tizen 5.5
   gtest_add_tests(TARGET tests WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 endif()

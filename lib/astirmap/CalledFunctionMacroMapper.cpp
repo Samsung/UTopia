@@ -1,10 +1,9 @@
 #include "ftg/astirmap/CalledFunctionMacroMapper.h"
 #include "ftg/astirmap/IRNode.h"
 #include "ftg/utils/ASTUtil.h"
+#include "ftg/utils/LLVMUtil.h"
 
 using namespace clang;
-using namespace ast_type_traits;
-
 using namespace ftg;
 
 void CalledFunctionMacroMapper::insertMacroNode(clang::Stmt &S, ASTUnit &U) {
@@ -16,81 +15,72 @@ void CalledFunctionMacroMapper::insertMacroNode(clang::Stmt &S, ASTUnit &U) {
   if (!util::isCallRelatedExpr(E))
     return;
 
-  auto CN =
-      std::make_unique<ASTNode>(ASTNode::CALL, DynTypedNode::create(E), U);
-  assert(CN && "Unexpected Program State");
-
   auto *FuncDecl = util::getFunctionDecl(E);
   if (!FuncDecl)
     return;
-  auto FuncName = util::getMangledName(FuncDecl);
-  if (FuncName.empty())
-    return;
 
-  auto BaseLoc = util::getDebugLoc(E);
-  auto Loc = LocIndex(U.getSourceManager(), BaseLoc);
-  auto Key = DBKey(Loc.getPath(), Loc.getLine(), Loc.getColumn(), FuncName);
+  for (auto &MangledName : util::getMangledNames(*FuncDecl)) {
+    if (MangledName.empty())
+      continue;
 
-  if (DupKey.find(Key) != DupKey.end()) {
-    return;
-  }
+    auto BaseLoc = util::getDebugLoc(E);
+    auto Loc = LocIndex(U.getSourceManager(), BaseLoc);
+    auto Key =
+        DBKey(Loc.getPath(), Loc.getLine(), Loc.getColumn(), MangledName);
+    if (DupKey.find(Key) != DupKey.end())
+      continue;
 
-  auto CMInsert = CallMap.emplace(Key, std::move(CN));
-  if (!CMInsert.second) {
-    auto &SrcManager = U.getSourceManager();
+    auto CN =
+        std::make_unique<ASTNode>(ASTNode::CALL, DynTypedNode::create(E), U);
+    assert(CN && "Unexpected Program State");
 
-    // if it is not macro arg expansion, then it is duplicates.
-    if (SrcManager.isMacroBodyExpansion(E.getExprLoc())) {
-      DupKey.insert(Key);
-      return;
+    auto CMInsert = CallMap.emplace(Key, std::move(CN));
+    if (!CMInsert.second) {
+      auto &SrcManager = U.getSourceManager();
+
+      // if it is not macro arg expansion, then it is duplicates.
+      if (SrcManager.isMacroBodyExpansion(E.getExprLoc())) {
+        DupKey.insert(Key);
+        continue;
+      }
+
+      // NOTE: It is not duplicated key if it has same macro caller location if
+      //       it is macro arg expansion
+      auto &PrevCN = CMInsert.first->second;
+      auto NewCN =
+          std::make_unique<ASTNode>(ASTNode::CALL, DynTypedNode::create(E), U);
+      assert((PrevCN && NewCN) && "Unexpected Program State");
+
+      auto PrevLoc = util::getTopMacroCallerLoc(
+          PrevCN->getNode(), PrevCN->getASTUnit().getSourceManager());
+      auto NewLoc = util::getTopMacroCallerLoc(
+          NewCN->getNode(), NewCN->getASTUnit().getSourceManager());
+
+      auto PrevLI = LocIndex(PrevCN->getASTUnit().getSourceManager(), PrevLoc);
+      auto NewLI = LocIndex(NewCN->getASTUnit().getSourceManager(), NewLoc);
+      if (PrevLI != NewLI)
+        DupKey.insert(Key);
+
+      continue;
     }
 
-    // NOTE: It is not duplicated key if it has same macro caller location if
-    //       it is macro arg expansion
-    auto &PrevCN = CMInsert.first->second;
-    auto NewCN =
-        std::make_unique<ASTNode>(ASTNode::CALL, DynTypedNode::create(E), U);
-    assert((PrevCN && NewCN) && "Unexpected Program State");
+    auto DN = std::make_unique<ASTDefNode>(E, U);
+    assert(DN && "Unexpected Program State");
 
-    auto PrevLoc = util::getTopMacroCallerLoc(
-        PrevCN->getNode(), PrevCN->getASTUnit().getSourceManager());
-    auto NewLoc = util::getTopMacroCallerLoc(
-        NewCN->getNode(), NewCN->getASTUnit().getSourceManager());
-
-    auto PrevLI = LocIndex(PrevCN->getASTUnit().getSourceManager(), PrevLoc);
-    auto NewLI = LocIndex(NewCN->getASTUnit().getSourceManager(), NewLoc);
-
-    if (PrevLI != NewLI)
-      DupKey.insert(Key);
-
-    return;
+    auto Insert = DefMap.emplace(Key, std::move(DN));
+    assert(Insert.second && "Unexpected Program State");
   }
-
-  auto DN = std::make_unique<ASTDefNode>(E, U);
-  assert(DN && "Unexpected Program State");
-
-  auto Insert = DefMap.emplace(Key, std::move(DN));
-  assert(Insert.second && "Unexpected Program State");
 }
 
 ASTNode *CalledFunctionMacroMapper::getASTNode(llvm::CallBase &CB) {
-
-  auto *CV = CB.getCalledValue();
-  if (!CV)
-    return nullptr;
-
-  CV = CV->stripPointerCasts();
-  if (!CV)
-    return nullptr;
-
-  auto *CF = llvm::dyn_cast_or_null<llvm::Function>(CV);
+  auto *CF = util::getCalledFunction(CB);
   if (!CF)
     return nullptr;
 
   IRNode Node(CB);
   const auto &Index = Node.getIndex();
-  DBKey Key(Index.getPath(), Index.getLine(), Index.getColumn(), CF->getName());
-
+  DBKey Key(Index.getPath(), Index.getLine(), Index.getColumn(),
+            CF->getName().str());
   if (DupKey.find(Key) != DupKey.end())
     return nullptr;
 
@@ -101,22 +91,18 @@ ASTNode *CalledFunctionMacroMapper::getASTNode(llvm::CallBase &CB) {
 }
 
 ASTDefNode *CalledFunctionMacroMapper::getASTDefNode(llvm::Instruction &I) {
-
-  auto *CB = llvm::dyn_cast_or_null<llvm::CallBase>(&I);
+  auto *CB = dyn_cast<llvm::CallBase>(&I);
   if (!CB)
     return nullptr;
 
-  auto *CV = CB->getCalledValue();
-  if (!CV)
-    return nullptr;
-
-  auto *F = llvm::dyn_cast_or_null<llvm::Function>(CV->stripPointerCasts());
+  auto *F = util::getCalledFunction(*CB);
   if (!F)
     return nullptr;
 
-  IRNode Node(*CB);
+  IRNode Node(I);
   const auto &Index = Node.getIndex();
-  DBKey Key(Index.getPath(), Index.getLine(), Index.getColumn(), F->getName());
+  DBKey Key(Index.getPath(), Index.getLine(), Index.getColumn(),
+            F->getName().str());
 
   if (DupKey.find(Key) != DupKey.end())
     return nullptr;

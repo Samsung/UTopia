@@ -9,7 +9,6 @@
 
 using namespace clang;
 using namespace ast_matchers;
-using namespace ast_type_traits;
 
 namespace ftg {
 
@@ -373,7 +372,7 @@ void DebugInfoMap::updateGVMap(std::unique_ptr<ASTDefNode> ADN) {
     return;
 
   auto LinkScope = D->getFormalLinkage();
-  DebugInfoMap::GVMapKey Key = {.Path = "", .Name = D->getName()};
+  DebugInfoMap::GVMapKey Key = {.Path = "", .Name = D->getName().str()};
   if (LinkScope == NoLinkage || LinkScope == InternalLinkage) {
     Key.Path = ADN->getLocIndex().getPath();
   }

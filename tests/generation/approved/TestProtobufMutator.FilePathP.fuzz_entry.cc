@@ -8,7 +8,8 @@ char *autofuzz0;
 }
 DEFINE_PROTO_FUZZER(const AutoFuzz::FuzzArgsProfile &autofuzz_mutation) {
   char *fuzzvar0;
-  std::string fuzzvar0_filepath(FUZZ_FILEPATH_PREFIX + fuzzvar0_file);
+  std::string fuzzvar0_filepath(FUZZ_FILEPATH_PREFIX +
+                                std::string("fuzzvar0_file"));
   int fuzzvar0_fd =
       open(fuzzvar0_filepath.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
   if (fuzzvar0_fd != -1) {

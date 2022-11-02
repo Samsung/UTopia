@@ -182,6 +182,10 @@ bool RDNode::isVisit(const RDTarget &T, const Instruction &I) const {
   return Iter->second.find(RDVisitNode(T, I)) != Iter->second.end();
 }
 
+bool RDNode::isVisit(const Function &F) const {
+  return Visit.find(&F) != Visit.end();
+}
+
 bool RDNode::isRootDefinition() const {
 
   assert(Target && "Unexpected Program State");

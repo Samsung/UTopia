@@ -27,7 +27,8 @@ public:
 
   /// Generates entry file of the fuzzer.
   virtual void genEntry(const std::string &OutDir,
-                        const std::string &FileName = DefaultEntryName) = 0;
+                        const std::string &FileName = DefaultEntryName,
+                        const std::string &Signature = "") = 0;
 
   /// Adds fuzzing input to mutation target.
   virtual void addInput(FuzzInput &Input) = 0;

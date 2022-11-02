@@ -4,16 +4,19 @@
 
 using namespace ftg;
 
-class TestNonStaticClassMethodMatcher : public ::testing::Test {
+class TestNonStaticClassMethodMatcher : public TestBase {
 
 protected:
-  static void SetUpTestCase() {
-    auto CH = TestHelperFactory().createCompileHelper(
-        CODE, "test_matchers", "-O0 -g", CompileHelper::SourceType_CPP);
-    ASSERT_TRUE(CH);
+  void SetUp() override {
+    const std::string CODE = "void Func1();\n"
+                             "static void Func2();\n"
+                             "class CLS1 {\n"
+                             "public:\n"
+                             "  void Method1();\n"
+                             "  static void Method2();\n"
+                             "};\n";
 
-    SC = CH->load();
-    ASSERT_TRUE(SC);
+    ASSERT_TRUE(loadCPP(CODE));
   }
 
   bool exist(const std::vector<const clang::CXXMethodDecl *> &Decls,
@@ -25,30 +28,14 @@ protected:
              return D->getName() == Name;
            }) != Decls.end();
   }
-
-  static std::unique_ptr<SourceCollection> SC;
-  static const std::string CODE;
 };
 
-std::unique_ptr<SourceCollection> TestNonStaticClassMethodMatcher::SC = nullptr;
-
-const std::string TestNonStaticClassMethodMatcher::CODE =
-    "void Func1();\n"
-    "static void Func2();\n"
-    "class CLS1 {\n"
-    "public:\n"
-    "  void Method1();\n"
-    "  static void Method2();\n"
-    "};\n";
-
 TEST_F(TestNonStaticClassMethodMatcher, NonStaticClassMethodsP) {
-  ASSERT_TRUE(SC);
   auto Methods = util::collectNonStaticClassMethods(SC->getASTUnits());
   ASSERT_TRUE(exist(Methods, "Method1"));
 }
 
 TEST_F(TestNonStaticClassMethodMatcher, StaticClassMethodsN) {
-  ASSERT_TRUE(SC);
   auto Methods = util::collectNonStaticClassMethods(SC->getASTUnits());
   ASSERT_FALSE(exist(Methods, "Func1"));
   ASSERT_FALSE(exist(Methods, "Func2"));

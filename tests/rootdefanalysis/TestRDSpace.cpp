@@ -40,7 +40,7 @@ TEST_F(TestRDSpace, NonBuildN) {
                            "}}";
   SourceFileManager SFM;
   SFM.createFile("test.cpp", Code);
-  ASSERT_TRUE(load(SFM.getBaseDirPath(), {SFM.getFilePath("test.cpp")}));
+  ASSERT_TRUE(load(SFM.getSrcDirPath(), {SFM.getFilePath("test.cpp")}));
 
   auto *F = AH->getFunction("test");
   ASSERT_TRUE(F);
@@ -57,7 +57,7 @@ TEST_F(TestRDSpace, NextInCallee_ReturnValuesP) {
                            "}}";
   SourceFileManager SFM;
   SFM.createFile("test.cpp", Code);
-  ASSERT_TRUE(load(SFM.getBaseDirPath(), {SFM.getFilePath("test.cpp")}));
+  ASSERT_TRUE(load(SFM.getSrcDirPath(), {SFM.getFilePath("test.cpp")}));
 
   auto *F = AH->getFunction("test");
   ASSERT_TRUE(F);

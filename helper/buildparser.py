@@ -99,8 +99,8 @@ class BuildParser:
         return self.path / "output"
 
     @property
-    def entry_dir(self) -> Path:
-        return self.output_dir / "entry"
+    def build_db_dir(self) -> Path:
+        return self.output_dir / "build_db"
 
     @property
     def build_log_path(self) -> Path:
@@ -149,28 +149,23 @@ class BuildParser:
         command = self.normalize_command(command)
         return CMD(command, path)
 
-    def make_project_entry(
+    def make_build_db(
         self,
         name: str,
         src_path: Path,
         bc_file_path: Path,
         ast_paths: List[Path],
     ):
-        entry = {
-            "binary_info": {name: {"bc_file": str(bc_file_path)}},
+        data = {
+            "bc": str(bc_file_path),
+            "ast": [str(ast_path) for ast_path in ast_paths],
             "project_dir": str(src_path),
-            "project_name": "",
         }
 
-        self.entry_dir.mkdir(parents=True, exist_ok=True)
-        entry_path = self.entry_dir / f"{name}_project_entry.json"
-        with open(entry_path, "w") as f:
-            json.dump(entry, f)
-
-        compiles = [{"ast_file": str(ast_path)} for ast_path in ast_paths]
-        compiles_path = self.entry_dir / f"compiles_{name}.json"
-        with open(compiles_path, "w") as f:
-            json.dump(compiles, f)
+        self.build_db_dir.mkdir(parents=True, exist_ok=True)
+        build_db_path = self.build_db_dir / f"{name}.json"
+        with open(build_db_path, "w") as f:
+            json.dump(data, f)
 
     def normalize_command(self, cmd: str) -> str:
         cmd_pattern = re.compile(r"(ar|llvm-ar|llvm-ar-10|clang|clang\+\+) ")

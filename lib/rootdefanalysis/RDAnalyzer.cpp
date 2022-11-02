@@ -1,4 +1,5 @@
 #include "RDAnalyzer.h"
+#include "ftg/utils/LLVMUtil.h"
 #include "llvm/IR/Intrinsics.h"
 #include <queue>
 
@@ -387,7 +388,7 @@ std::set<RDNode> RDAnalyzer::pass(RDNode &Node) {
   if (Prevs.empty()) {
     RDNode NewNode(Node);
     NewNode.setStopTracing(true);
-    return { NewNode };
+    return {NewNode};
   }
 
   std::set<RDNode> Result;
@@ -400,8 +401,11 @@ std::set<RDNode> RDAnalyzer::pass(RDNode &Node) {
 }
 
 std::set<RDNode> RDAnalyzer::handleRegister(RDNode &Node, CallBase &CB) {
+  const auto *CF = util::getCalledFunction(CB);
+  bool Revisited = CF ? Node.isVisit(*CF) : false;
   auto Result = handleRegisterInternal(Node, CB);
-  assert(!Result.empty() && "Unexpected Program States");
+  if (!Revisited)
+    assert(!Result.empty() && "Unexpected Program States");
   return Result;
 }
 
@@ -907,7 +911,7 @@ bool RDAnalyzer::isNonStaticMethodInvocation(const llvm::CallBase &CB) const {
   }
 
   auto Name = F->getName();
-  return Extension.isNonStaticClassMethod(Name);
+  return Extension.isNonStaticClassMethod(Name.str());
 }
 
 RDAnalyzer::PROPTYPE RDAnalyzer::isPropagated(const RDTarget &Target,

@@ -11,35 +11,32 @@ protected:
 };
 
 TEST_F(TestTCAnalyzerFactory, CreateFactoryP) {
-  ASSERT_TRUE(loadCPP(TemporalCode, "boostanalyzerfactory"));
-  std::unique_ptr<SourceCollection> BoostSC = CH->load();
+  ASSERT_TRUE(loadCPP(TemporalCode));
 
   TCAnalyzerFactory *AnalyzerFactory = new BoostAnalyzerFactory();
   ASSERT_TRUE(AnalyzerFactory);
   std::unique_ptr<TCExtractor> BoostExtractor =
-      AnalyzerFactory->createTCExtractor(*BoostSC.get());
+      AnalyzerFactory->createTCExtractor(*SC.get());
   ASSERT_TRUE(BoostExtractor);
   std::unique_ptr<TCCallWriter> BoostCallWriter =
       AnalyzerFactory->createTCCallWriter();
   ASSERT_TRUE(BoostCallWriter);
 
-  ASSERT_TRUE(loadCPP(TemporalCode, "googletestanalyzerfactory"));
-  std::unique_ptr<SourceCollection> GoogleTestSC = CH->load();
+  ASSERT_TRUE(loadCPP(TemporalCode));
   AnalyzerFactory = new GoogleTestAnalyzerFactory();
   ASSERT_TRUE(AnalyzerFactory);
   std::unique_ptr<TCExtractor> GoogleTestExtractor =
-      AnalyzerFactory->createTCExtractor(*GoogleTestSC.get());
+      AnalyzerFactory->createTCExtractor(*SC.get());
   ASSERT_TRUE(GoogleTestExtractor);
   std::unique_ptr<TCCallWriter> GoogleTestCallWriter =
       AnalyzerFactory->createTCCallWriter();
   ASSERT_TRUE(GoogleTestCallWriter);
 
-  ASSERT_TRUE(loadC(TemporalCode, "tctanalyzerfactory"));
-  std::unique_ptr<SourceCollection> TCTSC = CH->load();
+  ASSERT_TRUE(loadC(TemporalCode));
   AnalyzerFactory = new TCTAnalyzerFactory();
   ASSERT_TRUE(AnalyzerFactory);
   std::unique_ptr<TCExtractor> TCTExtractor =
-      AnalyzerFactory->createTCExtractor(*TCTSC.get());
+      AnalyzerFactory->createTCExtractor(*SC.get());
   ASSERT_TRUE(TCTExtractor);
   std::unique_ptr<TCCallWriter> TCTCallWriter =
       AnalyzerFactory->createTCCallWriter();

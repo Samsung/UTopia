@@ -10,10 +10,7 @@ namespace ftg {
 class TestGoogleTestCallWriter : public TestBase {
 protected:
   void SetUp() override {
-    ASSERT_TRUE(loadCPP(GoogleTestCode, "gtestcallwriter"));
-
-    std::unique_ptr<SourceCollection> SC = CH->load();
-    ASSERT_TRUE(SC);
+    ASSERT_TRUE(loadCPP(GoogleTestCode));
     Extractor = std::make_unique<GoogleTestExtractor>(*SC.get());
     ASSERT_TRUE(Extractor);
     Extractor->load();

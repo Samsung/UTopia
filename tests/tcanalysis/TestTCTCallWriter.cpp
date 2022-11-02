@@ -10,10 +10,7 @@ namespace ftg {
 class TestTCTCallWriter : public TestBase {
 protected:
   void SetUp() override {
-    ASSERT_TRUE(loadC(TCTCode, "tctcallwriter"));
-
-    std::unique_ptr<SourceCollection> SC = CH->load();
-    ASSERT_TRUE(SC);
+    ASSERT_TRUE(loadC(TCTCode));
     Extractor = std::make_unique<TCTExtractor>(*SC.get());
     ASSERT_TRUE(Extractor);
     Extractor->load();
