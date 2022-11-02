@@ -2,6 +2,7 @@
 #include "ftg/astirmap/DebugInfoMap.h"
 #include "ftg/utils/ASTUtil.h"
 #include "ftg/utils/AssignUtil.h"
+#include "ftg/utils/LLVMUtil.h"
 #include "testutil/SourceFileManager.h"
 #include "clang/ASTMatchers/ASTMatchFinder.h"
 #include "clang/ASTMatchers/ASTMatchers.h"
@@ -286,23 +287,27 @@ TEST_F(TestASTUtil, collectConstructorsP) {
   SourceFileManager SFM;
   SFM.createFile("test1.cpp", Code1);
   SFM.createFile("test2.cpp", Code2);
-  ASSERT_TRUE(load(SFM.getBaseDirPath(), {SFM.getFilePath("test1.cpp"),
-                                          SFM.getFilePath("test2.cpp")}));
+  ASSERT_TRUE(load(SFM.getSrcDirPath(), {SFM.getFilePath("test1.cpp"),
+                                         SFM.getFilePath("test2.cpp")}));
   ASSERT_TRUE(Loader);
 
   std::set<std::string> Answers = {
-      "_ZN4CLS1C1Ev",   "_ZN4CLS1C1Ei", "_ZN4CLS1C1Eii",   "_ZN4CLS1C1ERKS_",
-      "_ZN4CLS1C1EOS_", "_ZN4CLS2C1Ev", "_ZN4CLS2C1ERKS_", "_ZN4CLS2C1EOS_"};
-  auto Constructors =
-      util::collectConstructors(Loader->getSourceCollection().getASTUnits());
-  ASSERT_EQ(Constructors.size(), Answers.size());
-
-  for (const auto *Constructor : Constructors) {
+      "_ZN4CLS1C2Ev",    "_ZN4CLS1C1Ev",    "_ZN4CLS1C1Ei",
+      "_ZN4CLS1C2Ei",    "_ZN4CLS1C2Eii",   "_ZN4CLS1C1Eii",
+      "_ZN4CLS1C2ERKS_", "_ZN4CLS1C1ERKS_", "_ZN4CLS1C2EOS_",
+      "_ZN4CLS1C1EOS_",  "_ZN4CLS2C2Ev",    "_ZN4CLS2C1Ev",
+      "_ZN4CLS2C2ERKS_", "_ZN4CLS2C1ERKS_", "_ZN4CLS2C1EOS_",
+      "_ZN4CLS2C2EOS_"};
+  for (const auto *Constructor :
+       util::collectConstructors(Loader->getSourceCollection().getASTUnits())) {
     ASSERT_TRUE(Constructor);
-    auto Name =
-        util::getMangledName(const_cast<CXXConstructorDecl *>(Constructor));
-    ASSERT_NE(Answers.find(Name), Answers.end());
+    for (auto &MangledName : util::getMangledNames(*Constructor)) {
+      auto Iter = Answers.find(MangledName);
+      ASSERT_NE(Iter, Answers.end());
+      Answers.erase(Iter);
+    }
   }
+  ASSERT_TRUE(Answers.empty());
 }
 
 TEST_F(TestASTUtil, collectConstructorsN) {
@@ -311,7 +316,7 @@ TEST_F(TestASTUtil, collectConstructorsN) {
                            "}\n";
   SourceFileManager SFM;
   SFM.createFile("test.cpp", Code);
-  ASSERT_TRUE(load(SFM.getBaseDirPath(), SFM.getFilePath("test.cpp")));
+  ASSERT_TRUE(load(SFM.getSrcDirPath(), SFM.getFilePath("test.cpp")));
   ASSERT_TRUE(Loader);
 
   auto Constructors = util::collectConstructors({nullptr});
@@ -338,22 +343,25 @@ TEST_F(TestASTUtil, collectNonStaticMethodsP) {
   SourceFileManager SFM;
   SFM.createFile("test1.cpp", Code1);
   SFM.createFile("test2.cpp", Code2);
-  ASSERT_TRUE(load(SFM.getBaseDirPath(), {SFM.getFilePath("test1.cpp"),
-                                          SFM.getFilePath("test2.cpp")}));
+  ASSERT_TRUE(load(SFM.getSrcDirPath(), {SFM.getFilePath("test1.cpp"),
+                                         SFM.getFilePath("test2.cpp")}));
   ASSERT_TRUE(Loader);
 
   std::set<std::string> Answers = {
-      "_ZN4CLS12M1Ev",   "_ZNK4CLS12M2Ev", "_ZN4CLS1C1Ev",  "_ZN4CLS1C1ERKS_",
-      "_ZN4CLS1C1EOS_",  "_ZN4CLS22M1Ev",  "_ZN4CLS22M1Ev", "_ZN4CLS2C1Ev",
-      "_ZN4CLS2C1ERKS_", "_ZN4CLS2C1EOS_"};
-  auto Methods = util::collectNonStaticClassMethods(
-      Loader->getSourceCollection().getASTUnits());
-  ASSERT_EQ(Answers.size(), Methods.size());
-  for (const auto *Method : Methods) {
+      "_ZN4CLS12M1Ev",   "_ZNK4CLS12M2Ev",  "_ZN4CLS1C2Ev",   "_ZN4CLS1C1Ev",
+      "_ZN4CLS1C2ERKS_", "_ZN4CLS1C1ERKS_", "_ZN4CLS1C2EOS_", "_ZN4CLS1C1EOS_",
+      "_ZN4CLS22M1Ev",   "_ZN4CLS2C2Ev",    "_ZN4CLS22M1Ev",  "_ZN4CLS2C1Ev",
+      "_ZN4CLS2C2ERKS_", "_ZN4CLS2C1ERKS_", "_ZN4CLS2C2EOS_", "_ZN4CLS2C1EOS_"};
+  for (const auto *Method : util::collectNonStaticClassMethods(
+           Loader->getSourceCollection().getASTUnits())) {
     ASSERT_TRUE(Method);
-    auto Name = util::getMangledName(const_cast<CXXMethodDecl *>(Method));
-    ASSERT_NE(Answers.find(Name), Answers.end());
+    for (auto &MangledName : util::getMangledNames(*Method)) {
+      auto Iter = Answers.find(MangledName);
+      ASSERT_NE(Iter, Answers.end());
+      Answers.erase(Iter);
+    }
   }
+  ASSERT_TRUE(Answers.empty());
 }
 
 TEST_F(TestASTUtil, collectNonStaticMethodsN) {
@@ -366,21 +374,25 @@ TEST_F(TestASTUtil, collectNonStaticMethodsN) {
                            "void test() { CLS Var; F1(); F2(); }\n";
   SourceFileManager SFM;
   SFM.createFile("test.cpp", Code);
-  ASSERT_TRUE(load(SFM.getBaseDirPath(), SFM.getFilePath("test.cpp")));
+  ASSERT_TRUE(load(SFM.getSrcDirPath(), SFM.getFilePath("test.cpp")));
   ASSERT_TRUE(Loader);
 
   auto Methods = util::collectNonStaticClassMethods({nullptr});
   ASSERT_EQ(Methods.size(), 0);
 
-  std::set<std::string> Answers = {"_ZN3CLSC1Ev", "_ZN3CLSC1ERKS_",
-                                   "_ZN3CLSC1EOS_"};
-  Methods = util::collectNonStaticClassMethods(
-      Loader->getSourceCollection().getASTUnits());
-  for (const auto *Method : Methods) {
+  std::set<std::string> Answers = {"_ZN3CLSC2Ev",    "_ZN3CLSC1Ev",
+                                   "_ZN3CLSC2ERKS_", "_ZN3CLSC1ERKS_",
+                                   "_ZN3CLSC2EOS_",  "_ZN3CLSC1EOS_"};
+  for (const auto *Method : util::collectNonStaticClassMethods(
+           Loader->getSourceCollection().getASTUnits())) {
     ASSERT_TRUE(Method);
-    auto Name = util::getMangledName(const_cast<CXXMethodDecl *>(Method));
-    ASSERT_NE(Answers.find(Name), Answers.end());
+    for (auto &MangledName : util::getMangledNames(*Method)) {
+      auto Iter = Answers.find(MangledName);
+      ASSERT_NE(Iter, Answers.end());
+      Answers.erase(Iter);
+    }
   }
+  ASSERT_TRUE(Answers.empty());
 }
 
 TEST_F(TestASTUtil, GetArgASTsAndFunctionDeclP) {
@@ -470,39 +482,6 @@ TEST_F(TestASTUtil, GetArgASTsAndFunctionDeclN) {
   ASSERT_TRUE(E);
   ASSERT_THROW(getArgExprs(*const_cast<Expr *>(E)), std::invalid_argument);
   ASSERT_FALSE(util::getFunctionDecl(*const_cast<Expr *>(E)));
-}
-
-TEST_F(TestASTUtil, GetCalledFunction_GeneralP) {
-  const std::string Code = "extern \"C\" {\n"
-                           "  void API();\n"
-                           "  void test() { API(); }\n"
-                           "}";
-  SourceFileManager SFM;
-  SFM.createFile("test.cpp", Code);
-  ASSERT_TRUE(load(SFM.getBaseDirPath(), SFM.getFilePath("test.cpp")));
-  const auto *CB = llvm::dyn_cast_or_null<llvm::CallBase>(
-      IRAccess->getInstruction("test", 0, 0));
-  ASSERT_TRUE(CB);
-  const auto *CF = getCalledFunction(*CB);
-  ASSERT_TRUE(CF);
-  ASSERT_EQ(CF->getName(), "API");
-}
-
-TEST_F(TestASTUtil, GetCalledFunction_IndirectN) {
-  const std::string Code = "extern \"C\" {\n"
-                           "void API();\n"
-                           "void test() {\n"
-                           "  auto *V = &API;\n"
-                           "  V();\n"
-                           "}}";
-  SourceFileManager SFM;
-  SFM.createFile("test.cpp", Code);
-  ASSERT_TRUE(load(SFM.getBaseDirPath(), SFM.getFilePath("test.cpp")));
-  const auto *CB = llvm::dyn_cast_or_null<llvm::CallBase>(
-      IRAccess->getInstruction("test", 0, 4));
-  ASSERT_TRUE(CB);
-  const auto *CF = getCalledFunction(*CB);
-  ASSERT_FALSE(CF);
 }
 
 TEST_F(TestASTUtil, GetDebugLocP) {
@@ -708,7 +687,7 @@ TEST_F(TestASTUtil, IsMacroArgUsedHashHashExpansionP) {
                            "}";
   SourceFileManager SFM;
   SFM.createFile("test.cpp", Code);
-  ASSERT_TRUE(load(SFM.getBaseDirPath(), SFM.getFilePath("test.cpp")));
+  ASSERT_TRUE(load(SFM.getSrcDirPath(), SFM.getFilePath("test.cpp")));
 
   const auto *RValueNode = getRValueASTNode("test", 0, 0, 0);
   ASSERT_TRUE(RValueNode);
@@ -732,7 +711,7 @@ TEST_F(TestASTUtil, IsMacroArgUsedHashHashExpansionN) {
                            "}";
   SourceFileManager SFM;
   SFM.createFile("test.cpp", Code);
-  ASSERT_TRUE(load(SFM.getBaseDirPath(), SFM.getFilePath("test.cpp")));
+  ASSERT_TRUE(load(SFM.getSrcDirPath(), SFM.getFilePath("test.cpp")));
 
   const ASTNode *RValueNode;
   const clang::Expr *E;

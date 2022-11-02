@@ -46,12 +46,9 @@ int main(int argc, const char **argv) {
         llvm::outs() << "version: " << FTG_VERSION << "\n";
         exit(0);
       }));
-  llvm::cl::opt<std::string> ProjectEntryPath(
-      "entry", llvm::cl::desc("<Required> project_entry.json path"),
+  llvm::cl::opt<std::string> BuildDBPath(
+      "db", llvm::cl::desc("<Required> Path of build db json file"),
       llvm::cl::value_desc("filepath"), llvm::cl::Required);
-  llvm::cl::opt<std::string> BinaryName("name", llvm::cl::desc("Binary Name"),
-                                        llvm::cl::desc("name"),
-                                        llvm::cl::Required);
   llvm::cl::opt<std::string> LibraryAPIPath(
       "public", llvm::cl::desc("<Required> PublicAPI.json path"),
       llvm::cl::value_desc("filepath"), llvm::cl::Required);
@@ -71,10 +68,9 @@ int main(int argc, const char **argv) {
 
   increaseStackSize();
   try {
-    UTAnalyzer Analyzer(
-        std::make_shared<BuildDBLoader>(ProjectEntryPath, BinaryName),
-        std::make_shared<APIJsonLoader>(LibraryAPIPath), TargetReportDir,
-        ExternReportDir, UTType);
+    UTAnalyzer Analyzer(std::make_shared<BuildDBLoader>(BuildDBPath),
+                        std::make_shared<APIJsonLoader>(LibraryAPIPath),
+                        TargetReportDir, ExternReportDir, UTType);
 
     if (!Analyzer.analyze())
       return 1;

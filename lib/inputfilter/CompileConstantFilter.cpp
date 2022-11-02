@@ -12,7 +12,7 @@ CompileConstantFilter::CompileConstantFilter(
     : InputFilter(FilterName, std::move(NextFilter)) {}
 
 bool CompileConstantFilter::check(const ASTIRNode &Node) const {
-  return isMacroFunctionAssigned(Node.AST);
+  return isMacroFunctionAssigned(Node.AST) || isOffsetOfExpr(Node.AST);
 }
 
 bool CompileConstantFilter::isMacroFunctionAssigned(
@@ -29,6 +29,18 @@ bool CompileConstantFilter::isMacroFunctionAssigned(
       const_cast<ASTNode *>(Assigned)->getASTUnit().getSourceManager();
   auto Loc = SrcManager.getTopMacroCallerLoc(S->getBeginLoc());
   return util::getMacroFunctionExpansionRange(SrcManager, Loc).isValid();
+}
+
+bool CompileConstantFilter::isOffsetOfExpr(const ASTDefNode &Node) const {
+  const auto *Assigned = Node.getAssigned();
+  if (!Assigned)
+    return false;
+
+  const auto *E = dyn_cast_or_null<Expr>(Assigned->getNode().get<Expr>());
+  if (!E)
+    return false;
+
+  return dyn_cast_or_null<OffsetOfExpr>(E->IgnoreCasts());
 }
 
 } // namespace ftg

@@ -108,4 +108,4 @@ def build_ast_ir(
         ast_files.append(emit_ast(compile_cmd, opts, key))
         bcs.append(emit_bc(compile_cmd, opts, key))
     bc = emit_linked_bc(build_path, bp.output_dir, key, bcs)
-    bp.make_project_entry(key, src_path, bc, ast_files)
+    bp.make_build_db(key, src_path, bc, ast_files)

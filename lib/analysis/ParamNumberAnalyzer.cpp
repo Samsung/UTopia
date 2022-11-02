@@ -1,5 +1,6 @@
 #include "ParamNumberAnalyzer.h"
 #include "ftg/utils/ASTUtil.h"
+#include "ftg/utils/LLVMUtil.h"
 #include "clang/AST/DeclCXX.h"
 #include "llvm/IR/Constant.h"
 
@@ -18,12 +19,18 @@ ParamNumberAnalyzer::ParamNumberAnalyzer(
       if (!FD)
         continue;
 
-      auto FuncName = util::getMangledName(FD);
-      auto Iter = GlobalAliasMap.find(FuncName);
-      if (Iter != GlobalAliasMap.end() && Iter->second)
-        FuncName = Iter->second->getName();
-
-      const auto *F = M.getFunction(FuncName);
+      // NOTE: Unexpected when multiple functions are matched by one clang
+      // NamedDecl.
+      const llvm::Function *F = nullptr;
+      for (auto &MangledName : util::getMangledNames(*FD)) {
+        auto FuncName = MangledName;
+        auto Iter = GlobalAliasMap.find(MangledName);
+        if (Iter != GlobalAliasMap.end() && Iter->second)
+          FuncName = Iter->second->getName();
+        F = M.getFunction(FuncName);
+        if (F)
+          break;
+      }
       if (!F)
         continue;
 
@@ -34,7 +41,7 @@ ParamNumberAnalyzer::ParamNumberAnalyzer(
       if (llvm::isa<clang::CXXMethodDecl>(FD) && !FD->isStatic())
         BeginIndex += 1;
 
-      Report.add(F->getName(), F->arg_size(), BeginIndex);
+      Report.add(F->getName().str(), F->arg_size(), BeginIndex);
     }
   }
 }

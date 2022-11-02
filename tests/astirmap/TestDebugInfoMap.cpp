@@ -129,7 +129,7 @@ TEST_F(TestDebugInfoMap, getDef_ArgumentP) {
                            "}\n";
   SourceFileManager SFM;
   SFM.createFile("test.cpp", Code);
-  ASSERT_TRUE(load(SFM.getBaseDirPath(), SFM.getFilePath("test.cpp")));
+  ASSERT_TRUE(load(SFM.getSrcDirPath(), SFM.getFilePath("test.cpp")));
 
   ASTDefNode *ADN;
 
@@ -190,7 +190,7 @@ TEST_F(TestDebugInfoMap, getDef_ArgumentN) {
                            "}\n";
   SourceFileManager SFM;
   SFM.createFile("test.cpp", Code);
-  ASSERT_TRUE(load(SFM.getBaseDirPath(), SFM.getFilePath("test.cpp")));
+  ASSERT_TRUE(load(SFM.getSrcDirPath(), SFM.getFilePath("test.cpp")));
 
   ASSERT_FALSE(getASTDefNode("test_default", 0, 2, 1));
   ASSERT_FALSE(getASTDefNode("test_implicit", 0, 3, 0));
@@ -210,7 +210,7 @@ TEST_F(TestDebugInfoMap, getDef_AssignP) {
                            "}";
   SourceFileManager SFM;
   SFM.createFile("test.cpp", Code);
-  ASSERT_TRUE(load(SFM.getBaseDirPath(), SFM.getFilePath("test.cpp")));
+  ASSERT_TRUE(load(SFM.getSrcDirPath(), SFM.getFilePath("test.cpp")));
 
   ASTDefNode *ADN;
 
@@ -249,7 +249,7 @@ TEST_F(TestDebugInfoMap, getDef_ConstP) {
                            "}\n";
   SourceFileManager SFM;
   SFM.createFile("test.cpp", Code);
-  ASSERT_TRUE(load(SFM.getBaseDirPath(), SFM.getFilePath("test.cpp")));
+  ASSERT_TRUE(load(SFM.getSrcDirPath(), SFM.getFilePath("test.cpp")));
 
   ASTDefNode *ADN;
 
@@ -289,7 +289,7 @@ TEST_F(TestDebugInfoMap, getDef_CtorP) {
                            "}";
   SourceFileManager SFM;
   SFM.createFile("test.cpp", Code);
-  ASSERT_TRUE(load(SFM.getBaseDirPath(), SFM.getFilePath("test.cpp")));
+  ASSERT_TRUE(load(SFM.getSrcDirPath(), SFM.getFilePath("test.cpp")));
 
   ASTDefNode *ADN;
 
@@ -318,7 +318,7 @@ TEST_F(TestDebugInfoMap, getDef_MacroP) {
                            "}\n";
   SourceFileManager SFM;
   SFM.createFile("test.cpp", Code);
-  ASSERT_TRUE(load(SFM.getBaseDirPath(), SFM.getFilePath("test.cpp")));
+  ASSERT_TRUE(load(SFM.getSrcDirPath(), SFM.getFilePath("test.cpp")));
 
   ASTDefNode *ADN;
 
@@ -363,7 +363,7 @@ TEST_F(TestDebugInfoMap, getDef_MacroN) {
                            "}}";
   SourceFileManager SFM;
   SFM.createFile("test.cpp", Code);
-  ASSERT_TRUE(load(SFM.getBaseDirPath(), SFM.getFilePath("test.cpp")));
+  ASSERT_TRUE(load(SFM.getSrcDirPath(), SFM.getFilePath("test.cpp")));
 
   // Note:
   // API_1 that is in MACRO_1 expansion body should not be found because
@@ -400,7 +400,7 @@ TEST_F(TestDebugInfoMap, getDef_TemplateTypeN) {
                            "}\n";
   SourceFileManager SFM;
   SFM.createFile("test.cpp", Code);
-  ASSERT_TRUE(load(SFM.getBaseDirPath(), SFM.getFilePath("test.cpp")));
+  ASSERT_TRUE(load(SFM.getSrcDirPath(), SFM.getFilePath("test.cpp")));
   ASSERT_FALSE(getASTDefNode("_ZN4CLS1IiEC2Ev", 0, 5, -1));
 }
 
@@ -439,8 +439,8 @@ TEST_F(TestDebugInfoMap, getDef_VarDeclP) {
   SourceFileManager SFM;
   SFM.createFile("test1.cpp", Code1);
   SFM.createFile("test2.cpp", Code2);
-  ASSERT_TRUE(load(SFM.getBaseDirPath(), {SFM.getFilePath("test1.cpp"),
-                                          SFM.getFilePath("test2.cpp")}));
+  ASSERT_TRUE(load(SFM.getSrcDirPath(), {SFM.getFilePath("test1.cpp"),
+                                         SFM.getFilePath("test2.cpp")}));
 
   ASTDefNode *ADN;
 
@@ -520,7 +520,7 @@ TEST_F(TestDebugInfoMap, getDiffNumArgsP) {
       "}";
   SourceFileManager SFM;
   SFM.createFile("test.cpp", Code);
-  ASSERT_TRUE(load(SFM.getBaseDirPath(), SFM.getFilePath("test.cpp")));
+  ASSERT_TRUE(load(SFM.getSrcDirPath(), SFM.getFilePath("test.cpp")));
 
   llvm::CallBase *CB;
 
@@ -559,7 +559,7 @@ TEST_F(TestDebugInfoMap, getDiffNumArgsN) {
                            "}";
   SourceFileManager SFM;
   SFM.createFile("test.cpp", Code);
-  ASSERT_TRUE(load(SFM.getBaseDirPath(), SFM.getFilePath("test.cpp")));
+  ASSERT_TRUE(load(SFM.getSrcDirPath(), SFM.getFilePath("test.cpp")));
 
   llvm::CallBase *CB;
 
@@ -578,7 +578,7 @@ TEST_F(TestDebugInfoMap, hasDiffNumArgsN) {
                            "}";
   SourceFileManager SFM;
   SFM.createFile("test.cpp", Code);
-  ASSERT_TRUE(load(SFM.getBaseDirPath(), SFM.getFilePath("test.cpp")));
+  ASSERT_TRUE(load(SFM.getSrcDirPath(), SFM.getFilePath("test.cpp")));
 
   llvm::CallBase *CB;
 
@@ -601,7 +601,7 @@ TEST_F(TestDebugInfoMap, ConstructorWithImplicitValueP) {
   SFM.createFile("test.cpp", Code);
   // Check whether implicit initializer cnt() is properly ignored.
   // Creating DebugInfoMap fails if it is not ignored.
-  ASSERT_TRUE(load(SFM.getBaseDirPath(), SFM.getFilePath("test.cpp")));
+  ASSERT_TRUE(load(SFM.getSrcDirPath(), SFM.getFilePath("test.cpp")));
 }
 
 TEST_F(TestDebugInfoMap, ArgumentsInMacroN) {
@@ -614,7 +614,7 @@ TEST_F(TestDebugInfoMap, ArgumentsInMacroN) {
                      "}";
   SourceFileManager SFM;
   SFM.createFile("test.cpp", Code);
-  ASSERT_TRUE(load(SFM.getBaseDirPath(), SFM.getFilePath("test.cpp")));
+  ASSERT_TRUE(load(SFM.getSrcDirPath(), SFM.getFilePath("test.cpp")));
   llvm::errs() << SC->getLLVMModule() << "\n";
 
   auto *I = AccessHelper->getInstruction("test", 0, 0);

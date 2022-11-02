@@ -3,7 +3,12 @@
 
 #include "ftg/generation/Fuzzer.h"
 #include "ftg/sourceanalysis/SourceAnalysisReport.h"
+#include "clang/Basic/FileManager.h"
+#include "clang/Rewrite/Core/Rewriter.h"
 #include "clang/Tooling/Core/Replacement.h"
+
+#include <string>
+#include <vector>
 
 namespace ftg {
 
@@ -15,6 +20,8 @@ public:
   const std::map<std::string, std::string> &getNewFiles() const;
   const std::map<std::string, clang::tooling::Replacements> &
   getReplacements() const;
+  void genModifiedSrcs(const std::string &OrgSrcDir, const std::string &OutDir,
+                       const std::string &Signature = "") const;
 
 private:
   struct GlobalVarSetter {
@@ -28,6 +35,8 @@ private:
   std::map<std::string, clang::tooling::Replacements> FileReplaceMap;
   std::map<std::pair<std::string, unsigned>, clang::tooling::Replacement>
       Replaces;
+  std::unique_ptr<clang::SourceManager> SManager;
+  clang::IntrusiveRefCntPtr<clang::FileManager> FManager;
 
   bool addReplace(const clang::tooling::Replacement &Replace);
   void clear();
@@ -56,6 +65,11 @@ private:
       const std::map<std::string, std::vector<std::string>> &FuzzVarFlagDecls,
       const std::map<std::string, std::vector<GlobalVarSetter>> &Setters,
       const std::string &UTPath, const SourceAnalysisReport &SourceReport);
+  /// Applies replacements to OrgFile and save result to OutFilePath
+  void applyReplacements(const std::string &OrgFilePath,
+                         const std::string &OutFilePath,
+                         const clang::tooling::Replacements &Replacements,
+                         const std::string &Signature = "") const;
 };
 
 } // namespace ftg

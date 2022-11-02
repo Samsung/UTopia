@@ -12,20 +12,15 @@
 
 namespace ftg {
 
-class TestInputFilter : public testing::Test {
+class TestInputFilter : public TestBase {
 protected:
-  std::unique_ptr<SourceCollection> SC;
-  std::unique_ptr<IRAccessHelper> IRAccess;
-  std::unique_ptr<ASTIRMap> ASTMap;
-
   bool load(const SourceFileManager &SFM, std::string Name) {
     auto Path = SFM.getFilePath(Name);
     if (Path.empty())
       return false;
     std::vector<std::string> SrcPaths = {Path};
     auto CH = TestHelperFactory().createCompileHelper(
-        SFM.getBaseDirPath(), SrcPaths, "-O0 -g",
-        CompileHelper::SourceType_CPP);
+        SFM.getSrcDirPath(), SrcPaths, "-O0 -g", CompileHelper::SourceType_CPP);
     if (!CH)
       return false;
 
@@ -33,33 +28,12 @@ protected:
     if (!SC)
       return false;
 
-    IRAccess = std::make_unique<IRAccessHelper>(SC->getLLVMModule());
-    if (!IRAccess)
+    IRAH = std::make_unique<IRAccessHelper>(SC->getLLVMModule());
+    if (!IRAH)
       return false;
 
-    ASTMap = std::make_unique<DebugInfoMap>(*SC);
-    if (!ASTMap)
-      return false;
-
-    return true;
-  }
-
-  bool load(std::string Code) {
-    auto CH = TestHelperFactory().createCompileHelper(
-        Code, "rawstringFilter", "-O0 -g", CompileHelper::SourceType_CPP);
-    if (!CH)
-      return false;
-
-    SC = CH->load();
-    if (!SC)
-      return false;
-
-    IRAccess = std::make_unique<IRAccessHelper>(SC->getLLVMModule());
-    if (!IRAccess)
-      return false;
-
-    ASTMap = std::make_unique<DebugInfoMap>(*SC);
-    if (!ASTMap)
+    AIMap = std::make_unique<DebugInfoMap>(*SC);
+    if (!AIMap)
       return false;
 
     return true;
@@ -67,7 +41,7 @@ protected:
 
   std::shared_ptr<RDNode> generateRDNode(std::string FuncName, unsigned BIdx,
                                          unsigned IIdx, int OIdx) {
-    auto *I = IRAccess->getInstruction(FuncName, BIdx, IIdx);
+    auto *I = IRAH->getInstruction(FuncName, BIdx, IIdx);
     if (!I)
       return nullptr;
 
@@ -88,8 +62,8 @@ protected:
   std::shared_ptr<RDNode> generateRDNode(std::string GlobalName,
                                          std::string FuncName, unsigned BIdx,
                                          unsigned IIdx) {
-    auto *G = IRAccess->getGlobalVariable(GlobalName);
-    auto *I = IRAccess->getInstruction(FuncName, BIdx, IIdx);
+    auto *G = IRAH->getGlobalVariable(GlobalName);
+    auto *I = IRAH->getInstruction(FuncName, BIdx, IIdx);
     if (!G || !I)
       return nullptr;
 
@@ -107,7 +81,7 @@ protected:
     if (!D.first)
       return nullptr;
 
-    auto *ADN = ASTMap->getASTDefNode(*D.first, D.second);
+    auto *ADN = AIMap->getASTDefNode(*D.first, D.second);
     if (!ADN)
       return nullptr;
 
@@ -125,7 +99,7 @@ protected:
     if (!D.first)
       return nullptr;
 
-    auto *ADN = ASTMap->getASTDefNode(*D.first, D.second);
+    auto *ADN = AIMap->getASTDefNode(*D.first, D.second);
     if (!ADN)
       return nullptr;
 
@@ -173,7 +147,7 @@ TEST_F(TestInputFilter, RawStringFilterP) {
                            "extern \"C\" {\n"
                            "void test() { std::string Var1 = R\"(Hello)\"; }\n"
                            "}";
-  ASSERT_TRUE(load(Code));
+  ASSERT_TRUE(loadCPP(Code));
 
   auto Node = generateASTIRNode("test", 0, 6, 1);
   ASSERT_TRUE(Node);
@@ -187,7 +161,7 @@ TEST_F(TestInputFilter, RawStringFilterN) {
                            "extern \"C\" {\n"
                            "void test() { std::string Var1 = \"Hello\"; }\n"
                            "}";
-  ASSERT_TRUE(load(Code));
+  ASSERT_TRUE(loadCPP(Code));
 
   auto Node = generateASTIRNode("test", 0, 6, 1);
   ASSERT_TRUE(Node);
@@ -224,7 +198,7 @@ TEST_F(TestInputFilter, ExternalFilterP) {
       "}\n"
       "}";
 
-  ASSERT_TRUE(load(Code));
+  ASSERT_TRUE(loadCPP(Code));
 
   DirectionAnalysisReport Report;
   auto *Arg = argument("API_3", 0);
@@ -263,7 +237,7 @@ TEST_F(TestInputFilter, ExternalFilterN) {
                            "}\n"
                            "}\n";
 
-  ASSERT_TRUE(load(Code));
+  ASSERT_TRUE(loadCPP(Code));
 
   DirectionAnalysisReport Report;
   ExternalFilter Filter(Report);
@@ -288,7 +262,7 @@ TEST_F(TestInputFilter, AvailableTypeFilterP) {
                            "  API_1(Var);\n"
                            "}\n"
                            "}";
-  ASSERT_TRUE(load(Code));
+  ASSERT_TRUE(loadCPP(Code));
 
   TypeUnavailableFilter Filter;
   ASSERT_TRUE(check("test_defined_struct", 0, 3, -1, Filter));
@@ -302,25 +276,31 @@ TEST_F(TestInputFilter, AvailableTypeFilterN) {
                            "  API_1(10);\n"
                            "}\n"
                            "}\n";
-  ASSERT_TRUE(load(Code));
+  ASSERT_TRUE(loadCPP(Code));
 
   TypeUnavailableFilter Filter;
   ASSERT_TRUE(checkNone("test_input", 0, 0, 0, Filter));
 }
 
 TEST_F(TestInputFilter, CompileConstantP) {
-  const std::string Code = "extern \"C\" {\n"
+  const std::string Code = "#include <stddef.h>\n"
+                           "extern \"C\" {\n"
+                           "struct ST1 { int E1; int E2; };\n"
                            "#define MACRO_1(Var) sizeof(Var) / sizeof(Var[0])\n"
                            "void API_1(int);\n"
                            "void test_macro_const() {\n"
                            "  int Var1[] = { 0, 1, 2 };\n"
                            "  API_1(MACRO_1(Var1));\n"
                            "}\n"
+                           "void test_offestofexpr() {\n"
+                           "  int Var = offsetof(struct ST1, E2);\n"
+                           "}\n"
                            "}\n";
-  ASSERT_TRUE(load(Code));
+  ASSERT_TRUE(loadCPP(Code));
 
   CompileConstantFilter Filter;
   ASSERT_TRUE(check("test_macro_const", 0, 4, 0, Filter));
+  ASSERT_TRUE(check("test_offestofexpr", 0, 2, 0, Filter));
 }
 
 TEST_F(TestInputFilter, CompileConstantN) {
@@ -330,7 +310,7 @@ TEST_F(TestInputFilter, CompileConstantN) {
                            "  API_1(10);\n"
                            "}\n"
                            "}\n";
-  ASSERT_TRUE(load(Code));
+  ASSERT_TRUE(loadCPP(Code));
 
   CompileConstantFilter Filter;
   ASSERT_TRUE(checkNone("test_input", 0, 0, 0, Filter));
@@ -351,7 +331,7 @@ TEST_F(TestInputFilter, ConstIntArrayLenP) {
                            "  API_2(&Var2[0]);\n"
                            "}\n"
                            "}\n";
-  ASSERT_TRUE(load(Code));
+  ASSERT_TRUE(loadCPP(Code));
 
   ConstIntArrayLenFilter Filter;
   ASSERT_TRUE(check("test_direct", 0, 3, -1, Filter));
@@ -366,7 +346,7 @@ TEST_F(TestInputFilter, ConstIntArrayLenN) {
                            "  API_1(Var);\n"
                            "}\n"
                            "}\n";
-  ASSERT_TRUE(load(Code));
+  ASSERT_TRUE(loadCPP(Code));
 
   ConstIntArrayLenFilter Filter;
   ASSERT_TRUE(checkNone("test_input", 0, 2, -1, Filter));
@@ -389,7 +369,7 @@ TEST_F(TestInputFilter, InaccessibleGlobalP) {
                            "  CLS Var1;\n"
                            "}\n"
                            "}";
-  ASSERT_TRUE(load(Code));
+  ASSERT_TRUE(loadCPP(Code));
 
   InaccessibleGlobalFilter Filter;
   ASSERT_TRUE(check("_ZN3CLSC2Ev", 0, 5, -1, Filter));
@@ -413,7 +393,7 @@ TEST_F(TestInputFilter, InaccessibleGlobalN) {
                            "int CLS::F1 = 10;\n"
                            "void test() { CLS Var1; Var1.set(); }\n"
                            "}\n";
-  ASSERT_TRUE(load(Code));
+  ASSERT_TRUE(loadCPP(Code));
   llvm::outs() << SC->getLLVMModule() << "\n";
 
   InaccessibleGlobalFilter Filter;
@@ -442,7 +422,7 @@ TEST_F(TestInputFilter, InvalidLocationP) {
   SFM.createFile("source.cpp", SourceCode);
   ASSERT_TRUE(load(SFM, "source.cpp"));
 
-  InvalidLocationFilter Filter(SFM.getBaseDirPath());
+  InvalidLocationFilter Filter(SFM.getSrcDirPath());
   ASSERT_TRUE(check("sub", 0, 0, 0, Filter));
 }
 
@@ -461,7 +441,7 @@ TEST_F(TestInputFilter, InvalidLocationN) {
   SFM.createFile("source.cpp", SourceCode);
   ASSERT_TRUE(load(SFM, "source.cpp"));
 
-  InvalidLocationFilter Filter(SFM.getBaseDirPath());
+  InvalidLocationFilter Filter(SFM.getSrcDirPath());
   ASSERT_TRUE(checkNone("sub", 0, 0, 0, Filter));
 }
 
@@ -515,11 +495,12 @@ TEST_F(TestInputFilter, UnsupportTypeP) {
 
   UnsupportTypeFilter Filter;
   ASSERT_TRUE(check("pointer", 0, 0, -1, Filter));
-  if (getClangVersion() == "10.0.0") {
-    ASSERT_TRUE(check("variable_length_array", 0, 8, -1, Filter));
-  } else {
+  // NOTE: 64bit compilation adds zext instruction before using 32bit integer
+  // as a size of variable length array.
+  if (sizeof(void *) == 8)
     ASSERT_TRUE(check("variable_length_array", 0, 9, -1, Filter));
-  }
+  else
+    ASSERT_TRUE(check("variable_length_array", 0, 8, -1, Filter));
   ASSERT_TRUE(check("multidimensional_array", 0, 0, -1, Filter));
   ASSERT_TRUE(check("pointer_array", 0, 0, -1, Filter));
   ASSERT_TRUE(check("structure_array", 0, 0, -1, Filter));

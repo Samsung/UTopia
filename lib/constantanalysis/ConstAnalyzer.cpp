@@ -39,7 +39,8 @@ ConstAnalyzer::extractConst(clang::ASTUnit &AST) {
       continue;
 
     auto *Init = Record->getInit();
-    if (!Init)
+    if (!Init ||
+        llvm::isa_and_nonnull<clang::OffsetOfExpr>(Init->IgnoreCasts()))
       continue;
 
     auto T = Record->getType();
@@ -53,6 +54,7 @@ ConstAnalyzer::extractConst(clang::ASTUnit &AST) {
     ASTValue Value(*Init, Ctx);
     if (!Value.isValid())
       continue;
+
     Constants.emplace_back(std::make_pair(Name, Value));
   }
   return Constants;

@@ -24,14 +24,14 @@ public:
   // TODO: Currently, DefManager requires TargetLib when load from Json.
   // We should decouple DefManager and TargetLib, and then use fromJson
   // that is interface function of AnalyzerReport.
-  bool fromJson(Json::Value &Root, TargetLib &Report);
+  bool fromJson(Json::Value &Root, const TypeAnalysisReport &Report);
 
 private:
   std::map<unsigned, std::shared_ptr<Definition>> DefMap;
   std::vector<Unittest> Unittests;
 
   void clear();
-  bool deserialize(Json::Value &Root, TargetLib &Report);
+  bool deserialize(Json::Value &Root, const TypeAnalysisReport &Report);
   Json::Value
   toJson(const std::map<unsigned, std::shared_ptr<Definition>> &DefMap) const;
 };

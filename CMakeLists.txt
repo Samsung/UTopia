@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.5)
 project(fuzz_test_generation
-    VERSION 0.1.0
+    VERSION 0.2.0
     LANGUAGES CXX
     )
 
@@ -18,25 +18,45 @@ message(STATUS "!!!LLVM_DIR: ${LLVM_DIR}")
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules/")
 list(APPEND CMAKE_MODULE_PATH "${LLVM_DIR}")
 
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+option(ENABLE_COV
+    "Build with coverage instrumentation (Available only on debug build mode)"
+    OFF)
 
-if(NOT CMAKE_BUILD_TYPE)
-  message(STATUS "Build type is not set. Using Debug as default.")
-  set(CMAKE_BUILD_TYPE Debug)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+if(CMAKE_EXPORT_COMPILE_COMMANDS) # Verbose compile commands for clang-tools
+  set(CMAKE_CXX_STANDARD_INCLUDE_DIRECTORIES ${CMAKE_CXX_IMPLICIT_INCLUDE_DIRECTORIES})
 endif()
+set(CMAKE_VERBOSE_MAKEFILE ON)
+
+if (NOT CMAKE_BUILD_TYPE)
+  message(STATUS "Build type is not set. Using debug as default.")
+  set(CMAKE_BUILD_TYPE debug)
+endif()
+
+# TODO: Support release build after ensuring error handling without assert
+# macros inside.
+string(TOLOWER "${CMAKE_BUILD_TYPE}" CMAKE_BUILD_TYPE)
+if (NOT "${CMAKE_BUILD_TYPE}" STREQUAL "debug")
+  message(STATUS "Only debug build is available. Continue as debug build.")
+endif()
+set(CMAKE_BUILD_TYPE debug)
+
 set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_FLAGS
-  "${CMAKE_CXX_FLAGS} -Wall -Werror -fno-rtti -fno-omit-frame-pointer")
+
 # Compatibility for old protobuf versions
 add_compile_options("-DGOOGLE_PROTOBUF_NO_RTTI")
 
-# do coverage binary if -DCMAKE_BUILD_TYPE=DEBUG
-set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} ${CMAKE_C_FLAGS} -fprofile-arcs -ftest-coverage")
-set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} ${CMAKE_CXX_FLAGS} -fprofile-arcs -ftest-coverage")
-
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Werror -fno-rtti")
+set(CMAKE_CXX_FLAGS_DEBUG
+    "${CMAKE_CXX_FLAGS_DEBUG} ${CMAKE_CXX_FLAGS} -fno-omit-frame-pointer")
 # do srtip binary if -DCMAKE_BUILD_TYPE=RELEASE
-set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -s")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -s")
+
+# add flags for coverage instrumentation
+if (ENABLE_COV)
+  set(CMAKE_CXX_FLAGS_DEBUG
+      "${CMAKE_CXX_FLAGS_DEBUG} -fprofile-arcs -ftest-coverage")
+endif()
 
 # change output directory
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/bin")
@@ -49,7 +69,8 @@ message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
 message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
 
 llvm_map_components_to_libnames(REQ_LLVM_LIBRARIES ${LLVM_TARGETS_TO_BUILD}
-  Core Support Irreader Passes Option FrontendOpenMP Coverage ObjCARCOpts Coroutines LTO
+  Core Support Irreader Passes Option FrontendOpenMP Coverage ObjCARCOpts
+  Coroutines LTO Analysis ScalarOpts TransformUtils
 )
 
 # ADD the CMake features provided by LLVM:

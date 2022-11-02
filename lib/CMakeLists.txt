@@ -1,3 +1,5 @@
+link_libraries(jsoncpp)
+
 add_subdirectory(target_analysis)
 add_subdirectory(utanalysis)
 add_subdirectory(generation)

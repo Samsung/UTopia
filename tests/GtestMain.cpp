@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 
 #define APPROVALS_GOOGLETEST_EXISTING_MAIN
-#include "approvals/ApprovalTests.hpp"
+#include "ApprovalTests.hpp"
 
 auto Namer = ApprovalTests::SeparateApprovedAndReceivedDirectoriesNamer::
     useAsDefaultNamer();

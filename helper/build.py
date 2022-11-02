@@ -49,9 +49,9 @@ class Builder:
     def extern_path(self) -> Path:
         return Path(__file__).absolute().parent / "external"
 
-    def get_ent_path(self, name: str) -> Path:
+    def get_build_db_path(self, name: str) -> Path:
         return (
-            self.prj_path / "output" / "entry" / f"{name}_project_entry.json"
+            self.prj_path / "output" / "build_db" / f"{name}.json"
         )
 
     def get_ut_path(self, name: str) -> Path:
@@ -97,7 +97,7 @@ class Builder:
         logging.info("Generate Target Report")
 
         tool = "target_analyzer"
-        entpath = self.get_ent_path(libname)
+        build_db_path = self.get_build_db_path(libname)
         output = self.target_path / f"{libname}.json"
 
         output.parent.mkdir(parents=True, exist_ok=True)
@@ -106,12 +106,10 @@ class Builder:
 
         cmd = [
             tool,
-            "--entry",
-            entpath,
+            "--db",
+            build_db_path,
             "--extern",
             self.extern_path,
-            "--name",
-            libname,
             "--public",
             self.api_path,
             "--out",
@@ -125,7 +123,7 @@ class Builder:
         logging.info("Generate UT Report")
 
         tool = "ut_analyzer"
-        entpath = self.get_ent_path(ut_name)
+        build_db_path = self.get_build_db_path(ut_name)
         output = self.get_ut_path(ut_name)
 
         output.parent.mkdir(parents=True, exist_ok=True)
@@ -134,10 +132,8 @@ class Builder:
 
         cmd = [
             tool,
-            "--entry",
-            entpath,
-            "--name",
-            ut_name,
+            "--db",
+            build_db_path,
             "--extern",
             self.extern_path,
             "--ut",
@@ -156,13 +152,13 @@ class Builder:
         logging.info("Generate Fuzz Driver Source Code")
 
         tool = "fuzz_generator"
-        entpath = self.get_ent_path(ut_name)
+        build_db_path = self.get_build_db_path(ut_name)
         utpath = self.get_ut_path(ut_name)
         output = self.get_driver_path(ut_name)
 
-        with open(entpath) as f:
-            entry_data = json.load(f)
-            src_dir = entry_data["project_dir"]
+        with open(build_db_path) as f:
+            build_db_data = json.load(f)
+            src_dir = build_db_data["project_dir"]
 
         os.makedirs(os.path.dirname(output), exist_ok=True)
         if os.path.exists(output):

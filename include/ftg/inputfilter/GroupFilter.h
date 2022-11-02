@@ -25,4 +25,4 @@ private:
 
 } // namespace ftg
 
-#endif // FTG_INPUTFILTER_INPUTFILTER_H
+#endif // FTG_INPUTFILTER_GROUPFILTER_H

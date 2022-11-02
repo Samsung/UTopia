@@ -15,6 +15,7 @@ protected:
 
 private:
   bool isMacroFunctionAssigned(const ASTDefNode &Node) const;
+  bool isOffsetOfExpr(const ASTDefNode &Node) const;
 };
 
 } // namespace ftg

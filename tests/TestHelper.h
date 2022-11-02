@@ -1,6 +1,7 @@
 #ifndef TEST_HELPER_H
 #define TEST_HELPER_H
 
+#include "ftg/astirmap/ASTIRMap.h"
 #include "ftg/generation/Generator.h"
 #include "ftg/targetanalysis/TargetLibAnalyzer.h"
 #include "ftg/utanalysis/UTAnalyzer.h"
@@ -15,6 +16,7 @@
 
 namespace ftg {
 
+std::unique_ptr<Enum> createEnum(std::string TypeName, clang::ASTContext &Ctx);
 std::string getBaseDirPath();
 std::string getProjectBaseDirPath(std::string ProjectName);
 std::string getProjectOutDirPath(std::string ProjectName);
@@ -62,7 +64,7 @@ public:
   UATestHelper(std::shared_ptr<CompileHelper> Compile = nullptr);
 
   void addTA(std::shared_ptr<TATestHelper> TA);
-  bool analyze(std::shared_ptr<APILoader> AL);
+  bool analyze(std::shared_ptr<APILoader> AL, std::string UTType = "tct");
   bool analyze(std::string TargetReportDirPath, std::shared_ptr<APILoader> AL,
                std::string UTType);
   bool analyze(std::shared_ptr<UTLoader> Loader, std::string UTType = "tct");
@@ -100,7 +102,6 @@ private:
   const std::vector<std::string> FuzzFiles = {"fuzz_entry.cc",
                                               "FuzzArgsProfile.proto"};
 
-  bool generateDirectories() const;
   std::set<std::string> getPublicAPIs() const;
 
   bool storeTargetAnalysisReport(std::string DirPath);
@@ -127,55 +128,23 @@ public:
   std::shared_ptr<UATestHelper>
   createUATestHelper(std::string SrcDir, std::vector<std::string> SrcPaths,
                      CompileHelper::SourceType Type) const;
-  std::string createPublicAPIJson(std::vector<std::string> APINames) const;
 };
 
 class TestBase : public ::testing::Test {
 
 protected:
   std::shared_ptr<CompileHelper> CH;
+  std::unique_ptr<ASTIRMap> AIMap;
   std::shared_ptr<IRAccessHelper> IRAH;
+  std::unique_ptr<SourceCollection> SC;
 
-  bool load(const std::string &CODE, std::string Name, std::string Opt,
+  bool load(const std::string &CODE, std::string Opt,
             CompileHelper::SourceType Type);
-  bool loadC(const std::string &CODE, std::string Name,
-             std::string Opt = "-O0 -g");
-  bool loadCPP(const std::string &CODE, std::string Name,
-               std::string Opt = "-O0 -g");
+  bool loadC(const std::string &CODE, std::string Opt = "-O0 -g");
+  bool loadCPP(const std::string &CODE, std::string Opt = "-O0 -g");
 };
 
 } // namespace ftg
-
-#define SETUP_TESTF_TARGET(TestName, LibCode, LibSrcType, PreCode, PreSrcType) \
-  class TestName : public ::testing::Test {                                    \
-                                                                               \
-  protected:                                                                   \
-    static std::shared_ptr<TATestHelper> Helper;                               \
-    static std::shared_ptr<TATestHelper> PreHelper;                            \
-                                                                               \
-    static void SetUpTestCase() {                                              \
-                                                                               \
-      PreHelper =                                                              \
-          TestHelperFactory().createTATestHelper(PreCode, "pre", PreSrcType);  \
-      Helper =                                                                 \
-          TestHelperFactory().createTATestHelper(LibCode, "lib", LibSrcType);  \
-      ASSERT_TRUE(Helper);                                                     \
-      if (PreHelper) {                                                         \
-        ASSERT_TRUE(PreHelper->analyze());                                     \
-        ASSERT_TRUE(Helper->addExternal(PreHelper));                           \
-      }                                                                        \
-      ASSERT_TRUE(Helper->analyze());                                          \
-    }                                                                          \
-                                                                               \
-    static void TearDownTestCase() {                                           \
-                                                                               \
-      Helper.reset();                                                          \
-      PreHelper.reset();                                                       \
-    }                                                                          \
-  };                                                                           \
-                                                                               \
-  std::shared_ptr<TATestHelper> TestName::Helper = nullptr;                    \
-  std::shared_ptr<TATestHelper> TestName::PreHelper = nullptr
 
 #endif
 /* TEST_HELPER_H */

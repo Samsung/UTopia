@@ -31,7 +31,7 @@ bool RDExtension::isTermination(const CallBase &CB, size_t ParamNo) const {
   if (!F)
     return false;
 
-  auto FuncName = F->getName();
+  auto FuncName = F->getName().str();
   return Terminations.find(RDParamIndex(FuncName, ParamNo)) !=
          Terminations.end();
 }

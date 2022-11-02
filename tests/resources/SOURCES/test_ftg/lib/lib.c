@@ -1,5 +1,6 @@
 #include "lib.h"
 #include <fcntl.h>
+#include <unistd.h>
 
 void inputInt(int a1) {}
 void inputUInt(unsigned Arg) {}

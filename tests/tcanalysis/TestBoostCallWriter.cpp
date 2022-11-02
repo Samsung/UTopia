@@ -10,10 +10,8 @@ namespace ftg {
 class TestBoostCallWriter : public TestBase {
 protected:
   void SetUp() override {
-    ASSERT_TRUE(loadCPP(BoostCode, "boostcallwriter"));
+    ASSERT_TRUE(loadCPP(BoostCode));
 
-    std::unique_ptr<SourceCollection> SC = CH->load();
-    ASSERT_TRUE(SC);
     Extractor = std::make_unique<BoostExtractor>(*SC.get());
     ASSERT_TRUE(Extractor);
     Extractor->load();

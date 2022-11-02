@@ -33,18 +33,6 @@ public:
 
 private:
   const SourceAnalysisReport &SourceReport;
-
-  clang::IntrusiveRefCntPtr<clang::DiagnosticOptions> DiagOpts;
-  clang::IntrusiveRefCntPtr<clang::FileManager> FManager;
-  std::unique_ptr<clang::TextDiagnosticPrinter> DiagnosticPrinter;
-  std::unique_ptr<clang::DiagnosticsEngine> Diagnostics;
-  std::unique_ptr<clang::SourceManager> SManager;
-  std::unique_ptr<clang::LangOptions> LangOpts;
-
-  /// Applies replacements to OrgFile and save result to OutFilePath
-  void applyReplacements(const std::string &OrgFilePath,
-                         const std::string &OutFilePath,
-                         const clang::tooling::Replacements &Replaces);
 };
 } // namespace ftg
 

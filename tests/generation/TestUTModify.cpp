@@ -17,7 +17,7 @@ protected:
       "AUTOFUZZ Definition.\n"
       "#endif // AUTOFUZZ\n\n"
       "#ifndef FUZZ_FILEPATH_PREFIX\n"
-      "#define FUZZ_FILEPATH_PREFIX ./\n"
+      "#define FUZZ_FILEPATH_PREFIX \"\"\n"
       "#endif // FUZZ_FILEPATH_PREFIX\n\n"
       "#ifdef __cplusplus\n"
       "#include <exception>\n"
@@ -88,7 +88,7 @@ protected:
 
   bool checkModOne(const Replacement &Expect,
                    const std::map<std::string, Replacements> &Result) {
-    auto Iter = Result.find(Expect.getFilePath());
+    auto Iter = Result.find(Expect.getFilePath().str());
     if (Iter == Result.end())
       return false;
 
@@ -106,11 +106,11 @@ protected:
                const std::set<std::string> UTNames) const {
     std::vector<std::string> TargetSrcPaths = {SFM.getFilePath(TargetName)};
     auto TAHelper = TestHelperFactory().createTATestHelper(
-        SFM.getBaseDirPath(), TargetSrcPaths, CompileHelper::SourceType_CPP);
+        SFM.getSrcDirPath(), TargetSrcPaths, CompileHelper::SourceType_CPP);
     if (!TAHelper || !TAHelper->analyze())
       return nullptr;
 
-    std::string TAReportDirPath = SFM.getBaseDirPath() + "/target";
+    std::string TAReportDirPath = SFM.getSrcDirPath() + "/target";
     if (!fs::create_directories(TAReportDirPath))
       return nullptr;
 
@@ -130,11 +130,11 @@ protected:
       UTPaths.emplace_back(SFM.getFilePath(UTName));
 
     auto UAHelper = TestHelperFactory().createUATestHelper(
-        SFM.getBaseDirPath(), UTPaths, CompileHelper::SourceType_CPP);
+        SFM.getSrcDirPath(), UTPaths, CompileHelper::SourceType_CPP);
     if (!UAHelper || !UAHelper->analyze(TAReportDirPath, AL, "gtest"))
       return nullptr;
 
-    std::string UAReportPath = SFM.getBaseDirPath() + "/UA.json";
+    std::string UAReportPath = SFM.getSrcDirPath() + "/UA.json";
     if (!UAHelper->dumpReport(UAReportPath))
       return nullptr;
     SFM.addFile(UAReportPath);

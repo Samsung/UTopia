@@ -5,4 +5,6 @@ include_directories(
 add_library(ftgAnalysis
   ParamNumberAnalysisReport.cpp
   ParamNumberAnalyzer.cpp
+  TypeAnalysisReport.cpp
+  TypeAnalyzer.cpp
 )

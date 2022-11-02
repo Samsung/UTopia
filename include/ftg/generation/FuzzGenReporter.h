@@ -36,7 +36,7 @@ public:
   FuzzGenReporter(std::set<std::string> &PublicAPINames);
   FuzzGenReporter(const FuzzGenReporter &) = delete;
   void addAPI(std::string APIName, FuzzStatus Status, std::string UTName);
-  void addFuzzer(const Fuzzer &F, const TargetLib &TargetReport);
+  void addFuzzer(const Fuzzer &F);
   void addNoInputAPI(std::string APIName);
   void addUT(std::string UTName, std::string UTFileName, std::string UTDir,
              FuzzStatus Status);

@@ -2,31 +2,51 @@
 #include "ftg/astirmap/DebugInfoMap.h"
 #include "ftg/rootdefanalysis/RDAnalyzer.h"
 #include "ftg/utils/ASTUtil.h"
+#include "ftg/utils/LLVMUtil.h"
 #include "llvm/IR/Function.h"
 
 using namespace ftg;
 
-class TestClass : public ::testing::Test {
+class TestClass : public TestBase {
 
 protected:
-  static void SetUpTestCase() {
-    auto CH = TestHelperFactory().createCompileHelper(
-        CODE, "test_class", "-O0 -g", CompileHelper::SourceType_CPP);
-    ASSERT_TRUE(CH);
+  void SetUp() {
+    const std::string CODE = "#include <vector>\n"
+                             "#include <string>\n"
+                             "class CLS1 {\n"
+                             "public:\n"
+                             "  CLS1();\n"
+                             "  CLS1(int A);\n"
+                             "  void set(int A);\n"
+                             "private:\n"
+                             "  int F1;\n"
+                             "};\n"
+                             "void API_1(std::vector<int> P1);\n"
+                             "void API_2(CLS1 P1);\n"
+                             "void API_3(std::string P1);\n"
+                             "void test_vector() {\n"
+                             "  std::vector<int> Var1;\n"
+                             "  Var1.push_back(20);\n"
+                             "  Var1.push_back(10);\n"
+                             "  API_1(Var1);\n"
+                             "}\n"
+                             "void test_class() {\n"
+                             "  CLS1 Var1;\n"
+                             "  Var1.set(10);\n"
+                             "  Var1.set(20);\n"
+                             "  API_2(Var1);\n"
+                             "}\n"
+                             "void test_string() {\n"
+                             "  API_3(\"Hello\");\n"
+                             "  API_3(std::string(\"Hello\"));\n"
+                             "}\n";
 
-    SC = CH->load();
-    ASSERT_TRUE(SC);
-
-    IRAccess = std::make_unique<IRAccessHelper>(SC->getLLVMModule());
-    ASSERT_TRUE(IRAccess);
-
-    AIMap = std::make_unique<DebugInfoMap>(*SC);
-    ASSERT_TRUE(AIMap);
+    ASSERT_TRUE(loadCPP(CODE));
   }
 
   std::set<RDNode> analyze(std::string FuncName, unsigned BIdx, unsigned IIdx,
                            unsigned OIdx) {
-    auto *I = IRAccess->getInstruction(FuncName, BIdx, IIdx);
+    auto *I = IRAH->getInstruction(FuncName, BIdx, IIdx);
     if (!I)
       return {};
 
@@ -37,9 +57,9 @@ protected:
     RDExtension Extension;
     for (const auto *Method :
          util::collectNonStaticClassMethods(SC->getASTUnits())) {
-      auto MN =
-          util::getMangledName(const_cast<clang::CXXMethodDecl *>(Method));
-      Extension.addNonStaticClassMethod(MN);
+      for (auto &MangledName : util::getMangledNames(*Method)) {
+        Extension.addNonStaticClassMethod(MangledName);
+      }
     }
     RDAnalyzer Analyzer(0, &Extension);
 
@@ -56,7 +76,7 @@ protected:
   bool exist(const std::set<RDNode> &Nodes, std::string FuncName, unsigned BIdx,
              unsigned IIdx, int OIdx) const {
 
-    auto *I = IRAccess->getInstruction(FuncName, BIdx, IIdx);
+    auto *I = IRAH->getInstruction(FuncName, BIdx, IIdx);
     if (!I)
       return false;
 
@@ -81,7 +101,7 @@ protected:
                                                      unsigned BIdx,
                                                      std::string FuncName) {
 
-    auto *B = IRAccess->getBasicBlock(FIdx, BIdx);
+    auto *B = IRAH->getBasicBlock(FIdx, BIdx);
     if (!B)
       return nullptr;
 
@@ -90,18 +110,8 @@ protected:
       if (!CB)
         continue;
 
-      auto *CV = CB->getCalledValue();
-      if (!CV)
-        continue;
-
-      CV = CV->stripPointerCasts();
-      if (!CV)
-        continue;
-
-      auto *CF = llvm::dyn_cast_or_null<llvm::Function>(CV);
-      if (!CF)
-        continue;
-      if (CF->getName() != FuncName)
+      auto *CF = util::getCalledFunction(*CB);
+      if (!CF || CF->getName() != FuncName)
         continue;
 
       return CB;
@@ -109,46 +119,7 @@ protected:
 
     return nullptr;
   }
-
-  static std::unique_ptr<ASTIRMap> AIMap;
-  static std::unique_ptr<SourceCollection> SC;
-  static std::unique_ptr<IRAccessHelper> IRAccess;
-  static const std::string CODE;
 };
-
-std::unique_ptr<ASTIRMap> TestClass::AIMap = nullptr;
-std::unique_ptr<SourceCollection> TestClass::SC = nullptr;
-std::unique_ptr<IRAccessHelper> TestClass::IRAccess = nullptr;
-
-const std::string TestClass::CODE = "#include <vector>\n"
-                                    "#include <string>\n"
-                                    "class CLS1 {\n"
-                                    "public:\n"
-                                    "  CLS1();\n"
-                                    "  CLS1(int A);\n"
-                                    "  void set(int A);\n"
-                                    "private:\n"
-                                    "  int F1;\n"
-                                    "};\n"
-                                    "void API_1(std::vector<int> P1);\n"
-                                    "void API_2(CLS1 P1);\n"
-                                    "void API_3(std::string P1);\n"
-                                    "void test_vector() {\n"
-                                    "  std::vector<int> Var1;\n"
-                                    "  Var1.push_back(20);\n"
-                                    "  Var1.push_back(10);\n"
-                                    "  API_1(Var1);\n"
-                                    "}\n"
-                                    "void test_class() {\n"
-                                    "  CLS1 Var1;\n"
-                                    "  Var1.set(10);\n"
-                                    "  Var1.set(20);\n"
-                                    "  API_2(Var1);\n"
-                                    "}\n"
-                                    "void test_string() {\n"
-                                    "  API_3(\"Hello\");\n"
-                                    "  API_3(std::string(\"Hello\"));\n"
-                                    "}\n";
 
 TEST_F(TestClass, TestVectorN) {
 

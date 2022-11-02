@@ -41,3 +41,5 @@ Listed projects were used for our experiment. They can be used without additiona
 - bsdiff
 - sfntly
 - snappy
+- mediapipe
+- filament

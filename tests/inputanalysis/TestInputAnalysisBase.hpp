@@ -11,7 +11,7 @@
 #include "ftg/inputfilter/RawStringFilter.h"
 #include "ftg/inputfilter/TypeUnavailableFilter.h"
 #include "ftg/inputfilter/UnsupportTypeFilter.h"
-#include "ftg/propanalysis/AllocAnalyzer.h"
+#include "ftg/propanalysis/AllocSizeAnalyzer.h"
 
 using namespace ftg;
 
@@ -20,7 +20,7 @@ protected:
   std::unique_ptr<UTLoader> Loader;
 
   bool load(std::string SrcDir, std::string CodePath) {
-    std::vector<std::string> CodePaths = { CodePath };
+    std::vector<std::string> CodePaths = {CodePath};
     return load(SrcDir, CodePaths);
   }
 

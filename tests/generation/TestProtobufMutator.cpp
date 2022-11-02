@@ -203,7 +203,7 @@ TEST_F(TestProtobufMutator, EnumArrayP) {
   auto EnumDef = std::make_shared<Enum>("EnumT", Enumerators);
   auto EnumT = std::make_shared<Type>(Type::TypeID_Enum);
   EnumT->setTypeName("EnumT");
-  EnumT->setGlobalDef(EnumDef.get());
+  EnumT->setGlobalDef(EnumDef);
   ArrT->setPointeeType(EnumT);
   auto Def = std::make_shared<Definition>();
   Def->DataType = ArrT;

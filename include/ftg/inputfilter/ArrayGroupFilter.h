@@ -10,7 +10,6 @@ class ArrayGroupFilter : public GroupFilter {
 public:
   static const std::string FilterName;
   ArrayGroupFilter(std::unique_ptr<GroupFilter> NextFilter = nullptr);
-  void start(std::map<unsigned, std::shared_ptr<Definition>> &DefMap);
 
 protected:
   virtual void

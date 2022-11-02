@@ -20,8 +20,7 @@ protected:
 };
 
 TEST_F(TestBoostExtractor, ExtractNormalCodeP) {
-  ASSERT_TRUE(loadCPP(NormalTestCode, "boostextractor"));
-  std::unique_ptr<SourceCollection> SC = CH->load();
+  ASSERT_TRUE(loadCPP(NormalTestCode));
   auto Extractor = std::make_unique<BoostExtractor>(*SC.get());
   ASSERT_TRUE(Extractor);
   Extractor->load();
@@ -42,8 +41,7 @@ TEST_F(TestBoostExtractor, ExtractNormalCodeP) {
 }
 
 TEST_F(TestBoostExtractor, NotExtractTemplateTestN) {
-  ASSERT_TRUE(loadCPP(TemplateTestCode, "boostextractor"));
-  std::unique_ptr<SourceCollection> SC = CH->load();
+  ASSERT_TRUE(loadCPP(TemplateTestCode));
   auto Extractor = std::make_unique<BoostExtractor>(*SC.get());
   ASSERT_TRUE(Extractor);
   Extractor->load();
@@ -52,8 +50,7 @@ TEST_F(TestBoostExtractor, NotExtractTemplateTestN) {
 }
 
 TEST_F(TestBoostExtractor, ExtractWithNotExistTCNameN) {
-  ASSERT_TRUE(loadCPP(NormalTestCode, "boostextractor"));
-  std::unique_ptr<SourceCollection> SC = CH->load();
+  ASSERT_TRUE(loadCPP(NormalTestCode));
   auto Extractor = std::make_unique<BoostExtractor>(*SC.get());
   ASSERT_TRUE(Extractor);
   Extractor->load();
@@ -62,8 +59,7 @@ TEST_F(TestBoostExtractor, ExtractWithNotExistTCNameN) {
 }
 
 TEST_F(TestBoostExtractor, ExtractWithEmptyCodeN) {
-  ASSERT_TRUE(loadC(EmptyCode, "tctextractor"));
-  std::unique_ptr<SourceCollection> SC = CH->load();
+  ASSERT_TRUE(loadC(EmptyCode));
   auto Extractor = std::make_unique<BoostExtractor>(*SC.get());
   ASSERT_TRUE(Extractor);
   Extractor->load();

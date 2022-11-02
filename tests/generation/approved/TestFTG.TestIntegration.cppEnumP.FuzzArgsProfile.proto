@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package AutoFuzz;
+
+enum E1 {
+  E1_E1_M1 = 0;
+  E1_E1_M2 = 1;
+}
+
+enum E2 {
+  E2_E2_M1 = 0;
+  E2_E2_M2 = 1;
+}
+
+message FuzzArgsProfile {
+  .AutoFuzz.E1 fuzzvar0 = 1;
+  .AutoFuzz.E2 fuzzvar1 = 2;
+  .AutoFuzz.E2 fuzzvar2 = 3;
+  .AutoFuzz.E2 fuzzvar3 = 4;
+}
+

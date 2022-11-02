@@ -19,7 +19,6 @@ public:
                 std::string TargetAnalyzerResultPath,
                 std::string UTAnalyzerResultPath, std::string OutputDir);
 
-  std::vector<std::shared_ptr<Fuzzer>> getFuzzers();
   const FuzzGenReporter &getFuzzGenReporter() const;
   const Fuzzer *getFuzzer(std::string Name) const;
   const GenLoader &getLoader() const;
@@ -37,9 +36,6 @@ private:
   // Function for generating fuzz source.
   void generateFuzzSource(std::vector<std::shared_ptr<Fuzzer>> &Fuzzers,
                           std::string SrcDir, std::string OutputDir) const;
-
-  void updateGenStatus(std::vector<std::shared_ptr<Fuzzer>> &Fuzzers,
-                       TargetLib &AnalyzedLib) const;
 
   // generate report json file
   void exportReportJson(std::vector<std::shared_ptr<Fuzzer>> &Fuzzers,

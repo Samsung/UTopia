@@ -3,7 +3,7 @@
 
 #include "pre.h"
 
-//struct with supported types
+// struct with supported types
 typedef struct _s1 {
   int a;
   char *b;
@@ -14,7 +14,7 @@ typedef struct _s1 {
   int BufLen;
 } s1;
 
-//struct with unsupported types
+// struct with unsupported types
 struct _struct0 {
   void *a;
 };
@@ -29,13 +29,13 @@ union _union {
 void inputInt(int a1);
 void inputUInt(unsigned Arg);
 void inputChar(char Arg);
-//void inputBool(bool Arg);
+// void inputBool(bool Arg);
 void inputFloat(float a1);
 void inputDouble(double Arg);
 
 // String
-void inputCStr(char* Str);
-//void inputStr(std::string Str);
+void inputCStr(char *Str);
+// void inputStr(std::string Str);
 
 // Pointer
 void inputIntPtr(int *Ptr);
@@ -46,7 +46,7 @@ void inputVoidPtr(void *a1);
 void inputCallBackPtr(cb *a1);
 
 // Array
-void inputCStrStrLen(char* CStr, int StrLen);
+void inputCStrStrLen(char *CStr, int StrLen);
 void inputArr(void *Array);
 void inputStringArr(char **StringArray);
 void inputStructArr(struct _s1 *StructArray);

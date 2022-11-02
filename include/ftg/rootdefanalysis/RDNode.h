@@ -44,6 +44,7 @@ public:
   std::pair<llvm::Value *, int> getDefinition() const;
 
   bool isVisit(const RDTarget &T, const llvm::Instruction &I) const;
+  bool isVisit(const llvm::Function &F) const;
   bool isRootDefinition() const;
   bool isMemory() const;
   bool isTimeout() const;

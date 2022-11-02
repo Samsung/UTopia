@@ -2,9 +2,34 @@
 
 #include "ftg/generation/SrcGenerator.h"
 #include "ftg/utils/AssignUtil.h"
+#include "ftg/utils/StringUtil.h"
 #include <clang/Format/Format.h>
 
 using namespace ftg;
+
+const std::string SrcGenerator::SignatureTemplate = R"(
+/*****************************************************************************
+*                 .::::.
+*             ..:::...::::..
+*         ..::::..      ..::::.
+*      ..:::..              ..:::..
+*   .::::.                      .::::.
+*  .::.                            .::.
+*  .::                         ..:. ::.  UTopia
+*  .:: .::.                ..::::: .::.  Unit Tests to Fuzzing
+*  .:: .:::             .::::::..  .::.  https://github.com/Samsung/UTopia
+*  .:: .:::            ::::...     .::.
+*  .:: .:::      ...   .....::     .::.  Base UT: ${UT_NAME}
+*  .:: .:::      .::.  ..::::.     .::.
+*  .:: .::: .:.  .:::  :::..       .::.  This file was generated automatically
+*  .::. ... .::: .:::  ....        .::.  by UTopia v.${VERSION}
+*   .::::..  .:: .:::  .:::    ..:::..
+*      ..:::...   :::  ::.. .::::..
+*          ..:::.. ..  ...:::..
+*             ..::::..::::.
+*                 ..::..
+*****************************************************************************/
+)";
 
 std::string SrcGenerator::genAssignStmt(const std::string &LHS,
                                         const std::string &RHS) {
@@ -57,4 +82,12 @@ std::string SrcGenerator::reformat(const std::string &Code) {
 
 std::string SrcGenerator::genStrToCStr(const std::string &StrVar) {
   return "const_cast<char *>(" + StrVar + ".c_str())";
+}
+
+std::string SrcGenerator::genSignature(const std::string &TestName) {
+  // Remove starting empty line in template
+  auto Signature = SignatureTemplate.substr(1);
+  util::replaceStrAll(Signature, "${UT_NAME}", TestName);
+  util::replaceStrAll(Signature, "${VERSION}", FTG_VERSION);
+  return Signature;
 }

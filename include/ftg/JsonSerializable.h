@@ -8,7 +8,7 @@
 #ifndef FTG_JSONSERIALIZABLE_H
 #define FTG_JSONSERIALIZABLE_H
 
-#include "ftg/utils/json/json.h"
+#include "json/json.h"
 
 namespace ftg {
 class JsonSerializable {

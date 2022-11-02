@@ -50,59 +50,36 @@ Target Analyzer analyzes target library code and generates a result as json file
 Mandatory command line options are below.
 
 ```shell
-target_analyzer --entry ${entry_path} --extern ${extern_path} --name ${lib_name} --public ${api_json_path} --out ${output_path}
+target_analyzer --db ${builddb_path} --extern ${extern_path} --public ${api_json_path} --out ${output_path}
 ```
 
-#### entry_path
+#### builddb_path
 
-Entry is a json file to indicate paths of AST and IR files of target library code.
+Build db is a json file that contains paths of AST and IR files of target library code.
 Its format looks like below.
-
-library.a.json
 
 ```json
 {
-  "binary_info": {
-    "libcommon.a": {
-      "bc_file": "/root/fuzz-test-generation/exp/sample/output/bc/libcommon.a.bc"
-    }
-  },
-  "project_dir": "/root/fuzz-test-generation/exp/sample",
-  "project_name": "sample"
+  "bc": "/root/fuzz-test-generation/exp/sample/output/bc/libcommon.a.bc",
+  "ast": [
+    "/root/fuzz-test-generation/exp/sample/libcommon.a_ast/codec/common/src/ast1.o.ast",
+    "/root/fuzz-test-generation/exp/sample/libcommon.a_ast/codec/common/src/ast2.o.ast"
+  ],
+  "project_dir": "/root/fuzz-test-generation/exp/sample"
 }
 ```
 
-You should specify LLVM bitcode file path of a specific library using **"bc_file"** keyword.
+LLVM bitcode file path of a specific library should be specified using **"bc"** keyword.
 We only accept one bitcode file so far, thus you may use `llvm-link` to link several bit code files
 to one bit code file.
 
-Note that, if *entry_path* is `library.a.json`, there should be `compiles_library.a.json` in the same directory has the
-same format. And its format is like below.
-
-compiles_library.a.json
-
-```json
-[
-  {
-    "ast_file": "/root/fuzz-test-generation/exp/sample/libcommon.a_ast/codec/common/src/ast1.o.ast"
-  },
-  {
-    "ast_file": "/root/fuzz-test-generation/exp/sample/libcommon.a_ast/codec/common/src/ast2.o.ast"
-  }
-]
-```
-
-You should specify AST file path of a specific library using **"ast_file"** keyword and its array.
+AST file paths of a specific library should be specified using **"ast"** keyword.
 Note that a specified bitcode file and ast files are generated from same source codes for a specific library.
 
 #### extern_path
 
 Target Analyzer accepts target analyzer report of other libraries for an accurate result.
 This path should be a directory path where other reports stored, which means more than one library reports are allowed.
-
-#### lib_name
-
-Library name to be analyzed. This name should be specified in **"binary_info"** of entry json file.
 
 #### api_json_path
 

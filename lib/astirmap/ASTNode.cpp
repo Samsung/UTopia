@@ -7,7 +7,6 @@
 #include "llvm/Support/raw_ostream.h"
 
 using namespace clang;
-using namespace ast_type_traits;
 
 namespace ftg {
 
@@ -22,7 +21,7 @@ ASTNode::ASTNode(nodeType Type, const DynTypedNode Node, ASTUnit &Unit)
 
   auto ExpandedBeginLoc = SrcManager.getExpansionLoc(BeginLoc);
   Index = LocIndex(
-      util::getNormalizedPath(SrcManager.getFilename(ExpandedBeginLoc)),
+      util::getNormalizedPath(SrcManager.getFilename(ExpandedBeginLoc).str()),
       SrcManager.getExpansionLineNumber(ExpandedBeginLoc),
       SrcManager.getExpansionColumnNumber(ExpandedBeginLoc));
 }
@@ -64,7 +63,7 @@ ASTNode::getLengthAndOffset(const DynTypedNode &Node,
 }
 
 SourceLocation
-ASTNode::getBeginLoc(const clang::ast_type_traits::DynTypedNode &Node,
+ASTNode::getBeginLoc(const DynTypedNode &Node,
                      const clang::SourceManager &SrcManager) const {
   SourceLocation Result;
   if (const auto *AST = Node.get<Decl>())
@@ -101,8 +100,7 @@ SourceLocation ASTNode::getEndLoc(const DynTypedNode &Node,
   return SrcManager.getTopMacroCallerLoc(Result);
 }
 
-QualType
-ASTNode::getType(const clang::ast_type_traits::DynTypedNode &Node) const {
+QualType ASTNode::getType(const DynTypedNode &Node) const {
   if (const auto *AST = Node.get<VarDecl>())
     return AST->getType();
 

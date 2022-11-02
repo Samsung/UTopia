@@ -3,6 +3,7 @@ project(target_analyzer)
 add_executable(target_analyzer main.cpp)
 
 target_link_libraries(target_analyzer
+  -Wl,--start-group
   ftgTargetAnalysis
   ftgPropAnalysis
   ftgTargetAnalysis
@@ -12,6 +13,7 @@ target_link_libraries(target_analyzer
   ftgAnalysis
   ftgConstantAnalysis
   ftgUtils
+  -Wl,--end-group
 )
 
 target_link_libraries(target_analyzer

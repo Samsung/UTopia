@@ -3,6 +3,7 @@
 #include "ftg/rootdefanalysis/RDAnalyzer.h"
 #include "ftg/rootdefanalysis/RDExtension.h"
 #include "ftg/utils/ASTUtil.h"
+#include "ftg/utils/LLVMUtil.h"
 #include "clang/AST/Expr.h"
 
 namespace ftg {
@@ -52,21 +53,22 @@ void DefAnalyzer::initializeRDAnalyzer(
     if (!Constructor)
       continue;
 
-    auto MN = util::getMangledName(
-        const_cast<clang::CXXConstructorDecl *>(Constructor));
-    auto *F = Loader->getSourceCollection().getLLVMModule().getFunction(MN);
-    if (!F)
-      continue;
+    for (auto &MangledName : util::getMangledNames(*Constructor)) {
+      auto *F = Loader->getSourceCollection().getLLVMModule().getFunction(
+          MangledName);
+      if (!F)
+        continue;
 
-    unsigned Idx = 0;
-    if (F->hasStructRetAttr())
-      Idx += 1;
+      unsigned Idx = 0;
+      if (F->hasStructRetAttr())
+        Idx += 1;
 
-    auto *A = F->getArg(Idx);
-    if (!A)
-      continue;
+      auto *A = F->getArg(Idx);
+      if (!A)
+        continue;
 
-    NewDirectionReport->set(*A, Dir_Out);
+      NewDirectionReport->set(*A, Dir_Out);
+    }
   }
 
   Extension.setDirectionReport(NewDirectionReport);
@@ -83,8 +85,8 @@ void DefAnalyzer::initializeRDAnalyzer(
   for (const auto *Method :
        util::collectNonStaticClassMethods(SC.getASTUnits())) {
     assert(Method && "Unexpected Program State");
-    auto MN = util::getMangledName(const_cast<clang::CXXMethodDecl *>(Method));
-    Extension.addNonStaticClassMethod(MN);
+    for (auto &MangledName : util::getMangledNames(*Method))
+      Extension.addNonStaticClassMethod(MangledName);
   }
 
   Analyzer = std::make_unique<RDAnalyzer>(30, &Extension);
@@ -115,6 +117,20 @@ DefAnalyzer::analyzeUTDef(Unittest &UnitTest) {
   Analyzer->setSearchSpace(Links);
   auto FoundCalls = Finder->findAPICallers(Links);
   std::vector<llvm::CallBase *> APICalls(FoundCalls.begin(), FoundCalls.end());
+
+  // APICalls filtering
+  APICalls.erase(std::remove_if(APICalls.begin(), APICalls.end(),
+                                [](const llvm::CallBase *CB) {
+                                  // 1. When it points null.
+                                  if (!CB)
+                                    return true;
+
+                                  // 2. When it does not have debug location
+                                  // information.
+                                  return !CB->getDebugLoc();
+                                }),
+                 APICalls.end());
+
   std::sort(APICalls.begin(), APICalls.end(), [](auto *Src1, auto *Src2) {
     assert(Src1 && Src2 && "Unexpected Program State");
     return IRNode(*Src1) < IRNode(*Src2);

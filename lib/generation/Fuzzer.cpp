@@ -67,7 +67,7 @@ std::string Fuzzer::getName() const { return Name; }
 void Fuzzer::setName(std::string Name) { this->Name = Name; }
 
 void Fuzzer::addReplace(const clang::tooling::Replacement &Replace) {
-  llvm::Error Err = (SrcReplacements[Replace.getFilePath()].add(Replace));
+  llvm::Error Err = (SrcReplacements[Replace.getFilePath().str()].add(Replace));
   if (Err) {
     llvm::errs() << "[WARN] overlap on making Replace\n";
   }

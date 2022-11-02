@@ -20,6 +20,8 @@ FuzzInput::FuzzInput(std::shared_ptr<const Definition> Def)
   LocalPtrVar = LocalVar;
 }
 
+const FuzzInput *FuzzInput::getCopyFrom() const { return CopyFrom.get(); }
+
 unsigned FuzzInput::getID() const { return getDef().ID; }
 
 const Definition &FuzzInput::getDef() const {
@@ -42,6 +44,10 @@ AssignVar &FuzzInput::getLocalPtrVar() { return LocalPtrVar; }
 std::string FuzzInput::getFuzzVarName() const { return FuzzVarName; }
 
 std::string FuzzInput::getProtoVarName() const { return ProtoVarName; }
+
+void FuzzInput::setCopyFrom(std::shared_ptr<FuzzInput> CopyFrom) {
+  this->CopyFrom = CopyFrom;
+}
 
 std::string FuzzNoInput::getExtraInfo() const { return ""; }
 
@@ -303,12 +309,15 @@ void FuzzInputGenerator::applyArrayPolicies(
                                              ArrayLenDefIDs.end());
       auto Iter = FuzzInputMap.find(ArrayLenDefIDVec[0]);
       assert(Iter != FuzzInputMap.end() && "Unexpected Program State");
-      auto &Def = Iter->second;
+      assert(Iter->second && "Unexpected Program State");
 
+      auto &BaseInput = Iter->second;
       for (unsigned S1 = 1, E1 = ArrayLenDefIDVec.size(); S1 < E1; ++S1) {
         auto Iter = FuzzInputMap.find(ArrayLenDefIDVec[S1]);
         assert(Iter != FuzzInputMap.end() && "Unexpected Program State");
-        Iter->second = Def;
+        assert(Iter->second && "Unexpected Program State");
+
+        Iter->second->setCopyFrom(BaseInput);
       }
     }
   }
@@ -319,27 +328,30 @@ void FuzzInputGenerator::updateArrayInfo(
     const std::vector<std::set<unsigned>> &ArrayGroups) const {
 
   for (auto &ArrayGroup : ArrayGroups) {
-    FuzzInput *ArrayDef = nullptr;
-    FuzzInput *ArrayLenDef = nullptr;
+    const FuzzInput *ArrayDef = nullptr;
+    const FuzzInput *ArrayLenDef = nullptr;
 
     for (auto &ID : ArrayGroup) {
       auto Iter = FuzzInputMap.find(ID);
       assert(Iter != FuzzInputMap.end() && "Unexpected Program State");
 
-      auto &FDef = Iter->second;
-      assert(FDef && "Unexpected Program State");
+      const auto *Input = Iter->second.get();
+      assert(Input && "Unexpected Program State");
 
-      auto &Def = FDef->getDef();
+      if (Input->getCopyFrom())
+        continue;
+
+      const auto &Def = Input->getDef();
       if (Def.Array) {
         if (ArrayDef) {
-          assert(ArrayDef == FDef.get() && "Unexpected Program State");
+          assert(ArrayDef == Input && "Unexpected Program State");
         }
-        ArrayDef = FDef.get();
+        ArrayDef = Input;
       } else if (Def.ArrayLen) {
         if (ArrayLenDef) {
-          assert(ArrayLenDef == FDef.get() && "Unexpected Program State");
+          assert(ArrayLenDef == Input && "Unexpected Program State");
         }
-        ArrayLenDef = FDef.get();
+        ArrayLenDef = Input;
       }
     }
 
@@ -347,8 +359,8 @@ void FuzzInputGenerator::updateArrayInfo(
     if (!ArrayLenDef)
       continue;
 
-    ArrayDef->ArrayLenDef = &ArrayLenDef->getDef();
-    ArrayLenDef->ArrayDef = &ArrayDef->getDef();
+    const_cast<FuzzInput *>(ArrayDef)->ArrayLenDef = &ArrayLenDef->getDef();
+    const_cast<FuzzInput *>(ArrayLenDef)->ArrayDef = &ArrayDef->getDef();
   }
 }
 
@@ -391,10 +403,10 @@ FuzzInputFactory::generate(std::shared_ptr<const Definition> &Def) const {
   auto *T = Def->DataType.get();
   assert(T && "Unexpected Program State");
 
-  //NOTE: This is to change normal pointer to array pointer using array
-  //property. Since it is not easy to know pointer is used as array,
-  //this attemption looks useful to get more accurate result.
-  //However, I think it would not proper approach to change type instance here.
+  // NOTE: This is to change normal pointer to array pointer using array
+  // property. Since it is not easy to know pointer is used as array,
+  // this attemption looks useful to get more accurate result.
+  // However, I think it would not proper approach to change type instance here.
   if (Def->Array) {
     assert(T->isPointerType() && "Unexpected Program State");
     if (T->isNormalPtr())

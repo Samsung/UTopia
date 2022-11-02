@@ -6,17 +6,9 @@
 using namespace ftg;
 using namespace llvm;
 
-#define LOAD(CODE, SourceType)                                                 \
-  auto CH = TestHelperFactory().createCompileHelper(CODE, "test_rd", "-O0 -g", \
-                                                    SourceType);               \
-  ASSERT_TRUE(CH);                                                             \
-  auto SC = CH->load();                                                        \
-  ASSERT_TRUE(SC);                                                             \
-  IRAccessHelper IRAccess(SC->getLLVMModule());
-
 #define INST(Inst, Func, BIdx, IIdx)                                           \
   do {                                                                         \
-    Inst = IRAccess.getInstruction(Func, BIdx, IIdx);                          \
+    Inst = IRAH->getInstruction(Func, BIdx, IIdx);                             \
     ASSERT_TRUE(Inst);                                                         \
   } while (0)
 
@@ -25,7 +17,7 @@ using namespace llvm;
     std::vector<llvm::Function *> Funcs;                                       \
     std::vector<std::string> Names = {__VA_ARGS__};                            \
     for (auto Name : Names) {                                                  \
-      auto *F = IRAccess.getFunction(Name);                                    \
+      auto *F = IRAH->getFunction(Name);                                       \
       ASSERT_TRUE(F);                                                          \
       Funcs.push_back(F);                                                      \
     }                                                                          \
@@ -52,14 +44,16 @@ using namespace llvm;
     ASSERT_TRUE(Found);                                                        \
   } while (0)
 
-TEST(RDField, ArrayIndexN) {
+class TestRDField : public TestBase {};
+
+TEST_F(TestRDField, ArrayIndexN) {
 
   const char *CODE = "void test() {\n"
                      "  int Var1[10];\n"
                      "  Var1[3] = 20;\n"
                      "}\n";
 
-  LOAD(CODE, CompileHelper::SourceType_C);
+  ASSERT_TRUE(loadC(CODE));
 
   Instruction *I = nullptr, *Base = nullptr;
   INST(I, "test", 0, 3);
@@ -75,14 +69,14 @@ TEST(RDField, ArrayIndexN) {
   ASSERT_EQ(MemoryIndices[0], 3);
 }
 
-TEST(RDField, MultiArrayIndexN) {
+TEST_F(TestRDField, MultiArrayIndexN) {
 
   const char *CODE = "void test() {\n"
                      "  int Var1[10][10];\n"
                      "  Var1[5][3] = 20;\n"
                      "}\n";
 
-  LOAD(CODE, CompileHelper::SourceType_C);
+  ASSERT_TRUE(loadC(CODE));
 
   Instruction *I = nullptr, *Base = nullptr;
   INST(I, "test", 0, 4);
@@ -99,7 +93,7 @@ TEST(RDField, MultiArrayIndexN) {
   ASSERT_EQ(MemoryIndices[1], 3);
 }
 
-TEST(RDField, StructIndexN) {
+TEST_F(TestRDField, StructIndexN) {
 
   const char *CODE = "struct ST { int F1; int F2; int F3; };\n"
                      "void test() {\n"
@@ -107,7 +101,7 @@ TEST(RDField, StructIndexN) {
                      "  Var1.F2 = 20;\n"
                      "}\n";
 
-  LOAD(CODE, CompileHelper::SourceType_C);
+  ASSERT_TRUE(loadC(CODE));
 
   Instruction *I = nullptr, *Base = nullptr;
   INST(I, "test", 0, 3);
@@ -123,7 +117,7 @@ TEST(RDField, StructIndexN) {
   ASSERT_EQ(MemoryIndices[0], 1);
 }
 
-TEST(RDField, NestedStructIndexN) {
+TEST_F(TestRDField, NestedStructIndexN) {
 
   const char *CODE = "struct ST1 { int F1; int F2; int F3; };\n"
                      "struct ST2 { int F1; struct ST1 F2; };\n"
@@ -132,7 +126,7 @@ TEST(RDField, NestedStructIndexN) {
                      "  Var1.F2.F2 = 20;\n"
                      "}\n";
 
-  LOAD(CODE, CompileHelper::SourceType_C);
+  ASSERT_TRUE(loadC(CODE));
 
   Instruction *I = nullptr, *Base = nullptr;
   INST(I, "test", 0, 4);
@@ -149,7 +143,7 @@ TEST(RDField, NestedStructIndexN) {
   ASSERT_EQ(MemoryIndices[1], 1);
 }
 
-TEST(RDField, PointerIndexN) {
+TEST_F(TestRDField, PointerIndexN) {
 
   const char *CODE = "void test() {\n"
                      "  int Var1[10];\n"
@@ -157,7 +151,7 @@ TEST(RDField, PointerIndexN) {
                      "  Var2[7] = 20;\n"
                      "}\n";
 
-  LOAD(CODE, CompileHelper::SourceType_C);
+  ASSERT_TRUE(loadC(CODE));
 
   Instruction *I = nullptr, *Base = nullptr;
   INST(I, "test", 0, 8);
@@ -173,7 +167,7 @@ TEST(RDField, PointerIndexN) {
   ASSERT_EQ(MemoryIndices[0], 7);
 }
 
-TEST(RDField, ExactFieldN) {
+TEST_F(TestRDField, ExactFieldN) {
 
   const char *CODE = "void API(int);\n"
                      "struct ST { int F1; int F2; int F3; };\n"
@@ -185,7 +179,7 @@ TEST(RDField, ExactFieldN) {
                      "  API(Var1.F1);\n"
                      "}\n";
 
-  LOAD(CODE, CompileHelper::SourceType_C);
+  ASSERT_TRUE(loadC(CODE));
 
   RDAnalyzer Analyzer;
   SETUP(Analyzer, "test");
@@ -203,7 +197,7 @@ TEST(RDField, ExactFieldN) {
   ASSERT_EQ(Def.second, -1);
 }
 
-TEST(RDField, InclusiveFieldN) {
+TEST_F(TestRDField, InclusiveFieldN) {
 
   const char *CODE = "void API(int);\n"
                      "struct ST1 { int F1; int F2; };\n"
@@ -215,7 +209,7 @@ TEST(RDField, InclusiveFieldN) {
                      "  API(Var1.F1.F2);\n"
                      "}\n";
 
-  LOAD(CODE, CompileHelper::SourceType_C);
+  ASSERT_TRUE(loadC(CODE));
 
   RDAnalyzer Analyzer;
   SETUP(Analyzer, "test");
@@ -233,7 +227,7 @@ TEST(RDField, InclusiveFieldN) {
   ASSERT_EQ(Def.second, -1);
 }
 
-TEST(RDField, IncludedFieldN) {
+TEST_F(TestRDField, IncludedFieldN) {
 
   const char *CODE = "void API(struct ST*);\n"
                      "struct ST { int F1; int F2; };\n"
@@ -243,7 +237,7 @@ TEST(RDField, IncludedFieldN) {
                      "  API(&Var1);\n"
                      "}\n";
 
-  LOAD(CODE, CompileHelper::SourceType_C);
+  ASSERT_TRUE(loadC(CODE));
 
   RDAnalyzer Analyzer;
   SETUP(Analyzer, "test");

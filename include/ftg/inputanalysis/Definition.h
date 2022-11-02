@@ -1,10 +1,10 @@
 #ifndef FTG_INPUTANALYSIS_DEFINITION_H
 #define FTG_INPUTANALYSIS_DEFINITION_H
 
+#include "ftg/analysis/TypeAnalysisReport.h"
 #include "ftg/constantanalysis/ASTValue.h"
-#include "ftg/targetanalysis/TargetLibExportUtil.h"
 #include "ftg/type/Type.h"
-#include "ftg/utils/json/json.h"
+#include "json/json.h"
 
 namespace ftg {
 
@@ -47,7 +47,7 @@ struct Definition {
   std::set<std::string> Filters;
 
   Definition();
-  bool fromJson(const Json::Value &Root, TargetLib &TargetReport);
+  bool fromJson(const Json::Value &Root, const TypeAnalysisReport &Report);
   Json::Value toJson() const;
   template <typename T> friend T &operator<<(T &O, const Definition &RHS) {
 

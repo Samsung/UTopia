@@ -15,6 +15,8 @@
 namespace ftg {
 class SrcGenerator {
 public:
+  static const std::string SignatureTemplate;
+
   /// Generates assignment statement.
   /// \return
   /// \code{.cpp}
@@ -78,6 +80,8 @@ public:
   /// const_cast<char *>(StrVar.c_str())
   /// \endcode
   static std::string genStrToCStr(const std::string &StrVar);
+
+  static std::string genSignature(const std::string &TestName);
 };
 } // namespace ftg
 

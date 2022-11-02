@@ -4,6 +4,7 @@ add_executable(ut_analyzer
 
 target_link_libraries(ut_analyzer
   -Wl,--start-group
+  ftgAnalysis
   ftgAPILoader
   ftgInputAnalysis
   ftgInputFilter

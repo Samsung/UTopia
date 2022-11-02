@@ -36,8 +36,9 @@ bool InputAnalysisReport::fromJson(Json::Value Root) {
   assert(false && "Not Implemented");
 }
 
-bool InputAnalysisReport::fromJson(Json::Value &Root, TargetLib &TargetReport) {
-  if (!deserialize(Root, TargetReport)) {
+bool InputAnalysisReport::fromJson(Json::Value &Root,
+                                   const TypeAnalysisReport &Report) {
+  if (!deserialize(Root, Report)) {
     clear();
     return false;
   }
@@ -50,12 +51,12 @@ void InputAnalysisReport::clear() {
 }
 
 bool InputAnalysisReport::deserialize(Json::Value &Root,
-                                      TargetLib &TargetReport) {
+                                      const TypeAnalysisReport &Report) {
   try {
     const auto &ReportJson = Root[getReportType()];
     for (const auto &DefJson : ReportJson["Definitions"]) {
       Definition D;
-      if (!D.fromJson(DefJson, TargetReport))
+      if (!D.fromJson(DefJson, Report))
         return false;
       if (!DefMap.emplace(D.ID, std::make_shared<Definition>(D)).second)
         return false;

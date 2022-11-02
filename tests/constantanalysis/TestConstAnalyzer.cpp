@@ -55,6 +55,15 @@ TEST(TestConstAnalyzer, CodeWithoutConstP) {
   ASSERT_EQ(Constants.size(), 0);
 }
 
+TEST(TestConstAnalyzer, OffsetOfExprP) {
+  auto AST = clang::tooling::buildASTFromCode(
+      "#include <stddef.h>\n"
+      "struct ST1 { int E1; int E2; };\n"
+      "const unsigned Var = offsetof(struct ST1, E2);\n");
+  auto Constants = ConstAnalyzer::extractConst(*AST);
+  ASSERT_EQ(Constants.size(), 0);
+}
+
 TEST(TestConstAnalyzer, ReportP) {
   auto AST = clang::tooling::buildASTFromCode("const int IntConst = 1;");
   auto AST2 =

@@ -1,6 +1,5 @@
 #include "ftg/apiloader/APIJsonLoader.h"
 #include "ftg/generation/Generator.h"
-#include "ftg/utils/BuildDBParser.h"
 #include "ftg/utils/FileUtil.h"
 #include "spdlog/spdlog.h"
 #include "llvm/Support/CommandLine.h"

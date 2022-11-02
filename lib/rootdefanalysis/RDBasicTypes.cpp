@@ -31,7 +31,7 @@ std::string RDArgIndex::getFunctionName() const {
   if (!F)
     return "";
 
-  return F->getName();
+  return F->getName().str();
 }
 
 bool RDArgIndex::operator<(const RDArgIndex &RHS) const {
