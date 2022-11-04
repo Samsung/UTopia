@@ -83,6 +83,9 @@ Project | Bugs or CVEs | Category | Fuzzer
 [tizen/system-settings](https://review.tizen.org/gerrit/#/admin/projects/platform/core/api/system-settings) | [#258170](https://review.tizen.org/gerrit/#/c/platform/core/api/system-settings/+/258170/) | `nullchk` |
 [tizen/mime-type](https://review.tizen.org/gerrit/#/admin/projects/platform/core/api/mime-type) | [#262491](https://review.tizen.org/gerrit/#/c/platform/core/api/mime-type/+/262491/) | `other` |
 [tizen/sensor](https://review.tizen.org/gerrit/#/admin/projects/platform/core/api/sensor) | [#262766](https://review.tizen.org/gerrit/#/c/platform/core/api/sensor/+/262766/) | `nullchk` |
+[OpenCSD](https://github.com/Linaro/OpenCSD) | [#49](https://github.com/Linaro/OpenCSD/issues/49) | `bof` |
+[OpenCSD](https://github.com/Linaro/OpenCSD) | [#50](https://github.com/Linaro/OpenCSD/issues/50) | `bof` |
+[OpenCSD](https://github.com/Linaro/OpenCSD) | [#51](https://github.com/Linaro/OpenCSD/issues/51) | `bof` |
 
 
 
