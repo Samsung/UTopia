@@ -1,5 +1,6 @@
 #include "ftg/propanalysis/ArrayAnalyzer.h"
 #include "ftg/propanalysis/PropAnalysisCommon.h"
+#include "ftg/utils/LLVMUtil.h"
 #include "llvm/Analysis/IVDescriptors.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 #include "llvm/IR/Instructions.h"
@@ -9,7 +10,7 @@ using namespace llvm;
 
 namespace ftg {
 
-ArrayAnalyzer::ArrayAnalyzer(std::shared_ptr<IndCallSolver> Solver,
+ArrayAnalyzer::ArrayAnalyzer(IndCallSolverMgr *Solver,
                              std::vector<const llvm::Function *> Funcs,
                              llvm::FunctionAnalysisManager &FAM,
                              const ArrayAnalysisReport *PreReport)
@@ -360,7 +361,7 @@ void ArrayAnalyzer::handleUser(StackFrame &Frame, llvm::Value &User,
   }
 
   if (auto *CB = dyn_cast<CallBase>(&User)) {
-    auto *CF = getCalledFunction(*CB);
+    auto *CF = util::getCalledFunction(*CB, Solver);
     if (!CF)
       return;
     if (CF == A.getParent())
@@ -500,7 +501,7 @@ void ArrayAnalyzer::updateDefault(const llvm::Module &M) {
       continue;
     }
 
-    auto IterName = DefaultNameMap.find(F.getName());
+    auto IterName = DefaultNameMap.find(F.getName().str());
     if (IterName != DefaultNameMap.end())
       updateDefault(F, IterName->second);
   }

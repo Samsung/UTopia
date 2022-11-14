@@ -1,18 +1,17 @@
 #include "ftg/targetanalysis/TargetLibAnalyzer.h"
 #include "ftg/analysis/ParamNumberAnalyzer.h"
+#include "ftg/analysis/TypeAnalyzer.h"
 #include "ftg/constantanalysis/ConstAnalyzer.h"
-#include "ftg/indcallsolver/IndCallSolverImpl.h"
-#include "ftg/propanalysis/AllocAnalyzer.h"
+#include "ftg/propanalysis/AllocSizeAnalyzer.h"
 #include "ftg/propanalysis/ArrayAnalyzer.h"
 #include "ftg/propanalysis/DirectionAnalyzer.h"
 #include "ftg/propanalysis/FilePathAnalyzer.h"
 #include "ftg/propanalysis/LoopAnalyzer.h"
 #include "ftg/targetanalysis/TargetLib.h"
-#include "ftg/targetanalysis/TargetLibExportUtil.h"
-#include "ftg/targetanalysis/TargetLibLoadUtil.h"
 #include "ftg/type/Type.h"
 #include "ftg/utils/ASTUtil.h"
 #include "ftg/utils/FileUtil.h"
+#include "ftg/utils/StringUtil.h"
 #include "clang/ASTMatchers/ASTMatchFinder.h"
 #include "clang/ASTMatchers/ASTMatchers.h"
 #include "llvm/Transforms/Scalar/IndVarSimplify.h"
@@ -51,27 +50,27 @@ bool TargetLibAnalyzer::analyze() {
     ASTUnits.push_back(ASTUnit);
   }
 
-  AnalyzedTargetLib = std::make_unique<TargetLib>(M, AC);
+  AnalyzedTargetLib = std::make_unique<TargetLib>(AC);
   if (!AnalyzedTargetLib)
     return false;
 
-  parseTypes(ASTUnits);
   prepareLLVMAnalysis(M);
 
   auto Funcs = collectAnalyzableIRFunctions();
   Analyzers.emplace_back(
-      std::make_unique<AllocAnalyzer>(Solver, Funcs, &AllocReport));
+      std::make_unique<AllocSizeAnalyzer>(&Solver, Funcs, &AllocSizeReport));
   Analyzers.emplace_back(
-      std::make_unique<ArrayAnalyzer>(Solver, Funcs, FAM, &ArrayReport));
+      std::make_unique<ArrayAnalyzer>(&Solver, Funcs, FAM, &ArrayReport));
   Analyzers.emplace_back(std::make_unique<ConstAnalyzer>(ASTUnits));
   Analyzers.emplace_back(
-      std::make_unique<DirectionAnalyzer>(Solver, Funcs, &DirectionReport));
+      std::make_unique<DirectionAnalyzer>(&Solver, Funcs, &DirectionReport));
   Analyzers.emplace_back(
-      std::make_unique<FilePathAnalyzer>(Solver, Funcs, &FilePathReport));
+      std::make_unique<FilePathAnalyzer>(&Solver, Funcs, &FilePathReport));
   Analyzers.emplace_back(
-      std::make_unique<LoopAnalyzer>(Solver, Funcs, FAM, &LoopReport));
+      std::make_unique<LoopAnalyzer>(&Solver, Funcs, FAM, &LoopReport));
   Analyzers.emplace_back(
       std::make_unique<ParamNumberAnalyzer>(ASTUnits, M, AC));
+  Analyzers.emplace_back(std::make_unique<TypeAnalyzer>(ASTUnits));
 
   for (auto &Analyzer : Analyzers) {
     if (!Analyzer)
@@ -86,11 +85,7 @@ bool TargetLibAnalyzer::dump(std::string OutputFilePath) const {
   if (!AnalyzedTargetLib)
     return false;
 
-  Json::CharReaderBuilder Reader;
-  Json::Value Root;
-  std::istringstream StrStream(toJsonString(*AnalyzedTargetLib));
-  if (!Json::parseFromStream(Reader, StrStream, &Root, nullptr))
-    return false;
+  Json::Value Root = AnalyzedTargetLib->toJson();
 
   for (auto &Report : Reports) {
     if (!Report)
@@ -125,7 +120,7 @@ TargetLibAnalyzer::collectAnalyzableIRFunctions() const {
     if (F.isDeclaration())
       continue;
 
-    if (!All && AC.find(F.getName()) == AC.end())
+    if (!All && AC.find(F.getName().str()) == AC.end())
       continue;
 
     Result.push_back(&F);
@@ -137,67 +132,28 @@ void TargetLibAnalyzer::loadExternals(const std::string &ExternLibDir) {
   if (!fs::is_directory(ExternLibDir))
     return;
 
-  TargetLibLoader Loader;
+  std::unique_ptr<TargetLib> TL = std::make_unique<TargetLib>();
   for (auto &ExternFilePath : util::readDirectory(ExternLibDir)) {
     auto ExternJsonStr = util::readFile(ExternFilePath.c_str());
     if (ExternJsonStr.empty())
       continue;
 
-    Loader.load(ExternJsonStr);
+    TL->fromJson(util::strToJson(ExternJsonStr));
 
     std::istringstream Iss(ExternJsonStr);
     Json::CharReaderBuilder Reader;
     Json::Value JsonValue;
     Json::parseFromStream(Reader, Iss, &JsonValue, nullptr);
-    AllocReport.fromJson(JsonValue);
+    AllocSizeReport.fromJson(JsonValue);
     ArrayReport.fromJson(JsonValue);
     ConstReport.fromJson(JsonValue);
     DirectionReport.fromJson(JsonValue);
     FilePathReport.fromJson(JsonValue);
     LoopReport.fromJson(JsonValue);
     ParamNumberReport.fromJson(JsonValue);
+    TargetReport.fromJson(JsonValue);
   }
-  MergedExternLib = Loader.takeReport();
-}
-
-void TargetLibAnalyzer::parseTypes(std::vector<clang::ASTUnit *> &ASTUnits) {
-  const std::string Tag = "Tag";
-  for (auto *ASTUnit : ASTUnits) {
-    if (!ASTUnit)
-      continue;
-
-    for (const auto &Node :
-         match(enumDecl().bind(Tag), ASTUnit->getASTContext())) {
-      auto *Record = Node.getNodeAs<clang::EnumDecl>(Tag);
-      if (!Record)
-        continue;
-
-      AnalyzedTargetLib->addEnum(std::make_shared<Enum>(*Record));
-    }
-
-    for (const auto &Node :
-         match(typedefType().bind(Tag), ASTUnit->getASTContext())) {
-      auto *Record = Node.getNodeAs<clang::TypedefType>(Tag);
-      if (!Record)
-        continue;
-
-      auto *TD = Record->getAsTagDecl();
-      if (!TD)
-        continue;
-
-      auto Name = util::getTypeName(*TD);
-      if (Name.empty())
-        continue;
-
-      auto *D = Record->getDecl();
-      if (!D)
-        continue;
-
-      auto TDName = D->getNameAsString();
-      if (TDName != Name)
-        AnalyzedTargetLib->addTypedef(std::make_pair(TDName, Name));
-    }
-  }
+  MergedExternLib = std::move(TL);
 }
 
 void TargetLibAnalyzer::prepareLLVMAnalysis(llvm::Module &M) {
@@ -222,9 +178,7 @@ void TargetLibAnalyzer::prepareLLVMAnalysis(llvm::Module &M) {
   MPM.run(M, MAM);
 
   // For handle to indirect calls
-  Solver = std::make_shared<IndCallSolverImpl>();
-  assert(Solver && "Unexpected Program State");
-  Solver->solve(M);
+  Solver.solve(M);
 }
 
 } // namespace ftg

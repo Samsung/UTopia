@@ -1,32 +1,27 @@
 #include "ftg/tcanalysis/Unittest.h"
+#include "ftg/utils/FileUtil.h"
 #include "ftg/utils/StringUtil.h"
 
-using namespace ftg;
+#include "clang/AST/AST.h"
 
-Unittest::Unittest(const clang::NamedDecl &Decl, Location Loc, std::string Type,
-                   const std::vector<FunctionNode> &TestSequence)
-    : FilePath(Loc.getFilePath()), Name(Decl.getNameAsString()),
-      Offset(Loc.getOffset()), TestSequence(TestSequence), Type(Type) {}
+using namespace ftg;
 
 Unittest::Unittest(const clang::NamedDecl &Decl, std::string Type,
                    const std::vector<FunctionNode> &TestSequence)
     : Name(Decl.getNameAsString()), TestSequence(TestSequence), Type(Type) {
   const auto &SM = Decl.getASTContext().getSourceManager();
-  Location Loc(SM, Decl.getSourceRange());
-  FilePath = Loc.getFilePath();
-  Offset = Loc.getOffset();
+  auto DeclLocation = SM.getExpansionRange(Decl.getSourceRange()).getBegin();
+  FilePath = util::getNormalizedPath(SM.getFilename(DeclLocation).str());
 }
 
 Unittest::Unittest(const Json::Value &Json) {
   assert(Json.isMember("APICalls") && Json.isMember("filepath") &&
-         Json.isMember("name") && Json.isMember("offset") &&
-         Json.isMember("Type") && "Unexpected Program State");
+         Json.isMember("name") && Json.isMember("Type") && "Unexpected Program State");
 
   for (auto &APICallsJson : Json["APICalls"])
     APICalls.emplace_back(APICallsJson);
   FilePath = Json["filepath"].asString();
   Name = Json["name"].asString();
-  Offset = Json["offset"].asUInt64();
   for (Json::Value TestFuncJson : Json["TestSequence"])
     TestSequence.emplace_back(TestFuncJson);
   Type = Json["Type"].asString();
@@ -85,7 +80,6 @@ Json::Value Unittest::getJson() const {
   Json::Value Root;
   Root["name"] = Name;
   Root["filepath"] = FilePath;
-  Root["offset"] = Offset;
   Root["Type"] = Type;
 
   Json::Value TestSequenceJson;

@@ -1,7 +1,7 @@
 #include "ftg/apiloader/APIJsonLoader.h"
 #include "ftg/utils/FileUtil.h"
 #include "ftg/utils/StringUtil.h"
-#include "ftg/utils/json/json.h"
+#include "json/json.h"
 #include <assert.h>
 
 namespace ftg {

@@ -5,8 +5,8 @@ include_directories(
 add_library(ftgPropAnalysis
   ArgFlow.cpp
   ArgFlowAnalyzer.cpp
-  AllocAnalyzer.cpp
-  AllocAnalysisReport.cpp
+  AllocSizeAnalyzer.cpp
+  AllocSizeAnalysisReport.cpp
   DirectionAnalyzer.cpp
   DirectionAnalysisReport.cpp
   ArrayAnalyzer.cpp

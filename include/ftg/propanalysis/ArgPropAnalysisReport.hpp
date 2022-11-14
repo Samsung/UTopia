@@ -104,7 +104,7 @@ protected:
                        std::vector<int> Indices = {}) const {
     const auto *F = A.getParent();
     assert(F && "Unexpected Program State");
-    return getAsKey(F->getName(), A.getArgNo(), Indices);
+    return getAsKey(F->getName().str(), A.getArgNo(), Indices);
   }
 
   std::string getAsKey(std::string FuncName, unsigned ArgIdx,

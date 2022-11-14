@@ -52,15 +52,22 @@ llvm::StringRef getTypeStr(llvm::Type *Ty) {
   }
   case llvm::Type::ArrayTyID:
     return "array";
-  case llvm::Type::VectorTyID: {
+#if LLVM_VERSION_MAJOR >= 12
+  case llvm::Type::FixedVectorTyID:
+  case llvm::Type::ScalableVectorTyID:
+#else
+  case llvm::Type::VectorTyID:
+#endif
+  {
     return "vector";
   }
   case llvm::Type::PointerTyID: {
     llvm::PointerType *PTy = llvm::cast<llvm::PointerType>(Ty);
     return getTypeStr(PTy->getElementType());
   }
+  default:
+    return "";
   }
-  return "";
 }
 
 } // namespace
@@ -81,9 +88,7 @@ ArgFlow::ArgFlow(Argument &A) : Arg(A) {}
 
 void ArgFlow::setState(AnalysisState State) { this->State = State; }
 
-void ArgFlow::setFilePathString(bool IsFilePathString) {
-  this->IsFilePathString = IsFilePathString;
-}
+void ArgFlow::setFilePathString() { IsFilePathString = true; }
 
 void ArgFlow::setStruct(StructType *ST) {
   if (STInfo)
@@ -117,6 +122,12 @@ void ArgFlow::setToArrLen(unsigned FieldNum) {
 
   IsArrayLen = true;
   FDInfo->ArrayFields.insert(FieldNum);
+}
+
+bool ArgFlow::isAllocSize() const {
+  assert(State != AnalysisState_Not_Analyzed &&
+         "An argument has not been analyzed yet");
+  return IsAllocSize;
 }
 
 bool ArgFlow::isArray() const {
@@ -171,12 +182,6 @@ ArgDir ArgFlow::getArgDir() const {
   return Direction;
 }
 
-ArgAlloc ArgFlow::getArgAlloc() {
-  assert(State != AnalysisState_Not_Analyzed &&
-         "An argument has not been analyzed yet");
-  return Allocation;
-}
-
 // TODO: implement to handle more than one related args
 unsigned ArgFlow::getLenRelatedArgNo() {
   assert(hasLenRelatedArg() &&
@@ -206,8 +211,8 @@ std::set<size_t> &ArgFlow::getArrIndices() { return ArrIndexes; }
 
 const std::set<Argument *> &ArgFlow::getSizeArgs() { return SizeArgs; }
 
-void ArgFlow::mergeAlloc(const ArgFlow &CalleeArgFlowResult) {
-  this->Allocation |= CalleeArgFlowResult.Allocation;
+void ArgFlow::mergeAllocSize(const ArgFlow &CalleeArgFlowResult) {
+  this->IsAllocSize |= CalleeArgFlowResult.IsAllocSize;
 
   // if argument/value is struct, merge each fields result also
   if (!CalleeArgFlowResult.STInfo)
@@ -222,8 +227,8 @@ void ArgFlow::mergeAlloc(const ArgFlow &CalleeArgFlowResult) {
     unsigned FieldNum = Result.first;
     ArgFlow &FieldResult = this->getOrCreateFieldFlow(FieldNum);
     ArgFlow &CalleeResult = *Result.second;
-    FieldResult.mergeAlloc(CalleeResult);
-    this->STInfo->FieldsAllocation |= FieldResult.Allocation;
+    FieldResult.mergeAllocSize(CalleeResult);
+    this->STInfo->FieldsAllocSize |= FieldResult.IsAllocSize;
   }
 }
 
@@ -372,7 +377,7 @@ Argument *ArgFlow::findRelatedArg(Value &V, std::set<Value *> &Visit) {
   return nullptr;
 }
 
-void ArgFlow::setArgAlloc(unsigned ArgAlloc) { Allocation = ArgAlloc; }
+void ArgFlow::setAllocSize() { IsAllocSize = true; }
 
 void ArgFlow::setUsedByRet(bool ArgRet) { IsUsedByRet = ArgRet; }
 

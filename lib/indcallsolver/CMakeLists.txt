@@ -1,4 +1,13 @@
 add_library(ftgICallSolver
-	IndCallSolverImpl.cpp
+	GlobalInitializerSolver.cpp
+	GlobalInitializerSolverHandler.cpp
+	IndCallSolverMgr.cpp
 	CustomCVPPass.cpp
+	LLVMWalker.cpp
+	TBAASimpleSolver.cpp
+	TBAASimpleSolverHandler.cpp
+	TBAAVirtSolver.cpp
+	TBAAVirtSolverHandler.cpp
+	TestTypeVirtSolver.cpp
+	TestTypeVirtSolverHandler.cpp
 )

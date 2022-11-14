@@ -11,7 +11,7 @@ bool ManualAllocLoader::isAllocFunction(const llvm::Function &F) const {
 std::set<unsigned>
 ManualAllocLoader::getAllocSizeArgNo(const llvm::Function &F) const {
   auto FuncName = F.getName();
-  return getAllocSizeArgNo(FuncName);
+  return getAllocSizeArgNo(FuncName.str());
 }
 
 std::set<unsigned>

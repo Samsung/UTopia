@@ -22,6 +22,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "ftg/indcallsolver/CustomCVPPass.h"
+#include "ftg/utils/LLVMUtil.h"
 #include "llvm/Analysis/SparsePropagation.h"
 #include "llvm/Analysis/ValueLatticeUtils.h"
 #include "llvm/IR/InstVisitor.h"
@@ -186,9 +187,11 @@ public:
       SparseSolver<CVPLatticeKey, CVPLatticeVal> &SS) override {
     switch (I.getOpcode()) {
     case Instruction::Call:
-      return visitCallSite(cast<CallInst>(&I), ChangedValues, SS);
-    case Instruction::Invoke:
-      return visitCallSite(cast<InvokeInst>(&I), ChangedValues, SS);
+    case Instruction::Invoke: {
+      auto *CB = dyn_cast<CallBase>(&I);
+      assert(CB && "Unexpected Program State");
+      return visitCallBase(*CB, ChangedValues, SS);
+    }
     case Instruction::Load:
       return visitLoad(*cast<LoadInst>(&I), ChangedValues, SS);
     case Instruction::Ret:
@@ -269,23 +272,22 @@ private:
   /// the merge of the argument state with the call sites corresponding actual
   /// argument state. The call site state is the merge of the call site state
   /// with the returned value state of the called function.
-  void visitCallSite(CallSite CS,
+  void visitCallBase(CallBase &CB,
                      DenseMap<CVPLatticeKey, CVPLatticeVal> &ChangedValues,
                      SparseSolver<CVPLatticeKey, CVPLatticeVal> &SS) {
-    Function *F = CS.getCalledFunction();
-    Instruction *I = CS.getInstruction();
-    auto RegI = CVPLatticeKey(I, IPOGrouping::Register);
+    Function *F = util::getCalledFunction(CB);
+    auto RegI = CVPLatticeKey(&CB, IPOGrouping::Register);
 
     // If this is an indirect call, save it so we can quickly revisit it when
     // attaching metadata.
     if (!F)
-      IndirectCalls.insert(I);
+      IndirectCalls.insert(&CB);
 
     // If we can't track the function's return values, there's nothing to do.
     if (!F || !canTrackReturnsInterprocedurally(F)) {
       // Void return, No need to create and update CVPLattice state as no one
       // can use it.
-      if (I->getType()->isVoidTy())
+      if (CB.getType()->isVoidTy())
         return;
       ChangedValues[RegI] = getOverdefinedVal();
       return;
@@ -298,14 +300,14 @@ private:
     for (Argument &A : F->args()) {
       auto RegFormal = CVPLatticeKey(&A, IPOGrouping::Register);
       auto RegActual =
-          CVPLatticeKey(CS.getArgument(A.getArgNo()), IPOGrouping::Register);
+          CVPLatticeKey(CB.getArgOperand(A.getArgNo()), IPOGrouping::Register);
       ChangedValues[RegFormal] =
           MergeValues(SS.getValueState(RegFormal), SS.getValueState(RegActual));
     }
 
     // Void return, No need to create and update CVPLattice state as no one can
     // use it.
-    if (I->getType()->isVoidTy())
+    if (CB.getType()->isVoidTy())
       return;
 
     ChangedValues[RegI] =
@@ -418,9 +420,19 @@ static bool runCVP(Module &M) {
   bool Changed = false;
   MDBuilder MDB(M.getContext());
   for (Instruction *C : Lattice.getIndirectCalls()) {
-    CallSite CS(C);
-    Value *SCV = CS.getCalledValue()->stripPointerCasts();
-    auto RegI = CVPLatticeKey(SCV, IPOGrouping::Register);
+    auto *CB = dyn_cast_or_null<CallBase>(C);
+    if (!CB)
+      continue;
+
+    auto *CO = CB->getCalledOperand();
+    if (!CO)
+      continue;
+
+    CO = CO->stripPointerCasts();
+    if (!CO)
+      continue;
+
+    auto RegI = CVPLatticeKey(CO, IPOGrouping::Register);
     CVPLatticeVal LV = Solver.getExistingValueState(RegI);
     if (!LV.isFunctionSet() || LV.getFunctions().empty())
       continue;

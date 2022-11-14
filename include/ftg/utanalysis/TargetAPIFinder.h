@@ -9,7 +9,7 @@
 namespace ftg {
 
 /// @brief TargetAPIFinder provides target callees(API Function) and
-/// target callers(CallSites for API function)
+/// target callers(CallBases for API function)
 /// in a given function sequence(Testcase).
 class TargetAPIFinder {
 

@@ -1,49 +1,33 @@
 #include "ftg/targetanalysis/TargetLib.h"
 #include "ftg/utils/ASTUtil.h"
+#include "json/json.h"
 
 namespace ftg {
 
-TargetLib::TargetLib() : M(nullptr) {}
-
-TargetLib::TargetLib(const llvm::Module &M, std::set<std::string> APIs)
-    : M(&M), APIs(APIs) {}
+TargetLib::TargetLib(std::set<std::string> APIs) : APIs(APIs) {}
 
 const std::set<std::string> TargetLib::getAPIs() const { return APIs; }
 
-const std::map<std::string, std::shared_ptr<Enum>> &
-TargetLib::getEnumMap() const {
-  return EnumMap;
-}
-const std::map<std::string, std::string> &TargetLib::getTypedefMap() const {
-  return TypedefMap;
-}
-
-Enum *TargetLib::getEnum(std::string name) {
-  size_t enumExprOffset = name.find("enum ");
-  if (enumExprOffset != std::string::npos) {
-    name.replace(enumExprOffset, 5, "");
-    name = util::trim(name);
+bool TargetLib::fromJson(Json::Value Json) {
+  try {
+    if (Json.isNull() || Json.empty())
+      throw Json::LogicError("Abnormal Json Value");
+    for (auto API : Json["APIs"])
+      APIs.emplace(API.asString());
+  } catch (Json::LogicError &E) {
+    llvm::outs() << "[E] " << E.what() << "\n";
+    return false;
   }
-
-  auto ret = EnumMap.find(name);
-  if (ret == EnumMap.end()) {
-    auto retFromTypedef = TypedefMap.find(name);
-    if (retFromTypedef == TypedefMap.end()) {
-      return nullptr;
-    }
-    ret = EnumMap.find(retFromTypedef->second);
-  }
-  return (ret == EnumMap.end()) ? nullptr : ret->second.get();
+  return true;
 }
 
-const llvm::Module *TargetLib::getLLVMModule() const { return M; }
+Json::Value TargetLib::toJson() const {
+  Json::Value Json;
 
-void TargetLib::addEnum(std::shared_ptr<Enum> item) {
-  EnumMap.insert(std::make_pair(item->getName(), item));
+  Json["APIs"] = Json::Value(Json::arrayValue);
+  for (auto API : APIs)
+    Json["APIs"].append(API);
+  return Json;
 }
 
-void TargetLib::addTypedef(std::pair<std::string, std::string> item) {
-  TypedefMap.insert(std::make_pair(item.first, item.second));
-}
-
-}; // namespace ftg
+} // namespace ftg

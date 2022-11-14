@@ -5,9 +5,8 @@
 using namespace ftg;
 
 void TCExtractor::load() {
-  for (const auto &TC : extractTCs()) {
+  for (const auto &TC : extractTCs())
     TCs.emplace(TC.getName(), TC);
-  }
 }
 
 const Unittest *TCExtractor::getTC(std::string TCName) const {

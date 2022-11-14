@@ -8,9 +8,11 @@ const std::string DirectionAnalysisReport::getReportType() const {
 
 Json::Value DirectionAnalysisReport::toJson() const {
   Json::Value Root, Object;
+  for (const auto &[Key, Value] : Result) {
+    if (Value == Dir_NoOp)
+      continue;
 
-  for (auto Iter : Result) {
-    Object[Iter.first] = Iter.second;
+    Object[Key] = Value;
   }
 
   Root[getReportType()] = Object;

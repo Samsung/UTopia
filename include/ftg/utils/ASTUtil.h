@@ -1,6 +1,7 @@
 #ifndef FTG_UTILS_ASTUTIL_H
 #define FTG_UTILS_ASTUTIL_H
 
+#include "ftg/utils/LLVMUtil.h"
 #include "ftg/utils/StringUtil.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/ASTTypeTraits.h"
@@ -23,20 +24,11 @@ std::vector<clang::Expr *> getArgExprs(clang::Expr &E);
 clang::SourceLocation getDebugLoc(const clang::Stmt &S);
 clang::FunctionDecl *getFunctionDecl(clang::Expr &E);
 
-static inline const llvm::Function *
-getCalledFunction(const llvm::CallBase &CB) {
-  const auto *CV = CB.getCalledValue();
-  if (!CV)
-    return nullptr;
-
-  return llvm::dyn_cast_or_null<llvm::Function>(CV->stripPointerCasts());
-}
-
 clang::CharSourceRange
 getMacroFunctionExpansionRange(const clang::SourceManager &SrcManager,
                                const clang::SourceLocation &Loc);
 clang::SourceLocation
-getTopMacroCallerLoc(const clang::ast_type_traits::DynTypedNode &Node,
+getTopMacroCallerLoc(const DynTypedNode &Node,
                      const clang::SourceManager &SrcManager);
 bool isDefaultArgument(clang::Expr &E, unsigned AIdx);
 bool isImplicitArgument(clang::Expr &E, unsigned AIdx);
@@ -76,8 +68,6 @@ static inline bool isPrimitiveType(const clang::QualType &clangQTy) {
   return (clangQTy->isIntegerType() || clangQTy->isFloatingType() ||
           clangQTy->isBuiltinType());
 }
-
-std::string getMangledName(clang::NamedDecl *Decl);
 
 std::vector<clang::CXXMethodDecl *> findCXXMethodDeclFromCXXRecordDecls(
     const clang::CXXRecordDecl *CurCXXRecordDecl, std::string MethodName);

@@ -10,7 +10,7 @@ namespace ftg {
 class DirectionAnalyzer : public ArgFlowAnalyzer {
 
 public:
-  DirectionAnalyzer(std::shared_ptr<IndCallSolver> Solver,
+  DirectionAnalyzer(IndCallSolverMgr *Solver,
                     const std::vector<const llvm::Function *> &Funcs,
                     const DirectionAnalysisReport *PreReport = nullptr);
 

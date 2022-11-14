@@ -1,7 +1,6 @@
-#ifndef PROPANALYSIS_ARRAYANALYZER_H
-#define PROPANALYSIS_ARRAYANALYZER_H
+#ifndef FTG_PROPANALYSIS_ARRAYANALYZER_H
+#define FTG_PROPANALYSIS_ARRAYANALYZER_H
 
-#include "ftg/indcallsolver/IndCallSolver.h"
 #include "ftg/propanalysis/ArgFlowAnalyzer.h"
 #include "ftg/propanalysis/ArrayAnalysisReport.h"
 #include "ftg/propanalysis/StackFrame.h"
@@ -13,7 +12,7 @@ namespace ftg {
 class ArrayAnalyzer : public ArgFlowAnalyzer {
 
 public:
-  ArrayAnalyzer(std::shared_ptr<IndCallSolver> Solver,
+  ArrayAnalyzer(IndCallSolverMgr *Solver,
                 std::vector<const llvm::Function *> Funcs,
                 llvm::FunctionAnalysisManager &FAM,
                 const ArrayAnalysisReport *PreReport = nullptr);
@@ -44,4 +43,4 @@ private:
 
 } // namespace ftg
 
-#endif
+#endif // FTG_PROPANALYSIS_ARRAYANALYZER_H

@@ -111,6 +111,14 @@ bool isValidIdentifier(const std::string &Name) {
   return std::regex_match(Name, Pattern);
 }
 
+Json::Value strToJson(std::string JsonStr) {
+  Json::Value Json;
+  std::istringstream Iss(JsonStr);
+  Json::CharReaderBuilder Reader;
+  Json::parseFromStream(Reader, Iss, &Json, nullptr);
+  return Json;
+}
+
 } // namespace util
 
 } // namespace ftg

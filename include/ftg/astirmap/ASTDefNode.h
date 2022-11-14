@@ -19,18 +19,17 @@ public:
   ASTDefNode(clang::CXXCtorInitializer &CCI, clang::ASTUnit &U);
 
   LocIndex getLocIndex() const;
-  const clang::SourceLocation &getSourceLocation() const;
   const ASTNode &getAssignee() const;
   const ASTNode *getAssigned() const;
   const ASTNode *getNodeForType() const;
   friend llvm::raw_ostream &operator<<(llvm::raw_ostream &, const ASTDefNode &);
 
 private:
-  clang::SourceLocation SourceLoc;
+  LocIndex SourceLoc;
   std::unique_ptr<ASTNode> Assignee;
   std::unique_ptr<ASTNode> Assigned;
 };
 
 } // namespace ftg
 
-#endif // FTG_ASTIRMAP_
+#endif // FTG_ASTIRMAP_ASTDEFNODE_H

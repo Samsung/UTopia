@@ -6,7 +6,7 @@ using namespace ftg;
 FunctionNode::FunctionNode(const llvm::Function &Func, bool IsTestBody,
                            bool Environment)
     : IRFunc(&Func), TestBody(IsTestBody), Environment(Environment) {
-  Name = util::getDemangledName(Func.getName());
+  Name = util::getDemangledName(Func.getName().str());
   ClassName = util::getClassNameWithNamespace(Name);
   FunctionName = util::getMethodName(Name);
 }

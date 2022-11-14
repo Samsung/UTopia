@@ -10,7 +10,6 @@ class FilePathAnalysisReport : public ArgPropAnalysisReport<bool> {
 
 public:
   FilePathAnalysisReport();
-  FilePathAnalysisReport(const FilePathAnalysisReport &Report);
   bool fromJson(Json::Value Report);
   const std::string getReportType() const;
   Json::Value toJson() const;

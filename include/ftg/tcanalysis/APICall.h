@@ -1,8 +1,8 @@
 #ifndef FTG_TCANALYSIS_APICALL_H
 #define FTG_TCANALYSIS_APICALL_H
 
-#include "ftg/utils/json/json.h"
 #include "llvm/IR/InstrTypes.h"
+#include "json/json.h"
 #include <set>
 
 namespace ftg {

@@ -1,11 +1,12 @@
 #include "ftg/propanalysis/LoopAnalyzer.h"
 #include "ftg/propanalysis/PropAnalysisCommon.h"
+#include "ftg/utils/LLVMUtil.h"
 
 using namespace llvm;
 
 namespace ftg {
 
-LoopAnalyzer::LoopAnalyzer(std::shared_ptr<IndCallSolver> Solver,
+LoopAnalyzer::LoopAnalyzer(IndCallSolverMgr *Solver,
                            std::vector<const llvm::Function *> Funcs,
                            llvm::FunctionAnalysisManager &FAM,
                            const LoopAnalysisReport *PreReport)
@@ -90,6 +91,9 @@ bool LoopAnalyzer::handleUser(StackFrame &Frame, llvm::Value &User,
     if (!L)
       return false;
 
+    if (isUsedAsInitializer(*ICI, *L, VisitedNodes))
+      return false;
+
     auto *ExitCond = getLoopExitCond(*L);
     if (!ExitCond || ExitCond != ICI)
       return false;
@@ -109,7 +113,7 @@ bool LoopAnalyzer::handleUser(StackFrame &Frame, llvm::Value &User,
   }
 
   if (auto *CB = dyn_cast<CallBase>(&User)) {
-    auto *CF = getCalledFunction(*CB);
+    auto *CF = util::getCalledFunction(*CB, Solver);
     if (!CF)
       return false;
     if (CF == A.getParent())
@@ -155,12 +159,40 @@ bool LoopAnalyzer::handleUser(StackFrame &Frame, llvm::Value &User,
     return false;
   }
 
-  if (isa<PHINode>(&User)) {
+  if (isa<PHINode>(&User) || isa<SelectInst>(&User)) {
     DefUseChains.emplace(&User, DefFlow);
     return false;
   }
 
   return DefFlow.LoopExit;
+}
+
+bool LoopAnalyzer::isUsedAsInitializer(
+    const ICmpInst &I, const Loop &L,
+    const std::set<llvm::Value *> &VisitedNodes) {
+  for (const auto &Operand : I.operands()) {
+    const auto *PN = dyn_cast<PHINode>(Operand);
+    if (!PN)
+      continue;
+
+    for (const auto &B : PN->blocks()) {
+      if (!B)
+        continue;
+
+      if (L.contains(B))
+        continue;
+
+      auto *V = PN->getIncomingValueForBlock(B);
+      if (!V)
+        continue;
+
+      if (VisitedNodes.find(V) == VisitedNodes.end())
+        continue;
+
+      return true;
+    }
+  }
+  return false;
 }
 
 bool LoopAnalyzer::updateArgFlow(Argument &A) {

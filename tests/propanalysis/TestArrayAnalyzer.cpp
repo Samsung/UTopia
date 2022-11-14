@@ -1,5 +1,5 @@
 #include "TestPropAnalyzer.hpp"
-#include "ftg/indcallsolver/IndCallSolverImpl.h"
+#include "ftg/indcallsolver/IndCallSolverMgr.h"
 #include "ftg/propanalysis/ArrayAnalyzer.h"
 
 namespace ftg {
@@ -19,8 +19,8 @@ protected:
       Funcs.push_back(Func);
     }
 
-    return std::make_unique<ArrayAnalyzer>(
-        std::make_shared<IndCallSolverImpl>(), Funcs, FAM, PreReport);
+    IndCallSolverMgr Solver;
+    return std::make_unique<ArrayAnalyzer>(&Solver, Funcs, FAM, PreReport);
   }
 
   bool checkTrue(int Answer, const ArrayAnalysisReport &Report,

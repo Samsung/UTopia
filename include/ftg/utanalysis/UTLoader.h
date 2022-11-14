@@ -1,15 +1,15 @@
 #ifndef FTG_UTANALYSIS_UTLOADER_H
 #define FTG_UTANALYSIS_UTLOADER_H
 
+#include "ftg/analysis/TypeAnalysisReport.h"
 #include "ftg/apiloader/APILoader.h"
 #include "ftg/constantanalysis/ConstAnalyzerReport.h"
-#include "ftg/propanalysis/AllocAnalysisReport.h"
+#include "ftg/propanalysis/AllocSizeAnalysisReport.h"
 #include "ftg/propanalysis/ArrayAnalysisReport.h"
 #include "ftg/propanalysis/DirectionAnalysisReport.h"
 #include "ftg/propanalysis/FilePathAnalysisReport.h"
 #include "ftg/propanalysis/LoopAnalysisReport.h"
 #include "ftg/sourceloader/SourceLoader.h"
-#include "ftg/utanalysis/IJson.h"
 
 namespace ftg {
 /**
@@ -24,14 +24,15 @@ public:
            std::vector<std::string> ReportPaths = {});
 
   const std::set<std::string> &getAPIs() const;
-  const AllocAnalysisReport &getAllocReport() const;
+  const AllocSizeAnalysisReport &getAllocSizeReport() const;
   const ArrayAnalysisReport &getArrayReport() const;
   const ConstAnalyzerReport &getConstReport() const;
   const DirectionAnalysisReport &getDirectionReport() const;
   const FilePathAnalysisReport &getFilePathReport() const;
   const LoopAnalysisReport &getLoopReport() const;
   const SourceCollection &getSourceCollection() const;
-  void setAllocReport(const AllocAnalysisReport &Report);
+  const TypeAnalysisReport &getTypeReport() const;
+  void setAllocSizeReport(const AllocSizeAnalysisReport &Report);
   void setArrayReport(const ArrayAnalysisReport &Report);
   void setConstReport(const ConstAnalyzerReport &Report);
   void setDirectionReport(const DirectionAnalysisReport &Report);
@@ -40,12 +41,13 @@ public:
 
 private:
   std::set<std::string> APIs;
-  AllocAnalysisReport AllocReport;
+  AllocSizeAnalysisReport AllocSizeReport;
   ArrayAnalysisReport ArrayReport;
   ConstAnalyzerReport ConstReport;
   DirectionAnalysisReport DirectionReport;
   FilePathAnalysisReport FilePathReport;
   LoopAnalysisReport LoopReport;
+  TypeAnalysisReport TypeReport;
   std::unique_ptr<SourceCollection> Source;
 };
 } // namespace ftg

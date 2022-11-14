@@ -2,12 +2,11 @@
 
 namespace ftg {
 
-FilePathAnalysisReport::FilePathAnalysisReport() = default;
-
-FilePathAnalysisReport::FilePathAnalysisReport(
-    const FilePathAnalysisReport &Report) {
-  for (const auto &Iter : Report.get())
-    set(Iter.first, Iter.second);
+FilePathAnalysisReport::FilePathAnalysisReport() {
+  set("fopen", 0, true);
+  set("freopen", 0, true);
+  set("open", 0, true);
+  set("open64", 0, true);
 }
 
 bool FilePathAnalysisReport::fromJson(Json::Value Report) {
@@ -31,8 +30,12 @@ const std::string FilePathAnalysisReport::getReportType() const {
 
 Json::Value FilePathAnalysisReport::toJson() const {
   Json::Value Root, Member;
-  for (auto Iter : Result)
-    Member[Iter.first] = Iter.second;
+  for (const auto &[Key, Value] : Result) {
+    if (!Value)
+      continue;
+
+    Member[Key] = Value;
+  }
   Root[getReportType()] = Member;
   return Root;
 }

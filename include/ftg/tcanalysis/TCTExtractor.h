@@ -3,7 +3,6 @@
 
 #include "ftg/sourceloader/SourceCollection.h"
 #include "ftg/tcanalysis/TCExtractor.h"
-#include "ftg/tcanalysis/UTInfo.h"
 
 #include <vector>
 
@@ -14,13 +13,14 @@ public:
   TCTExtractor(const SourceCollection &SC);
 
 private:
-  std::vector<FunctionNode> getTestStepsFromUTFuncBody(const UTFuncBody &U);
   std::vector<Unittest> extractTCs() override;
-
-  void setTCArray(clang::ASTContext &Context);
-  void parseAST(clang::ASTContext &Context);
-
-  Project TestProject;
+  std::vector<Unittest> extractTCs(const clang::ASTContext &Ctx) const;
+  const llvm::Function *getFunc(const clang::FunctionDecl *D) const;
+  const clang::FunctionDecl *getDefinedFuncDecl(const clang::Expr *E) const;
+  const clang::VarDecl *getTCArray(const clang::ASTContext &Ctx) const;
+  std::vector<Unittest> parseTCArray(const clang::VarDecl &D) const;
+  std::unique_ptr<Unittest>
+  parseTCArrayElement(const clang::InitListExpr &E) const;
 };
 
 } // namespace ftg

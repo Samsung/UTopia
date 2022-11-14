@@ -73,8 +73,15 @@ const CXXMethodDecl *GoogleTestExtractor::findTestMethodRecursively(
     return TestMethod;
 
   for (auto SuperClassBaseSpecifier : ClassCXXRecordDecl->bases()) {
-    auto *SuperClassCXXRecordDecl = cast<CXXRecordDecl>(
-        SuperClassBaseSpecifier.getType()->getAs<RecordType>()->getDecl());
+    auto *T = SuperClassBaseSpecifier.getType()->getAs<RecordType>();
+    if (!T)
+      continue;
+
+    auto *SuperClassCXXRecordDecl =
+        dyn_cast_or_null<CXXRecordDecl>(T->getDecl());
+    if (!SuperClassCXXRecordDecl)
+      continue;
+
     TestMethod =
         findTestMethodRecursively(SuperClassCXXRecordDecl, TargetMethodName);
     if (TestMethod)
@@ -103,7 +110,8 @@ GoogleTestExtractor::getTestSequence(const clang::NamedDecl *Test) {
 }
 
 bool GoogleTestExtractor::isTestBody(const llvm::Function *Function) const {
-  std::string MethodFullName = util::getDemangledName(Function->getName());
+  std::string MethodFullName =
+      util::getDemangledName(Function->getName().str());
   return (util::getMethodName(MethodFullName).compare(TestName) == 0);
 }
 
@@ -138,19 +146,25 @@ GoogleTestExtractor::getTestcasesFromASTUnit(const llvm::Module &M,
     }
   }
 
-  std::vector<std::pair<FunctionDecl *, const llvm::Function *>> EnvSetUps;
-  std::vector<std::pair<FunctionDecl *, const llvm::Function *>> EnvTearDowns;
+  std::vector<std::pair<const FunctionDecl *, const llvm::Function *>>
+      EnvSetUps;
+  std::vector<std::pair<const FunctionDecl *, const llvm::Function *>>
+      EnvTearDowns;
   for (const auto *EnvClass : Environments) {
-    for (auto *EnvMethod : cast<CXXRecordDecl>(EnvClass)->methods()) {
-      std::string MethodName = EnvMethod->getNameAsString();
-      if (MethodName.compare(SetupName) == 0) {
-        EnvSetUps.emplace_back(
-            cast<FunctionDecl>(EnvMethod),
-            util::getIRFunction(M, cast<NamedDecl>(EnvMethod)));
-      } else if (MethodName.compare(TeardownName) == 0) {
-        EnvTearDowns.emplace_back(
-            cast<FunctionDecl>(EnvMethod),
-            util::getIRFunction(M, cast<NamedDecl>(EnvMethod)));
+    for (const auto *EnvMethod : cast<CXXRecordDecl>(EnvClass)->methods()) {
+      const auto *FD = dyn_cast_or_null<FunctionDecl>(EnvMethod);
+      if (!FD)
+        continue;
+
+      const auto *IRFunc = util::getIRFunction(M, FD);
+      if (!IRFunc)
+        continue;
+
+      std::string Name = FD->getNameAsString();
+      if (Name.compare(SetupName) == 0)
+        EnvSetUps.emplace_back(FD, IRFunc);
+      else if (Name.compare(TeardownName) == 0) {
+        EnvTearDowns.emplace_back(FD, IRFunc);
       }
     }
   }

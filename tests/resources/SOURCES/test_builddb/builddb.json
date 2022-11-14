@@ -1,0 +1,8 @@
+{
+   "bc": "bc_file_path",
+   "ast" : [
+   "ast1_path",
+   "ast2_path"
+   ],
+   "project_dir": "project_dir_path"
+}

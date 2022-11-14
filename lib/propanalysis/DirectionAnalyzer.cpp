@@ -1,16 +1,17 @@
 #include "DirectionAnalyzer.h"
+#include "ftg/utils/LLVMUtil.h"
 #include "ftg/utils/ManualAllocLoader.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Operator.h"
+#include <llvm/IR/Module.h>
 
 using namespace llvm;
 
 namespace ftg {
 
 DirectionAnalyzer::DirectionAnalyzer(
-    std::shared_ptr<IndCallSolver> Solver,
-    const std::vector<const llvm::Function *> &Funcs,
+    IndCallSolverMgr *Solver, const std::vector<const llvm::Function *> &Funcs,
     const DirectionAnalysisReport *PreReport)
     : ArgFlowAnalyzer(Solver, Funcs),
       Report(std::make_unique<DirectionAnalysisReport>()) {
@@ -107,7 +108,7 @@ void DirectionAnalyzer::handleUser(StackFrame &Frame, llvm::Value &User,
   auto &A = DefFlow.getLLVMArg();
 
   if (auto *CB = dyn_cast<CallBase>(&User)) {
-    auto *CF = getCalledFunction(*CB);
+    auto *CF = util::getCalledFunction(*CB, Solver);
     if (!CF) {
       DefFlow |= Dir_Unidentified;
       return;
@@ -311,7 +312,7 @@ void DirectionAnalyzer::updateDefault(const llvm::Module &M) {
     if (IterIntrinsic != DefaultIntrinsicMap.end())
       updateDefault(F, IterIntrinsic->second);
 
-    auto IterName = DefaultNameMap.find(F.getName());
+    auto IterName = DefaultNameMap.find(F.getName().str());
     if (IterName != DefaultNameMap.end())
       updateDefault(F, IterName->second);
 
