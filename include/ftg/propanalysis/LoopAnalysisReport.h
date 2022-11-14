@@ -17,12 +17,8 @@ public:
   bool fromJson(Json::Value) override;
   const std::string getReportType() const override;
   Json::Value toJson() const override;
-
-private:
-  bool updateArgFlow(llvm::Argument &A);
-  bool updateFieldFlow(ArgFlow &AF, std::vector<int> Indices);
 };
 
 } // namespace ftg
 
-#endif // FTG_PROPANALYSIS_ARRAYANALYSISREPORT_H
+#endif // FTG_PROPANALYSIS_LOOPANALYSISREPORT_H

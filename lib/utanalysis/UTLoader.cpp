@@ -1,7 +1,6 @@
 #include "ftg/utanalysis/UTLoader.h"
-#include "ftg/propanalysis/AllocAnalyzer.h"
+#include "ftg/propanalysis/AllocSizeAnalyzer.h"
 #include "ftg/sourceloader/BuildDBLoader.h"
-#include "ftg/utils/BuildDBParser.h"
 #include "ftg/utils/FileUtil.h"
 
 #include "clang/Frontend/CompilerInstance.h"
@@ -27,25 +26,26 @@ UTLoader::UTLoader(std::shared_ptr<SourceLoader> SrcLoader,
 
     for (auto &ReportFile : util::readDirectory(Path)) {
       auto JsonValue = util::parseJsonFileToJsonValue(ReportFile.c_str());
-      AllocReport.fromJson(JsonValue);
+      AllocSizeReport.fromJson(JsonValue);
       ArrayReport.fromJson(JsonValue);
       ConstReport.fromJson(JsonValue);
       DirectionReport.fromJson(JsonValue);
       FilePathReport.fromJson(JsonValue);
       LoopReport.fromJson(JsonValue);
+      TypeReport.fromJson(JsonValue);
     }
   }
 
   if (Source) {
-    AllocAnalyzer AAnalyzer(Source->getLLVMModule(), &AllocReport);
-    AllocReport = AAnalyzer.result();
+    AllocSizeAnalyzer AAnalyzer(Source->getLLVMModule(), &AllocSizeReport);
+    AllocSizeReport = AAnalyzer.result();
   }
 }
 
 const std::set<std::string> &UTLoader::getAPIs() const { return APIs; }
 
-const AllocAnalysisReport &UTLoader::getAllocReport() const {
-  return AllocReport;
+const AllocSizeAnalysisReport &UTLoader::getAllocSizeReport() const {
+  return AllocSizeReport;
 }
 
 const ArrayAnalysisReport &UTLoader::getArrayReport() const {
@@ -71,8 +71,10 @@ const SourceCollection &UTLoader::getSourceCollection() const {
   return *Source;
 }
 
-void UTLoader::setAllocReport(const AllocAnalysisReport &Report) {
-  AllocReport = Report;
+const TypeAnalysisReport &UTLoader::getTypeReport() const { return TypeReport; }
+
+void UTLoader::setAllocSizeReport(const AllocSizeAnalysisReport &Report) {
+  AllocSizeReport = Report;
 }
 
 void UTLoader::setArrayReport(const ArrayAnalysisReport &Report) {

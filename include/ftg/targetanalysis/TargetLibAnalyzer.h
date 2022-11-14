@@ -3,10 +3,11 @@
 
 #include "ftg/Analyzer.h"
 #include "ftg/analysis/ParamNumberAnalysisReport.h"
+#include "ftg/analysis/TypeAnalysisReport.h"
 #include "ftg/apiloader/APILoader.h"
 #include "ftg/constantanalysis/ConstAnalyzerReport.h"
-#include "ftg/indcallsolver/IndCallSolver.h"
-#include "ftg/propanalysis/AllocAnalysisReport.h"
+#include "ftg/indcallsolver/IndCallSolverMgr.h"
+#include "ftg/propanalysis/AllocSizeAnalysisReport.h"
 #include "ftg/propanalysis/ArrayAnalysisReport.h"
 #include "ftg/propanalysis/DirectionAnalysisReport.h"
 #include "ftg/propanalysis/FilePathAnalysisReport.h"
@@ -35,21 +36,21 @@ private:
   std::unique_ptr<SourceCollection> SC;
   std::set<std::string> AC;
   std::unique_ptr<TargetLib> AnalyzedTargetLib;
-  std::shared_ptr<IndCallSolver> Solver;
+  IndCallSolverMgr Solver;
   llvm::FunctionAnalysisManager FAM;
   std::vector<std::unique_ptr<Analyzer>> Analyzers;
   std::vector<std::unique_ptr<AnalyzerReport>> Reports;
-  AllocAnalysisReport AllocReport;
+  AllocSizeAnalysisReport AllocSizeReport;
   ArrayAnalysisReport ArrayReport;
   ConstAnalyzerReport ConstReport;
   DirectionAnalysisReport DirectionReport;
   FilePathAnalysisReport FilePathReport;
   LoopAnalysisReport LoopReport;
   ParamNumberAnalysisReport ParamNumberReport;
+  TypeAnalysisReport TargetReport;
 
   std::vector<const llvm::Function *> collectAnalyzableIRFunctions() const;
   void loadExternals(const std::string &ExternLibDir);
-  void parseTypes(std::vector<clang::ASTUnit *> &ASTUnits);
   void prepareLLVMAnalysis(llvm::Module &M);
 };
 

@@ -187,15 +187,19 @@ ASTDefNode *DebugInfoMap::getFromArgMap(const llvm::CallBase &CB,
 }
 
 ASTDefNode *DebugInfoMap::getFromDefMap(const llvm::Instruction &I) const {
-  IRNode Node(*const_cast<llvm::Instruction *>(&I));
-  auto MacroIter = Macros.find(Node.getIndex());
-  if (MacroIter != Macros.end())
-    return Mapper->getASTDefNode(*const_cast<llvm::Instruction *>(&I));
+  try {
+    IRNode Node(*const_cast<llvm::Instruction *>(&I));
+    auto MacroIter = Macros.find(Node.getIndex());
+    if (MacroIter != Macros.end())
+      return Mapper->getASTDefNode(*const_cast<llvm::Instruction *>(&I));
 
-  auto DefMapIter = DefMap.find(Node.getIndex());
-  if (DefMapIter == DefMap.end())
+    auto DefMapIter = DefMap.find(Node.getIndex());
+    if (DefMapIter == DefMap.end())
+      return nullptr;
+    return DefMapIter->second.get();
+  } catch (std::runtime_error &E) {
     return nullptr;
-  return DefMapIter->second.get();
+  }
 }
 
 ASTDefNode *DebugInfoMap::getFromGVMap(const llvm::GlobalValue &G) const {
@@ -347,20 +351,21 @@ void DebugInfoMap::updateDefMap(std::unique_ptr<ASTDefNode> ADN) {
   if (!ADN)
     return;
 
-  auto &Unit = ADN->getAssignee().getASTUnit();
-  auto Loc = ADN->getSourceLocation();
-  if (updateMacro(Loc, Unit))
+  auto Loc = ADN->getLocIndex();
+  if (Loc.isExpandedFromMacro()) {
+    Macros.emplace(Loc);
     return;
+  }
 
   if (auto *CVD = getConstVarDecl(*ADN)) {
     auto *Assigned = ADN->getAssigned();
     assert(Assigned && "Unexpected Program State");
-    DefMap.emplace(ADN->getLocIndex(),
+    DefMap.emplace(Loc,
                    std::make_unique<ASTDefNode>(*CVD, Assigned->getASTUnit()));
     return;
   }
 
-  DefMap.emplace(ADN->getLocIndex(), std::move(ADN));
+  DefMap.emplace(Loc, std::move(ADN));
 }
 
 void DebugInfoMap::updateGVMap(std::unique_ptr<ASTDefNode> ADN) {

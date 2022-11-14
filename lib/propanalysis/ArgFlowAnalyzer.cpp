@@ -1,5 +1,5 @@
 #include "ftg/propanalysis/ArgFlowAnalyzer.h"
-#include "ftg/utils/ASTUtil.h"
+#include "ftg/utils/LLVMUtil.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/Support/raw_ostream.h"
 #include <list>
@@ -8,7 +8,7 @@ using namespace llvm;
 
 namespace ftg {
 
-ArgFlowAnalyzer::ArgFlowAnalyzer(std::shared_ptr<IndCallSolver> Solver,
+ArgFlowAnalyzer::ArgFlowAnalyzer(IndCallSolverMgr *Solver,
                                  const std::vector<const Function *> &Funcs)
     : Solver(Solver) {}
 
@@ -67,20 +67,6 @@ StructType *ArgFlowAnalyzer::getAsStructType(Value &V) const {
   return nullptr;
 }
 
-Function *ArgFlowAnalyzer::getCalledFunction(CallBase &CB) const {
-  auto *CV = CB.getCalledValue();
-  if (CV) {
-    auto *F = dyn_cast_or_null<Function>(CV->stripPointerCasts());
-    if (F)
-      return F;
-  }
-
-  if (!Solver)
-    return nullptr;
-
-  return Solver->getCalledFunction(CB);
-}
-
 ArgFlow &ArgFlowAnalyzer::getOrCreateArgFlow(Argument &A) {
   if (ArgFlowMap.find(&A) == ArgFlowMap.end())
     ArgFlowMap[&A] = std::make_shared<ArgFlow>(A);
@@ -107,7 +93,7 @@ bool ArgFlowAnalyzer::mayThrow(const BasicBlock &BB) const {
     if (!CB)
       continue;
 
-    const auto *F = util::getCalledFunction(*CB);
+    const auto *F = util::getCalledFunction(*CB, Solver);
     if (!F || F->getName() != "__cxa_allocate_exception")
       continue;
 

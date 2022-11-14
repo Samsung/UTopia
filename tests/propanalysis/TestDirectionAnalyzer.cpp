@@ -1,5 +1,5 @@
 #include "TestPropAnalyzer.hpp"
-#include "ftg/indcallsolver/IndCallSolverImpl.h"
+#include "ftg/indcallsolver/IndCallSolverMgr.h"
 #include "ftg/propanalysis/DirectionAnalyzer.h"
 
 using namespace ftg;
@@ -19,8 +19,8 @@ protected:
       Funcs.push_back(Func);
     }
 
-    return std::make_unique<DirectionAnalyzer>(
-        std::make_shared<IndCallSolverImpl>(), Funcs, PreReport);
+    IndCallSolverMgr Solver;
+    return std::make_unique<DirectionAnalyzer>(&Solver, Funcs, PreReport);
   }
 
   bool checkTrue(const DirectionAnalysisReport &Report,

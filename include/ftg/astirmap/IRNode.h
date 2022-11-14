@@ -21,12 +21,8 @@ private:
   LocIndex Index;
   std::string Name;
 
-  std::string getFullPath(const llvm::DebugLoc &Loc) const;
   std::string getFullPath(const llvm::DIGlobalVariable &G) const;
-  std::string getFullPath(const llvm::DIFile &F) const;
-  void setIndex(const llvm::AllocaInst &I);
   void setIndex(const llvm::GlobalValue &G);
-  void setIndex(const llvm::Instruction &I);
 };
 
 } // namespace ftg

@@ -4,6 +4,7 @@
 #include "ftg/astirmap/ASTIRMap.h"
 #include "ftg/astirmap/MacroMapper.h"
 #include "ftg/sourceloader/SourceCollection.h"
+#include <set>
 
 namespace ftg {
 
@@ -60,4 +61,4 @@ private:
 
 } // namespace ftg
 
-#endif // FTG_ASTIRMAP_ASTINFOMAP_H
+#endif // FTG_ASTIRMAP_DEBUGINFOMAP_H

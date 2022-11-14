@@ -1,4 +1,5 @@
 #include "ftg/utils/ASTUtil.h"
+#include "ftg/utils/LLVMUtil.h"
 #include "clang/AST/DeclCXX.h"
 #include "clang/AST/ExprCXX.h"
 #include "clang/ASTMatchers/ASTMatchFinder.h"
@@ -7,7 +8,6 @@
 
 using namespace clang;
 using namespace ast_matchers;
-using namespace ast_type_traits;
 
 namespace ftg {
 
@@ -170,20 +170,6 @@ bool isImplicitArgument(clang::Expr &E, unsigned AIdx) {
   return false;
 }
 
-std::string getMangledName(clang::NamedDecl *Decl) {
-  auto &context = Decl->getASTContext();
-  auto mangleContext = context.createMangleContext();
-  if (!mangleContext->shouldMangleDeclName(Decl)) {
-    return Decl->getNameAsString();
-  }
-  std::string mangledName;
-  llvm::raw_string_ostream ostream(mangledName);
-  mangleContext->mangleName(Decl, ostream);
-  ostream.flush();
-  delete mangleContext;
-  return mangledName;
-}
-
 std::vector<clang::CXXMethodDecl *> findCXXMethodDeclFromCXXRecordDecls(
     const clang::CXXRecordDecl *CurCXXRecordDecl, std::string MethodName) {
   std::vector<clang::CXXMethodDecl *> FoundCXXMethodDecls;
@@ -307,7 +293,7 @@ bool isMacroArgUsedHashHashExpansion(const clang::Expr &E, clang::ASTUnit &U) {
 
   std::set<std::string> MacroParams;
   for (auto *Param : MI->params())
-    MacroParams.insert(Param->getName());
+    MacroParams.insert(Param->getName().str());
 
   auto Tokens = MI->tokens();
   auto TokenSize = Tokens.size();
@@ -320,7 +306,7 @@ bool isMacroArgUsedHashHashExpansion(const clang::Expr &E, clang::ASTUnit &U) {
     auto *II = Tokens[I + 1].getIdentifierInfo();
     if (!II)
       continue;
-    if (MacroParams.find(II->getName()) == MacroParams.end())
+    if (MacroParams.find(II->getName().str()) == MacroParams.end())
       continue;
 
     return true;
@@ -345,9 +331,11 @@ findDefinedFunctionDecls(clang::ASTContext &Ctx, std::set<std::string> Names) {
       continue;
     }
 
-    if (Names.find(util::getMangledName(Record)) != Names.end()) {
-      Result.insert(Record);
-      continue;
+    for (auto &MangledName : util::getMangledNames(*Record)) {
+      if (Names.find(MangledName) != Names.end()) {
+        Result.insert(Record);
+        break;
+      }
     }
   }
   return Result;

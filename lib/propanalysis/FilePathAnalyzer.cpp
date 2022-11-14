@@ -1,26 +1,18 @@
 #include "FilePathAnalyzer.h"
+#include "ftg/utils/LLVMUtil.h"
+#include "ftg/utils/StringUtil.h"
 #include "llvm/IR/Instructions.h"
 
 using namespace llvm;
 
 namespace ftg {
 
-FilePathAnalyzer::FilePathAnalyzer(std::shared_ptr<IndCallSolver> Solver,
+FilePathAnalyzer::FilePathAnalyzer(IndCallSolverMgr *Solver,
                                    std::vector<const Function *> Funcs,
                                    const FilePathAnalysisReport *PreReport)
     : ArgFlowAnalyzer(Solver, Funcs) {
   if (Funcs.size() == 0)
     return;
-
-  const auto *F = Funcs[0];
-  if (!F)
-    return;
-
-  const auto *M = F->getParent();
-  if (!M)
-    return;
-
-  updateDefault(*M);
 
   if (PreReport) {
     for (const auto &Iter : PreReport->get())
@@ -100,22 +92,55 @@ void FilePathAnalyzer::handleUser(StackFrame &Frame, Value &User,
   }
 
   if (auto *CB = dyn_cast<CallBase>(&User)) {
-    auto *CF = getCalledFunction(*CB);
-    if (!CF)
-      return;
-    if (CF == A.getParent())
-      return;
+    std::set<const Function *> CFs;
+    if (Solver) {
+      CFs = Solver->getCalledFunctions(*CB);
+    } else {
+      const auto *CF = util::getCalledFunction(*CB);
+      if (CF)
+        CFs.emplace(CF);
+    }
 
-    for (auto &Param : CF->args()) {
-      auto *CallArg = CB->getArgOperand(Param.getArgNo());
-      if (CallArg != Def)
-        continue;
-      if (!CallArg)
+    for (const auto *CF : CFs) {
+      assert(CF && "Unexpected Program State");
+
+      if (CF == A.getParent())
         continue;
 
-      analyze(Param);
-      auto &CallAF = getOrCreateArgFlow(Param);
-      DefFlow.setFilePathString(CallAF.isFilePathString());
+      for (const auto &Param : CF->args()) {
+        auto *CallArg = CB->getArgOperand(Param.getArgNo());
+        if (CallArg != Def)
+          continue;
+
+        if (!CallArg)
+          continue;
+
+        analyze(Param);
+        auto &CallAF = getOrCreateArgFlow(*const_cast<Argument *>(&Param));
+        if (CallAF.isFilePathString()) {
+          DefFlow.setFilePathString();
+          return;
+        }
+      }
+
+      auto Name = util::getDemangledName(CF->getName());
+      auto Regex =
+          util::regex(Name, "std::.*::basic_string.*::basic_string\\(char "
+                            "const\\*, std::allocator<char> const&\\)");
+      if (Regex == Name && CB->getNumArgOperands() == 3 &&
+          CB->getArgOperand(1) == Def) {
+        DefUseChains.emplace(CB->getArgOperand(0), DefFlow);
+        continue;
+      }
+
+      Regex = util::regex(Name, "std::.*::basic_string.*::c_str const");
+      if (Regex == Name && CB->getNumArgOperands() == 1) {
+        const auto *Arg0 = CB->getArgOperand(0);
+        assert(Def && "Unexpected Program State");
+        assert(Arg0 && "Unexpected LLVM API Behavior");
+        if (Def->getType() == Arg0->getType())
+          DefUseChains.emplace(CB, DefFlow);
+      }
     }
     return;
   }
@@ -132,119 +157,10 @@ bool FilePathAnalyzer::updateArgFlow(Argument &A) {
     return false;
 
   auto &AF = getOrCreateArgFlow(A);
-  AF.setFilePathString(Report.get(A));
+  if (Report.get(A))
+    AF.setFilePathString();
   updateFieldFlow(AF);
   return true;
-}
-
-void FilePathAnalyzer::updateDefault(const Module &M) {
-  const std::map<std::string, unsigned> DefaultParamMap = {
-      {"access", 0},
-      {"acct", 0},
-      {"chdir", 0},
-      {"creat", 0},
-      {"chmod", 0},
-      {"chown", 0},
-      {"chroot", 0},
-      {"execve", 0},
-      {"execveat", 1},
-      {"faccessat", 1},
-      {"fanotify_mark", 4},
-      {"fchmodat", 1},
-      {"fchownat", 1},
-      {"fopen", 0},
-      {"futimesat", 1},
-      {"getcwd", 0},
-      {"getwd", 0},
-      {"getxattr", 0},
-      {"inotify_add_watch", 1},
-      {"lchown", 0},
-      {"lgetxattr", 0},
-      {"link", 0},
-      {"link", 1},
-      {"linkat", 1},
-      {"linkat", 3},
-      {"listxattr", 0},
-      {"llistxattr", 0},
-      {"lookup_dcookie", 1},
-      {"lremovexattr", 0},
-      {"lsetxattr", 0},
-      {"lstat", 0},
-      {"memfd_create", 0},
-      {"mkdir", 0},
-      {"mkdirat", 1},
-      {"mknod", 0},
-      {"mknodat", 1},
-      {"mount", 0},
-      {"mount", 1},
-      {"umount", 0},
-      {"umount2", 0},
-      {"name_to_handle_at", 1},
-      {"open", 0},
-      {"openat", 1},
-      {"openat2", 1},
-      {"pivot_root", 0},
-      {"pivot_root", 1},
-      {"readlink", 0},
-      {"readlink", 1},
-      {"readlinkat", 1},
-      {"readlinkat", 2},
-      {"realpath", 0},
-      {"remove", 0},
-      {"removexattr", 0},
-      {"rename", 0},
-      {"rename", 1},
-      {"renameat", 1},
-      {"renameat", 3},
-      {"renameat2", 1},
-      {"renameat2", 3},
-      {"rmdir", 0},
-      {"setxattr", 0},
-      {"stat", 0},
-      {"statfs", 0},
-      {"swapoff", 0},
-      {"swapon", 0},
-      {"symlink", 0},
-      {"symlink", 1},
-      {"symlinkat", 0},
-      {"symlinkat", 2},
-      {"truncate", 0},
-      {"unlink", 0},
-      {"unlinkat", 1},
-      {"utime", 0},
-      {"utimensat", 1},
-      {"utimes", 0}};
-
-  for (const auto &F : M) {
-    if (!F.isDeclaration())
-      continue;
-
-    auto FuncName = F.getName();
-    auto Iter = DefaultParamMap.find(FuncName);
-    if (Iter == DefaultParamMap.end())
-      continue;
-
-    updateDefault(F, Iter->second);
-  }
-
-  for (auto Iter : ArgFlowMap) {
-    auto &AF = Iter.second;
-    if (!AF)
-      continue;
-
-    if (AF->getState() != AnalysisState_Pre_Analyzed)
-      continue;
-
-    Report.add(*AF);
-  }
-}
-
-void FilePathAnalyzer::updateDefault(const llvm::Function &F, unsigned ArgIdx) {
-  for (const auto &Arg : F.args()) {
-    bool FilePath = (Arg.getArgNo() == ArgIdx);
-    auto &AF = getOrCreateArgFlow(*const_cast<Argument *>(&Arg));
-    AF.setFilePathString(FilePath);
-  }
 }
 
 void FilePathAnalyzer::updateFieldFlow(ArgFlow &AF, std::vector<int> Indices) {
@@ -266,7 +182,9 @@ void FilePathAnalyzer::updateFieldFlow(ArgFlow &AF, std::vector<int> Indices) {
 
     AF.setStruct(ST);
     auto &FF = AF.getOrCreateFieldFlow(S);
-    FF.setFilePathString(Report.get(A, Indices));
+    if (Report.get(A, Indices)) {
+      FF.setFilePathString();
+    }
     updateFieldFlow(FF, Indices);
     Indices.pop_back();
   }

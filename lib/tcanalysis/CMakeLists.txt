@@ -11,5 +11,4 @@ add_library(ftgTCAnalysis
     NamedDeclCallback.cpp
     TCAnalyzerFactory.cpp
     Unittest.cpp
-    UTInfo.cpp
 )

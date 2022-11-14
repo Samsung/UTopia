@@ -2,7 +2,7 @@
 #define FTG_INDCALLSOLVER_INDCALLSOLVER_H
 
 #include "llvm/IR/InstrTypes.h"
-#include "llvm/IR/Module.h"
+#include <set>
 
 namespace ftg {
 
@@ -10,8 +10,8 @@ class IndCallSolver {
 
 public:
   virtual ~IndCallSolver() = default;
-  virtual void solve(llvm::Module &M) = 0;
-  virtual llvm::Function *getCalledFunction(llvm::CallBase &CB) = 0;
+  virtual std::set<const llvm::Function *>
+  solve(const llvm::CallBase &CB) const = 0;
 };
 
 } // namespace ftg

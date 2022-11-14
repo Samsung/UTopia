@@ -1,6 +1,7 @@
 #ifndef FTG_UTILS_STRINGUTIL_H
 #define FTG_UTILS_STRINGUTIL_H
 
+#include "json/json.h"
 #include <algorithm>
 #include <string>
 #include <vector>
@@ -96,6 +97,8 @@ std::string getIndent(unsigned count = 1);
 bool isValidIdentifier(const std::string &Name);
 
 const std::string INDENT = "  ";
+
+Json::Value strToJson(std::string JsonStr);
 
 } // namespace util
 

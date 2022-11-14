@@ -1,6 +1,6 @@
 #include "ftg/tcanalysis/APICall.h"
-#include "ftg/astirmap/IRNode.h"
-#include "ftg/utils/ASTUtil.h"
+#include "ftg/astirmap/LocIndex.h"
+#include "ftg/utils/LLVMUtil.h"
 
 using namespace ftg;
 using namespace llvm;
@@ -23,8 +23,7 @@ APICall::APICall(llvm::CallBase &CB, std::vector<APIArgument> &Args)
 
   Name = std::string(F->getName());
 
-  IRNode Node(CB);
-  const auto &Index = Node.getIndex();
+  auto Index = LocIndex::of(CB);
   Path = Index.getPath();
   Line = Index.getLine();
   Column = Index.getColumn();

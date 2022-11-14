@@ -1,4 +1,5 @@
 #include "ftg/utanalysis/UTAnalyzer.h"
+#include "ftg/analysis/TypeAnalyzer.h"
 #include "ftg/astirmap/DebugInfoMap.h"
 #include "ftg/inputanalysis/DefAnalyzer.h"
 #include "ftg/sourceanalysis/SourceAnalyzerImpl.h"
@@ -25,6 +26,8 @@ bool UTAnalyzer::analyze() {
     return false;
   Extractor->load();
 
+  Analyzers.emplace_back(std::make_unique<TypeAnalyzer>(
+      Loader->getSourceCollection().getASTUnits()));
   Analyzers.emplace_back(
       std::make_unique<SourceAnalyzerImpl>(Loader->getSourceCollection()));
   Analyzers.emplace_back(std::make_unique<DefAnalyzer>(

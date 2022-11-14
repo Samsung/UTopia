@@ -1,17 +1,17 @@
 #ifndef FTG_PROPANALYSIS_LOOPANALYZER_H
 #define FTG_PROPANALYSIS_LOOPANALYZER_H
 
-#include "ftg/indcallsolver/IndCallSolver.h"
 #include "ftg/propanalysis/ArgFlowAnalyzer.h"
 #include "ftg/propanalysis/LoopAnalysisReport.h"
 #include "ftg/propanalysis/StackFrame.h"
+#include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/PassManager.h"
 
 namespace ftg {
 
 class LoopAnalyzer : public ArgFlowAnalyzer {
 public:
-  LoopAnalyzer(std::shared_ptr<IndCallSolver> Solver,
+  LoopAnalyzer(IndCallSolverMgr *Solver,
                std::vector<const llvm::Function *> Funcs,
                llvm::FunctionAnalysisManager &FAM,
                const LoopAnalysisReport *PreReport = nullptr);
@@ -29,11 +29,10 @@ private:
   bool handleUser(StackFrame &Frame, llvm::Value &User,
                   std::stack<StackFrame> &DefUseChains,
                   std::set<llvm::Value *> &VisitedNodes);
+  bool isUsedAsInitializer(const llvm::ICmpInst &I, const llvm::Loop &L,
+                           const std::set<llvm::Value *> &VisitedNodes);
   bool updateArgFlow(llvm::Argument &A);
   void updateFieldFlow(ArgFlow &AF, std::vector<int> Indices = {});
-  void updateDefault(const llvm::Module &M);
-  void updateDefault(const llvm::Function &F,
-                     const std::map<unsigned, int> &Values);
 };
 
 } // namespace ftg

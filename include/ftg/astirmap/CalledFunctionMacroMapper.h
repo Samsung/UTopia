@@ -2,6 +2,7 @@
 #define FTG_ASTIRMAP_CALLEDFUNCTIONMACROMAPPER_H
 
 #include "MacroMapper.h"
+#include <set>
 
 namespace ftg {
 

@@ -24,7 +24,7 @@ ASTDefNode::ASTDefNode(VarDecl &D, ASTUnit &Unit) {
     if (Assignee->getIndex() == Assigned->getIndex())
       Assigned.reset();
   }
-  SourceLoc = D.getLocation();
+  SourceLoc = LocIndex(Unit.getSourceManager(), D.getLocation());
 }
 
 ASTDefNode::ASTDefNode(BinaryOperator &B, ASTUnit &Unit) {
@@ -50,7 +50,7 @@ ASTDefNode::ASTDefNode(BinaryOperator &B, ASTUnit &Unit) {
                                        DynTypedNode::create(*RHS), Unit);
   assert(Assignee && Assigned && "Unexpected Program State");
 
-  SourceLoc = B.getOperatorLoc();
+  SourceLoc = LocIndex(Unit.getSourceManager(), B.getOperatorLoc());
 }
 
 ASTDefNode::ASTDefNode(Expr &E, ASTUnit &Unit) {
@@ -62,7 +62,7 @@ ASTDefNode::ASTDefNode(Expr &E, ASTUnit &Unit) {
       std::make_unique<ASTNode>(ASTNode::CALL, DynTypedNode::create(E), Unit);
   assert(Assignee && "Unexpected Program State");
 
-  SourceLoc = util::getDebugLoc(E);
+  SourceLoc = LocIndex(Unit.getSourceManager(), util::getDebugLoc(E));
 }
 
 ASTDefNode::ASTDefNode(Expr &E, unsigned ArgIdx, ASTUnit &Unit) {
@@ -84,7 +84,7 @@ ASTDefNode::ASTDefNode(Expr &E, unsigned ArgIdx, ASTUnit &Unit) {
   if (!Assigned || !Assignee)
     throw std::runtime_error("Fail to create Assignee and Assigned");
 
-  SourceLoc = Arg->getBeginLoc();
+  SourceLoc = LocIndex(Unit.getSourceManager(), Arg->getBeginLoc());
 }
 
 ASTDefNode::ASTDefNode(ReturnStmt &S, ASTUnit &Unit) {
@@ -96,7 +96,7 @@ ASTDefNode::ASTDefNode(ReturnStmt &S, ASTUnit &Unit) {
       std::make_unique<ASTNode>(ASTNode::STMT, DynTypedNode::create(S), Unit);
   Assigned = std::make_unique<ASTNode>(ASTNode::STMT,
                                        DynTypedNode::create(*RetValue), Unit);
-  SourceLoc = S.getBeginLoc();
+  SourceLoc = LocIndex(Unit.getSourceManager(), S.getBeginLoc());
 }
 
 ASTDefNode::ASTDefNode(CXXCtorInitializer &CCI, ASTUnit &Unit) {
@@ -110,21 +110,10 @@ ASTDefNode::ASTDefNode(CXXCtorInitializer &CCI, ASTUnit &Unit) {
   if (!Assigned || !Assignee)
     throw std::runtime_error("Fail to create Assignee and Assigned");
 
-  SourceLoc = CCI.getSourceLocation();
+  SourceLoc = LocIndex(Unit.getSourceManager(), CCI.getSourceLocation());
 }
 
-LocIndex ASTDefNode::getLocIndex() const {
-
-  assert(Assignee && "Unexpected Program State");
-
-  auto &SrcManager = Assignee->getASTUnit().getSourceManager();
-
-  return LocIndex(SrcManager, SourceLoc);
-}
-
-const SourceLocation &ASTDefNode::getSourceLocation() const {
-  return SourceLoc;
-}
+LocIndex ASTDefNode::getLocIndex() const { return SourceLoc; }
 
 const ASTNode &ASTDefNode::getAssignee() const {
   assert(Assignee && "Unexpected Program State");

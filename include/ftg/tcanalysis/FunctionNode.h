@@ -1,8 +1,8 @@
 #ifndef FTG_TCANALYSIS_FUNCTIONNODE_H
 #define FTG_TCANALYSIS_FUNCTIONNODE_H
 
-#include "ftg/utils/json/json.h"
 #include "llvm/IR/Function.h"
+#include "json/json.h"
 
 namespace ftg {
 /**

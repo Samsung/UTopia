@@ -1,5 +1,5 @@
 #include "TestPropAnalyzer.hpp"
-#include "ftg/indcallsolver/IndCallSolverImpl.h"
+#include "ftg/indcallsolver/IndCallSolverMgr.h"
 #include "ftg/propanalysis/LoopAnalyzer.h"
 
 namespace ftg {
@@ -19,8 +19,8 @@ protected:
       Funcs.push_back(Func);
     }
 
-    return std::make_unique<LoopAnalyzer>(std::make_shared<IndCallSolverImpl>(),
-                                          Funcs, FAM, PreReport);
+    IndCallSolverMgr Solver;
+    return std::make_unique<LoopAnalyzer>(&Solver, Funcs, FAM, PreReport);
   }
 
   bool checkTrue(bool AnswerLoopExit, unsigned AnswerLoopDepth,
@@ -68,19 +68,33 @@ TEST_F(TestLoopAnalyzer, AnalyzeP) {
                            "    }\n"
                            "  }\n"
                            "}\n"
-                           "void test_exitcond_rel(int P) {\n"
+                           "void test_exitcond_rel1(int P) {\n"
                            "  int J = P + 10;\n"
                            "  for (int i = 0; i < J; ++i) {\n"
                            "    EXTERNAL();\n"
                            "  }\n"
                            "}\n"
+#if LLVM_VERSION_MAJOR >= 12
+                           "void test_exitcond_rel2(int P) {\n"
+                           "  for (int i = 0; i < P + 10; ++i) {\n"
+                           "    EXTERNAL();\n"
+                           "  }\n"
+                           "}\n"
+#endif
                            "}";
+
   auto IRAccess =
       load(CODE, CompileHelper::SourceType_CPP, "PropAnalyzer", "-O0");
   ASSERT_TRUE(IRAccess);
 
-  std::vector<std::string> Funcs = {"test_exitcond", "test_nested",
-                                    "test_exitcond_rel"};
+  std::vector<std::string> Funcs = {
+    "test_exitcond",
+    "test_nested",
+    "test_exitcond_rel1",
+#if LLVM_VERSION_MAJOR >= 12
+    "test_exitcond_rel2"
+#endif
+  };
   auto LAnalyzer = analyze(*IRAccess, Funcs);
   ASSERT_TRUE(LAnalyzer);
   ASSERT_TRUE(
@@ -88,7 +102,11 @@ TEST_F(TestLoopAnalyzer, AnalyzeP) {
   ASSERT_TRUE(
       checkTrue(true, 2, LAnalyzer->result(), *IRAccess, "test_nested", 0));
   ASSERT_TRUE(checkTrue(true, 1, LAnalyzer->result(), *IRAccess,
-                        "test_exitcond_rel", 0));
+                        "test_exitcond_rel1", 0));
+#if LLVM_VERSION_MAJOR >= 12
+  ASSERT_TRUE(checkTrue(true, 1, LAnalyzer->result(), *IRAccess,
+                        "test_exitcond_rel2", 0));
+#endif
 }
 
 TEST_F(TestLoopAnalyzer, AnalyzeN) {
@@ -99,22 +117,31 @@ TEST_F(TestLoopAnalyzer, AnalyzeN) {
                            "    EXTERNAL();\n"
                            "  }\n"
                            "}\n"
+#if LLVM_VERSION_MAJOR < 12
                            "void test_exitcond_rel(int P) {\n"
                            "  for (int i = 0; i < P + 10; ++i) {\n"
                            "    EXTERNAL();\n"
                            "  }\n"
                            "}\n"
+#endif
                            "}";
   auto IRAccess =
       load(CODE, CompileHelper::SourceType_CPP, "PropAnalyzer", "-O0");
   ASSERT_TRUE(IRAccess);
 
-  std::vector<std::string> Funcs = {"test_nonexit", "test_exitcond_rel"};
+  std::vector<std::string> Funcs = {
+    "test_nonexit",
+#if LLVM_VERSION_MAJOR < 12
+    "test_exitcond_rel"
+#endif
+  };
   auto LAnalyzer = analyze(*IRAccess, Funcs);
   ASSERT_TRUE(LAnalyzer);
   ASSERT_TRUE(checkFalse(LAnalyzer->result(), *IRAccess, "test_nonexit", 0));
+#if LLVM_VERSION_MAJOR < 12
   ASSERT_TRUE(
       checkFalse(LAnalyzer->result(), *IRAccess, "test_exitcond_rel", 0));
+#endif
 }
 
 TEST_F(TestLoopAnalyzer, SerializeP) {

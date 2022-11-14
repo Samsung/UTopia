@@ -8,13 +8,6 @@
 
 namespace ftg {
 
-enum Alloc {
-  Alloc_None = 0x000,
-  Alloc_Size = 0x001,
-  Alloc_Address = 0x010,
-  Alloc_Free = 0x100
-};
-
 enum Dir {
   Dir_NoOp = 0x000,
   Dir_In = 0x100,
@@ -22,7 +15,6 @@ enum Dir {
   Dir_Unidentified = 0x001
 };
 
-using ArgAlloc = unsigned;
 using ArgDir = unsigned;
 
 enum AnalysisState {
@@ -42,7 +34,7 @@ class StructInfo;
 class ArgFlow {
   friend class TargetLibAnalyzer;
   friend class ArgFlowAnalyzer;
-  friend class AllocAnalyzer;
+  friend class AllocSizeAnalyzer;
   friend class PreDefinedAnalyzer;
 
 public:
@@ -61,7 +53,7 @@ public:
   class StructInfo {
   public:
     ArgDir FieldsDirection = Dir_NoOp;
-    ArgAlloc FieldsAllocation = Alloc_None;
+    bool FieldsAllocSize = false;
     std::map<unsigned, std::shared_ptr<ArgFlow>> FieldResults;
     llvm::StructType *StructType;
     StructInfo(llvm::StructType *ST);
@@ -72,7 +64,7 @@ public:
 
   ArgFlow(llvm::Argument &A);
   void setState(AnalysisState State);
-  void setFilePathString(bool IsFilePathString);
+  void setFilePathString();
   void setStruct(llvm::StructType *ST);
   void setIsVariableLenArray(bool Value);
   void setIsArray(bool Value);
@@ -80,6 +72,7 @@ public:
   void setToArrLen(llvm::Argument &RelatedArg);
   void setToArrLen(unsigned FieldNum); // for field result
 
+  bool isAllocSize() const;
   bool isArray() const;
   bool isArrayLen() const;
   bool hasLenRelatedArg();
@@ -92,7 +85,6 @@ public:
   llvm::Argument &getLLVMArg();
   AnalysisState getState() const;
   ArgDir getArgDir() const;
-  ArgAlloc getArgAlloc();
   // TODO: implement to handle more than one related argss
   unsigned getLenRelatedArgNo();
   std::shared_ptr<StructInfo> getStructInfo();
@@ -101,7 +93,7 @@ public:
   std::set<size_t> &getArrIndices();
   const std::set<llvm::Argument *> &getSizeArgs();
 
-  void mergeAlloc(const ArgFlow &CalleeArgResult);
+  void mergeAllocSize(const ArgFlow &CalleeArgResult);
   void mergeDirection(const ArgFlow &CalleeArgResult);
   void mergeArray(const ArgFlow &CalleeArgResult, llvm::CallBase &C);
   void collectRelatedLengthField(llvm::Value &V);
@@ -112,9 +104,9 @@ public:
 private:
   AnalysisState State = AnalysisState_Not_Analyzed;
   ArgDir Direction = Dir_NoOp;
-  ArgAlloc Allocation = Alloc_None;
   llvm::Argument &Arg;
   bool IsFilePathString = false;
+  bool IsAllocSize = false;
   bool IsArray = false;
   bool IsArrayLen = false;
   bool IsVariableLenArray = false;
@@ -131,7 +123,7 @@ private:
 
   llvm::Argument *findRelatedArg(llvm::Value &V,
                                  std::set<llvm::Value *> &Visit);
-  void setArgAlloc(unsigned ArgAlloc);
+  void setAllocSize();
   void setUsedByRet(bool ArgRet);
   void setField(unsigned FieldNum, ArgFlow &Parent);
 

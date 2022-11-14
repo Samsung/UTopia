@@ -6,8 +6,12 @@ const std::string ArrayAnalysisReport::getReportType() const { return "Array"; }
 
 Json::Value ArrayAnalysisReport::toJson() const {
   Json::Value Root, Element;
-  for (auto Iter : Result)
-    Element[Iter.first] = Iter.second;
+  for (const auto &[Key, Value] : Result) {
+    if (Value == NO_ARRAY)
+      continue;
+
+    Element[Key] = Value;
+  }
   Root[getReportType()] = Element;
   return Root;
 }

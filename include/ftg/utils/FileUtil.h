@@ -1,7 +1,7 @@
 #ifndef FTG_UTILS_FILEUTIL_H
 #define FTG_UTILS_FILEUTIL_H
 
-#include "ftg/utils/json/json.h"
+#include "json/json.h"
 #include <string>
 
 #if defined(WIN32) || defined(_WIN32)

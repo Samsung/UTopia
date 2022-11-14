@@ -3,7 +3,6 @@
 
 #include "ftg/tcanalysis/APICall.h"
 #include "ftg/tcanalysis/FunctionNode.h"
-#include "ftg/utanalysis/Location.h"
 
 #include "clang/AST/Decl.h"
 #include "llvm/IR/Function.h"
@@ -16,8 +15,6 @@ namespace ftg {
  */
 class Unittest {
 public:
-  Unittest(const clang::NamedDecl &Decl, Location Loc, std::string Type,
-           const std::vector<FunctionNode> &TestSequence);
   Unittest(const clang::NamedDecl &Decl, std::string Type,
            const std::vector<FunctionNode> &TestSequence);
   Unittest(const Json::Value &Json);
@@ -38,7 +35,6 @@ private:
   std::vector<APICall> APICalls;
   std::string FilePath;
   std::string Name;
-  size_t Offset;
   std::vector<FunctionNode> TestSequence;
   std::string Type;
 };

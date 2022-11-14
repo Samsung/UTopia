@@ -7,16 +7,21 @@ using namespace clang;
 
 namespace ftg {
 
-LocIndex::LocIndex() : Path(""), Line(0), Column(0) {}
+LocIndex::LocIndex() : Path(""), Line(0), Column(0), FromMacro(false) {}
 
-LocIndex::LocIndex(std::string Path, size_t Line, size_t Column)
-    : Path(util::getNormalizedPath(Path)), Line(Line), Column(Column) {}
+LocIndex::LocIndex(std::string Path, size_t Line, size_t Column, bool FromMacro)
+    : Path(util::getNormalizedPath(Path)), Line(Line), Column(Column),
+      FromMacro(FromMacro) {}
 
 LocIndex::LocIndex(const SourceManager &SrcManager, const SourceLocation &Loc) {
   SourceLocation ELoc = SrcManager.getExpansionLoc(Loc);
   Path = util::getNormalizedPath(SrcManager.getFilename(ELoc).str());
   Line = SrcManager.getExpansionLineNumber(ELoc);
   Column = SrcManager.getExpansionColumnNumber(ELoc);
+  FromMacro = (SrcManager.isMacroArgExpansion(Loc) ||
+               SrcManager.isMacroBodyExpansion(Loc))
+                  ? true
+                  : false;
 }
 
 LocIndex LocIndex::of(const llvm::AllocaInst &AI) {
@@ -103,5 +108,7 @@ std::string LocIndex::getFullPath(const llvm::DebugLoc &Loc) {
 
   return util::getFullPath(*DIF);
 }
+
+bool LocIndex::isExpandedFromMacro() const { return FromMacro; }
 
 } // namespace ftg
