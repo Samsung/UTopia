@@ -96,7 +96,12 @@ class Builder:
     def generate_target_report(self, libname: str):
         logging.info("Generate Target Report")
 
+        pwd = os.getcwd()
+        pwd = pwd + "/build/bin/"
+
         tool = "target_analyzer"
+        tool = cwd + tool
+
         build_db_path = self.get_build_db_path(libname)
         output = self.target_path / f"{libname}.json"
 
@@ -121,8 +126,13 @@ class Builder:
 
     def generate_ut_report(self, ut_name: str) -> bool:
         logging.info("Generate UT Report")
+        
+        pwd = os.getcwd()
+        pwd = pwd + "/build/bin/"
 
         tool = "ut_analyzer"
+        tool = cwd + tool
+
         build_db_path = self.get_build_db_path(ut_name)
         output = self.get_ut_path(ut_name)
 
@@ -151,7 +161,12 @@ class Builder:
     def generate_fuzz_driver(self, ut_name: str) -> bool:
         logging.info("Generate Fuzz Driver Source Code")
 
+        pwd = os.getcwd()
+        pwd = pwd + "/build/bin/"
+
         tool = "fuzz_generator"
+        tool = cwd + tool
+        
         build_db_path = self.get_build_db_path(ut_name)
         utpath = self.get_ut_path(ut_name)
         output = self.get_driver_path(ut_name)
