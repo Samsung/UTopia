@@ -1,19 +1,17 @@
 cmake_minimum_required(VERSION 3.5)
-project(fuzz_test_generation
-    VERSION 0.2.0
-    LANGUAGES CXX
-    )
+project(
+  UTopia
+  VERSION 0.2.0
+  LANGUAGES CXX
+)
 
-add_compile_definitions(FTG_VERSION="${CMAKE_PROJECT_VERSION}")
-# Reference cmake : https://github.com/nsumner/clang-plugins-demo/CMakeLists.txt
+add_compile_definitions(UTOPIA_VERSION="${CMAKE_PROJECT_VERSION}")
 
-## Please define LLVM_DIR with -D<LLVM_DIR>
-# LLVM_DIR must be set to the prefix of /share/llvm/cmake via commandline
 if (NOT DEFINED LLVM_DIR)
-  message(STATUS "!!!NOT DEFINED LLVM_DIR, USE DEFAULT VALUE")
+  message(STATUS "NOT DEFINED LLVM_DIR, USE DEFAULT VALUE")
   set(LLVM_DIR /usr)
 endif()
-message(STATUS "!!!LLVM_DIR: ${LLVM_DIR}")
+message(STATUS "LLVM_DIR: ${LLVM_DIR}")
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules/")
 list(APPEND CMAKE_MODULE_PATH "${LLVM_DIR}")
@@ -87,13 +85,12 @@ find_package(Clang REQUIRED)
 message("LLVM STATUS:
   Definitions ${LLVM_DEFINITIONS}
   Includes    ${LLVM_INCLUDE_DIRS}
-              ${CLANG_INCLUDE_DIRS}
   Libraries   ${LLVM_LIBRARY_DIRS}
   LLVM_CMAKE_DIR: ${LLVM_CMAKE_DIR}
   AddLLVM: ${LIBRARY_OUTPUT_PATH}")
 
 # SET the LLVM header and library paths:
-include_directories(SYSTEM ${LLVM_INCLUDE_DIRS} ${CLANG_INCLUDE_DIRS})
+include_directories(SYSTEM ${LLVM_INCLUDE_DIRS})
 link_directories(${LLVM_LIBRARY_DIRS})
 add_definitions(${LLVM_DEFINITIONS})
 

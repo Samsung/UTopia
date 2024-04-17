@@ -88,6 +88,6 @@ std::string SrcGenerator::genSignature(const std::string &TestName) {
   // Remove starting empty line in template
   auto Signature = SignatureTemplate.substr(1);
   util::replaceStrAll(Signature, "${UT_NAME}", TestName);
-  util::replaceStrAll(Signature, "${VERSION}", FTG_VERSION);
+  util::replaceStrAll(Signature, "${VERSION}", UTOPIA_VERSION);
   return Signature;
 }

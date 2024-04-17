@@ -123,7 +123,7 @@ void FilePathAnalyzer::handleUser(StackFrame &Frame, Value &User,
         }
       }
 
-      auto Name = util::getDemangledName(CF->getName());
+      auto Name = util::getDemangledName(CF->getName().str());
       auto Regex =
           util::regex(Name, "std::.*::basic_string.*::basic_string\\(char "
                             "const\\*, std::allocator<char> const&\\)");

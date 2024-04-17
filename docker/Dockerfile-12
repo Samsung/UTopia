@@ -33,16 +33,16 @@ RUN wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/nul
 # Install LLVM
 RUN wget https://apt.llvm.org/llvm.sh  \
     && chmod +x ./llvm.sh \
-    && ./llvm.sh 10 \
+    && ./llvm.sh 12 \
     && rm ./llvm.sh \
-    && apt-get install -y libclang-10-dev \
+    && apt-get install -y libclang-12-dev \
     && update-alternatives  \
-      --install /usr/bin/clang      clang       /usr/bin/clang-10 99 \
-      --slave   /usr/bin/clang++    clang++     /usr/bin/clang++-10 \
+      --install /usr/bin/clang      clang       /usr/bin/clang-12 99 \
+      --slave   /usr/bin/clang++    clang++     /usr/bin/clang++-12 \
     && update-alternatives \
-      --install /usr/bin/llvm-config  llvm-config /usr/bin/llvm-config-10 99 \
-      --slave   /usr/bin/llvm-link    llvm-link   /usr/bin/llvm-link-10 \
-      --slave   /usr/bin/llvm-ar      llvm-ar     /usr/bin/llvm-ar-10
+      --install /usr/bin/llvm-config  llvm-config /usr/bin/llvm-config-12 99 \
+      --slave   /usr/bin/llvm-link    llvm-link   /usr/bin/llvm-link-12 \
+      --slave   /usr/bin/llvm-ar      llvm-ar     /usr/bin/llvm-ar-12
 
 # Install Protobuf
 RUN apt-get install -y autoconf libtool \
@@ -92,4 +92,4 @@ RUN apt-get install -y liblzma-dev \
     && rm -rf libprotobuf-mutator
 
 ### Setup Compiler Hooker
-COPY --chmod=755 docker/hooks /usr/local/bin/
+COPY --chmod=755 docker/hooks/12 /usr/local/bin/

@@ -1,0 +1,8 @@
+#!/bin/bash
+
+if [ ! -z $COMPILE_LOG ] && [ -d $(dirname $COMPILE_LOG) ]
+then
+  echo "$(realpath .) |autofuzz_splitter| llvm-ar $@" >> $COMPILE_LOG
+fi
+
+/usr/lib/llvm-12/bin/llvm-ar $@

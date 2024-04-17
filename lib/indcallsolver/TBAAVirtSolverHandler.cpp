@@ -8,7 +8,7 @@ using namespace llvm;
 
 static inline bool isVirtTable(const GlobalVariable &GV) {
   auto Name = GV.getName();
-  auto DemangledName = util::getDemangledName(Name);
+  auto DemangledName = util::getDemangledName(Name.str());
   return DemangledName.find("vtable for ") == 0;
 }
 
