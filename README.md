@@ -23,8 +23,8 @@ You can build *UTopia* and generate/run fuzzers inside docker container.
 Build docker image with command below.
 
 ```shell
-docker buildx build -f docker/Dockerfile-10 -t utopia . #llvm-10
-docker buildx build -f docker/Dockerfile-12 -t utopia . #llvm-12
+docker buildx build -f docker/Dockerfile -t utopia . #llvm-10
+docker buildx build --build-arg LLVM_VERSION=12 -f docker/Dockerfile-12 -t utopia . #llvm-12
 ```
 
 # Build
