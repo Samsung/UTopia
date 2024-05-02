@@ -43,7 +43,7 @@ int main(int argc, const char **argv) {
   llvm::cl::opt<bool> OptVersion(
       "version", llvm::cl::desc("Display version"), llvm::cl::ValueDisallowed,
       llvm::cl::callback([](const bool &) {
-        llvm::outs() << "version: " << FTG_VERSION << "\n";
+        llvm::outs() << "version: " << UTOPIA_VERSION << "\n";
         exit(0);
       }));
   llvm::cl::opt<std::string> BuildDBPath(

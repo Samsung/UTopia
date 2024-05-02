@@ -31,7 +31,7 @@ protected:
       if (!F)
         return false;
 
-      if (Answers.find(F->getName()) == Answers.end())
+      if (Answers.find(F->getName().str()) == Answers.end())
         return false;
     }
 
@@ -171,7 +171,7 @@ protected:
       if (!F)
         return false;
 
-      if (Answers.find(F->getName()) == Answers.end())
+      if (Answers.find(F->getName().str()) == Answers.end())
         return false;
     }
     return true;

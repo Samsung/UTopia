@@ -4,6 +4,8 @@ LABEL org.opencontainers.image.authors="joonun.jang@samsung.com"
 
 ### Install packages/tools for build
 ARG DEBIAN_FRONTEND=noninteractive
+ARG LLVM_VERSION=10
+
 ENV TZ=Etc/UTC
 RUN apt-get update \
     && apt-get install -y \
@@ -33,16 +35,16 @@ RUN wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/nul
 # Install LLVM
 RUN wget https://apt.llvm.org/llvm.sh  \
     && chmod +x ./llvm.sh \
-    && ./llvm.sh 10 \
+    && ./llvm.sh ${LLVM_VERSION} \
     && rm ./llvm.sh \
-    && apt-get install -y libclang-10-dev \
+    && apt-get install -y libclang-${LLVM_VERSION}-dev \
     && update-alternatives  \
-      --install /usr/bin/clang      clang       /usr/bin/clang-10 99 \
-      --slave   /usr/bin/clang++    clang++     /usr/bin/clang++-10 \
+      --install /usr/bin/clang      clang       /usr/bin/clang-${LLVM_VERSION} 99 \
+      --slave   /usr/bin/clang++    clang++     /usr/bin/clang++-${LLVM_VERSION} \
     && update-alternatives \
-      --install /usr/bin/llvm-config  llvm-config /usr/bin/llvm-config-10 99 \
-      --slave   /usr/bin/llvm-link    llvm-link   /usr/bin/llvm-link-10 \
-      --slave   /usr/bin/llvm-ar      llvm-ar     /usr/bin/llvm-ar-10
+      --install /usr/bin/llvm-config  llvm-config /usr/bin/llvm-config-${LLVM_VERSION} 99 \
+      --slave   /usr/bin/llvm-link    llvm-link   /usr/bin/llvm-link-${LLVM_VERSION} \
+      --slave   /usr/bin/llvm-ar      llvm-ar     /usr/bin/llvm-ar-${LLVM_VERSION}
 
 # Install Protobuf
 RUN apt-get install -y autoconf libtool \
@@ -92,4 +94,4 @@ RUN apt-get install -y liblzma-dev \
     && rm -rf libprotobuf-mutator
 
 ### Setup Compiler Hooker
-COPY --chmod=755 docker/hooks /usr/local/bin/
+COPY --chmod=755 docker/hooks/${LLVM_VERSION} /usr/local/bin/

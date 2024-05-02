@@ -16,7 +16,7 @@ int main(int argc, const char **argv) {
                         }));
   cl::opt<bool> OptVersion("version", cl::desc("Display version"),
                            cl::ValueDisallowed, cl::callback([](const bool &) {
-                             llvm::outs() << "version: " << FTG_VERSION << "\n";
+                             llvm::outs() << "version: " << UTOPIA_VERSION << "\n";
                              exit(0);
                            }));
   cl::opt<std::string> OutFilePath("out",

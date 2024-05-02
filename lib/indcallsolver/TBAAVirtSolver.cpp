@@ -79,7 +79,7 @@ bool TBAAVirtSolver::isCallableType(const FunctionType &CallerType,
 bool TBAAVirtSolver::isVirtCall(const llvm::CallBase &CB,
                                 const llvm::MDNode **TBAA,
                                 unsigned *Index) const {
-  const auto *LI = dyn_cast_or_null<LoadInst>(CB.getCalledValue());
+  const auto *LI = dyn_cast_or_null<LoadInst>(CB.getCalledOperand());
   if (!LI)
     return false;
 

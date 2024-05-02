@@ -3,6 +3,7 @@
 #include "ftg/utils/StringUtil.h"
 
 #include "clang/AST/AST.h"
+#include "clang/Basic/SourceManager.h"
 
 using namespace ftg;
 
