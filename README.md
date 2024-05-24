@@ -24,8 +24,10 @@ Build docker image with command below.
 
 ```shell
 docker buildx build -f docker/Dockerfile -t utopia . #llvm-10
-docker buildx build --build-arg LLVM_VERSION=12 -f docker/Dockerfile-12 -t utopia . #llvm-12
+docker buildx build --build-arg LLVM_VERSION=12 -f docker/Dockerfile -t utopia . #llvm-12
 ```
+
+*UTopia* is designed to work best with LLVM version 10. And, it has been confirmed to pass unit tests on LLVM version 12. So that we recommened you to use LLVM 10, but if you want you can try LLVM version 12.
 
 # Build
 
