@@ -94,4 +94,27 @@ RUN apt-get install -y liblzma-dev \
     && rm -rf libprotobuf-mutator
 
 ### Setup Compiler Hooker
-COPY --chmod=755 docker/hooks/${LLVM_VERSION} /usr/local/bin/
+RUN cat <<EOF >/usr/local/bin/clang
+if [ ! -z \$COMPILE_LOG ] && [ -d \$(dirname \$COMPILE_LOG) ]
+then
+  echo "\$(realpath .) |autofuzz_splitter| clang \$@" >> \$COMPILE_LOG
+fi
+/usr/lib/llvm-${LLVM_VERSION}/bin/clang \$@
+EOF
+
+RUN cat <<EOF >/usr/local/bin/clang++
+if [ ! -z \$COMPILE_LOG ] && [ -d \$(dirname \$COMPILE_LOG) ]
+then
+  echo "\$(realpath .) |autofuzz_splitter| clang++ \$@" >> \$COMPILE_LOG
+fi
+/usr/lib/llvm-${LLVM_VERSION}/bin/clang++ \$@
+EOF
+
+RUN cat <<EOF >/usr/local/bin/llvm-ar
+if [ ! -z \$COMPILE_LOG ] && [ -d \$(dirname \$COMPILE_LOG) ]
+then
+  echo "\$(realpath .) |autofuzz_splitter| llvm-ar \$@" >> \$COMPILE_LOG
+fi
+/usr/lib/llvm-${LLVM_VERSION}/bin/llvm-ar \$@
+EOF
+RUN chmod +x /usr/local/bin/clang /usr/local/bin/clang++ /usr/local/bin/llvm-ar
