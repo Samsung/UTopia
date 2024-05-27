@@ -87,6 +87,7 @@ RUN apt-get install -y liblzma-dev \
       -DCMAKE_C_COMPILER=clang \
       -DCMAKE_CXX_COMPILER=clang++ \
       -DCMAKE_BUILD_TYPE=Debug \
+      -DLIB_PROTO_MUTATOR_TESTING=0 \
       -S . \
     && cmake --build build \
     && cmake --install build \
