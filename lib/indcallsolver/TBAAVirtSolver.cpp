@@ -1,5 +1,6 @@
 #include "ftg/indcallsolver/TBAAVirtSolver.h"
 #include "ftg/utils/StringUtil.h"
+#include <llvm/IR/Constants.h>
 #include <llvm/IR/Instructions.h>
 
 using namespace ftg;

@@ -1,4 +1,5 @@
 #include "ftg/indcallsolver/GlobalInitializerSolver.h"
+#include <llvm/IR/Constants.h>
 #include <llvm/IR/Instructions.h>
 #include <llvm/Support/raw_ostream.h>
 
