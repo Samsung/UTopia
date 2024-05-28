@@ -42,8 +42,9 @@ ArrayType *ArgFlowAnalyzer::getAsArrayType(Value &V) const {
   if (!T)
     return nullptr;
 
-  while (T->isPointerTy())
-    T = dyn_cast<PointerType>(T)->getElementType();
+  while (T->isPointerTy() && T->getNumContainedTypes() > 0) {
+    T = T->getContainedType(0);
+  }
 
   if (T->isArrayTy())
     return dyn_cast<llvm::ArrayType>(T);
@@ -56,9 +57,9 @@ StructType *ArgFlowAnalyzer::getAsStructType(Value &V) const {
   if (!T)
     return nullptr;
 
-  while (T->isPointerTy() || T->isArrayTy()) {
-    if (isa<PointerType>(T))
-      T = T->getPointerElementType();
+  while ((T->isPointerTy() && T->getNumContainedTypes() > 0) || T->isArrayTy()) {
+    if (isa<PointerType>(T)) 
+        T = T->getContainedType(0);
     else
       T = T->getArrayElementType();
   }
