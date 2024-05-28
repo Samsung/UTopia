@@ -29,7 +29,6 @@ private:
       return GV < Other.GV || (GV == Other.GV && GVOffset < Other.GVOffset);
     }
   };
-  const llvm::Function *TestTypeFunc = nullptr;
   std::map<const llvm::Metadata *, std::set<TypeMetaInfo>> TypeIDMap;
   std::map<const llvm::Value *, std::set<const llvm::Function *>> Map;
 };
