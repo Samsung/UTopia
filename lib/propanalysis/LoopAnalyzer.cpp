@@ -210,8 +210,9 @@ bool LoopAnalyzer::updateArgFlow(Argument &A) {
 void LoopAnalyzer::updateFieldFlow(ArgFlow &AF, std::vector<int> Indices) {
   auto &A = AF.getLLVMArg();
   auto *T = A.getType();
-  while (isa<llvm::PointerType>(T))
-    T = T->getPointerElementType();
+  while (isa<llvm::PointerType>(T) && T->getNumContainedTypes() > 0) {
+    T = T->getContainedType(0);
+  }
 
   auto *ST = dyn_cast_or_null<llvm::StructType>(T);
   if (!ST)

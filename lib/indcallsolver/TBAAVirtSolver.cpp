@@ -16,10 +16,10 @@ std::set<const Function *> TBAAVirtSolver::solve(const CallBase &CB) const {
   assert(CO && "Unexpected LLVM API Behavior");
 
   const auto *T = CO->getType();
-  if (!T)
+  if (!T || T->getNumContainedTypes() < 1)
     return {};
 
-  const auto *CT = dyn_cast_or_null<FunctionType>(T->getPointerElementType());
+  const auto *CT = dyn_cast_or_null<FunctionType>(T->getContainedType(0));
   if (!CT)
     return {};
 

@@ -61,10 +61,9 @@ llvm::StringRef getTypeStr(llvm::Type *Ty) {
   {
     return "vector";
   }
-  case llvm::Type::PointerTyID: {
-    llvm::PointerType *PTy = llvm::cast<llvm::PointerType>(Ty);
-    return getTypeStr(PTy->getElementType());
-  }
+  case llvm::Type::PointerTyID:
+    if (Ty->getNumContainedTypes() > 0)
+      return getTypeStr(Ty->getContainedType(0));
   default:
     return "";
   }

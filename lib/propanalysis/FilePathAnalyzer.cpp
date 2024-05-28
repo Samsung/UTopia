@@ -166,8 +166,9 @@ bool FilePathAnalyzer::updateArgFlow(Argument &A) {
 void FilePathAnalyzer::updateFieldFlow(ArgFlow &AF, std::vector<int> Indices) {
   auto &A = AF.getLLVMArg();
   auto *T = A.getType();
-  while (isa<PointerType>(T))
-    T = T->getPointerElementType();
+  while (isa<PointerType>(T) && T->getNumContainedTypes() > 0) {
+    T = T->getContainedType(0);
+  }
 
   auto *ST = dyn_cast_or_null<StructType>(T);
   if (!ST)
