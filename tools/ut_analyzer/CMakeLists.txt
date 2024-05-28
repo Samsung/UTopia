@@ -42,6 +42,7 @@ target_link_libraries(ut_analyzer
   clangRewrite
   clangToolingCore
   clangTooling
+  clang-cpp
   ${REQ_LLVM_LIBRARIES}
   -Wl,--end-group
 )
