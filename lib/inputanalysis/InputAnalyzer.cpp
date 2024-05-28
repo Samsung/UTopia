@@ -3,7 +3,7 @@
 namespace ftg {
 
 std::unique_ptr<AnalyzerReport> InputAnalyzer::getReport() {
-  return move(Report);
+  return std::move(Report);
 }
 
 InputAnalysisReport &InputAnalyzer::get() const {
