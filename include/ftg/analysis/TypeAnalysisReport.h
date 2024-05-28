@@ -12,7 +12,7 @@ public:
   void addEnum(const clang::EnumDecl &D);
   bool fromJson(Json::Value Report) override;
   const std::map<std::string, std::shared_ptr<Enum>> &getEnums() const;
-  const std::string getReportType() const;
+  const std::string getReportType() const override;
   Json::Value toJson() const override;
   TypeAnalysisReport &operator+=(const TypeAnalysisReport &Report);
 
