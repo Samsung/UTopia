@@ -2,6 +2,7 @@
 #include "ftg/utils/StringUtil.h"
 #include <llvm/IR/Constants.h>
 #include <llvm/IR/GlobalVariable.h>
+#include <llvm/IR/GetElementPtrTypeIterator.h>
 #include <llvm/IR/Instructions.h>
 
 using namespace ftg;
@@ -11,6 +12,30 @@ static inline bool isVirtTable(const GlobalVariable &GV) {
   auto Name = GV.getName();
   auto DemangledName = util::getDemangledName(Name.str());
   return DemangledName.find("vtable for ") == 0;
+}
+
+static bool isGEPWithNoNotionalOverIndexing(const ConstantExpr* CE) {
+  if (CE->getOpcode() != Instruction::GetElementPtr) return false;
+
+  gep_type_iterator GEPI = gep_type_begin(CE), E = gep_type_end(CE);
+  User::const_op_iterator OI = std::next(CE->op_begin());
+
+  // Skip the first index, as it has no static limit.
+  ++GEPI;
+  ++OI;
+
+  // The remaining indices must be compile-time known integers within the
+  // bounds of the corresponding notional static array types.
+  for (; GEPI != E; ++GEPI, ++OI) {
+    ConstantInt *CI = dyn_cast<ConstantInt>(*OI);
+    if (!CI) return false;
+    if (ArrayType *ATy = dyn_cast<ArrayType>(GEPI.getIndexedType()))
+      if (CI->getValue().getActiveBits() > 64 ||
+          CI->getZExtValue() >= ATy->getNumElements())
+        return false;
+  }
+  // All the indices checked out.
+  return true;
 }
 
 TBAAVirtSolverHandler::TBAAVirtSolverHandler(TBAAVirtSolverHandler &&Handler)
@@ -39,7 +64,7 @@ void TBAAVirtSolverHandler::handle(const llvm::Instruction &I) {
 
   const auto *CE =
       dyn_cast_or_null<ConstantExpr>(ValuePtr->stripPointerCasts());
-  if (!CE || !CE->isGEPWithNoNotionalOverIndexing())
+  if (!CE || !isGEPWithNoNotionalOverIndexing(CE))
     return;
 
   const auto *VirtTableGV = dyn_cast_or_null<GlobalVariable>(CE->getOperand(0));
