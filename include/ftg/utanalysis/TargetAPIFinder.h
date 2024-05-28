@@ -5,6 +5,7 @@
 #include "llvm/IR/InstrTypes.h"
 #include <queue>
 #include <set>
+#include <map>
 
 namespace ftg {
 
