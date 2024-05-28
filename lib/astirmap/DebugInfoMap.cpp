@@ -89,7 +89,7 @@ bool DebugInfoMap::hasDiffNumArgs(const llvm::CallBase &CB) const {
   } catch (std::invalid_argument &E) {
     throw std::runtime_error("CallNode has non CallExpr Node");
   }
-  auto IRArgNum = CB.getNumArgOperands() - getDiffNumArgs(CB);
+  auto IRArgNum = CB.arg_size() - getDiffNumArgs(CB);
   return ASTArgNum != IRArgNum;
 }
 

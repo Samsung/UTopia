@@ -38,7 +38,7 @@ LocIndex LocIndex::of(const llvm::AllocaInst &AI) {
       if (!CF || !CF->isIntrinsic() || CF->getName() != "llvm.dbg.declare")
         continue;
 
-      assert(CB->getNumArgOperands() > 0 && "Unexpected Program State");
+      assert(CB->arg_size() > 0 && "Unexpected Program State");
 
       const auto *M1 =
           llvm::dyn_cast_or_null<llvm::MetadataAsValue>(CB->getArgOperand(0));
