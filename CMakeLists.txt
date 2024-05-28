@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.5)
 project(
   UTopia
   VERSION 0.2.0
-  LANGUAGES CXX
+  LANGUAGES C CXX
 )
 
 add_compile_definitions(UTOPIA_VERSION="${CMAKE_PROJECT_VERSION}")

@@ -133,6 +133,7 @@ target_link_libraries(tests
   clangRewrite
   clangToolingCore
   clangTooling
+  clang-cpp
   ${REQ_LLVM_LIBRARIES}
   pthread
   -Wl,--end-group
