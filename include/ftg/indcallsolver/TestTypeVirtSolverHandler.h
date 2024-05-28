@@ -3,6 +3,7 @@
 
 #include "ftg/indcallsolver/LLVMWalkHandler.h"
 #include <set>
+#include <map>
 
 namespace ftg {
 

@@ -5,6 +5,7 @@
 #include "llvm/IR/Argument.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/InstrTypes.h"
+#include <map>
 
 namespace ftg {
 
