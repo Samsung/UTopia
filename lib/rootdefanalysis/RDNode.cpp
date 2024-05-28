@@ -17,7 +17,7 @@ RDNode::RDNode(int Idx, Instruction &I, const RDNode *Before)
 
   unsigned MaxIdx = 0;
   if (auto *CB = dyn_cast_or_null<CallBase>(&I))
-    MaxIdx = CB->getNumArgOperands();
+    MaxIdx = CB->arg_size();
   else
     MaxIdx = I.getNumOperands();
 
@@ -280,7 +280,7 @@ int RDNode::getIdx(const RDTarget &T, Instruction &I) const {
 
   unsigned MaxIdx = 0;
   if (auto *CB = dyn_cast<llvm::CallBase>(&I))
-    MaxIdx = CB->getNumArgOperands();
+    MaxIdx = CB->arg_size();
   else
     MaxIdx = I.getNumOperands();
 

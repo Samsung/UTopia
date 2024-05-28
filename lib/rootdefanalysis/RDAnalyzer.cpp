@@ -80,7 +80,7 @@ std::set<RDNode> RDAnalyzer::findRootDefinitions(Use &U) {
     }
 
     std::set<RDNode> Result;
-    for (size_t S = 0, E = CB->getNumArgOperands(); S < E; ++S) {
+    for (size_t S = 0, E = CB->arg_size(); S < E; ++S) {
       if (OutParamIndices.find(S) != OutParamIndices.end())
         continue;
 
@@ -629,7 +629,7 @@ std::set<RDNode> RDAnalyzer::handleExternalCall(RDNode &Node, CallBase &CB) {
     const auto &Target = Node.getTarget();
     bool SetFirstUse = false;
     std::vector<size_t> MatchedParamIndices;
-    for (size_t S = 0, E = CB.getNumArgOperands(); S < E; ++S) {
+    for (size_t S = 0, E = CB.arg_size(); S < E; ++S) {
       auto *Arg = CB.getArgOperand(S);
       assert(Arg && "Unexpected Program State");
 
@@ -658,7 +658,7 @@ std::set<RDNode> RDAnalyzer::handleExternalCall(RDNode &Node, CallBase &CB) {
 
     // 1-1-4. Getting tracing result of other arguments and use their results
     // as the result of out parameters.
-    for (size_t S = 0, E = CB.getNumArgOperands(); S < E; ++S) {
+    for (size_t S = 0, E = CB.arg_size(); S < E; ++S) {
       if (OutParamIndices.find(S) != OutParamIndices.end())
         continue;
 
@@ -699,7 +699,7 @@ std::set<RDNode> RDAnalyzer::handleExternalCall(RDNode &Node, CallBase &CB) {
     // 1-2-1. Collect parameters whose direction is output.
     auto OutParamIndices = getOutParamIndices(CB);
 
-    for (size_t S = 0, E = CB.getNumArgOperands(); S < E; ++S) {
+    for (size_t S = 0, E = CB.arg_size(); S < E; ++S) {
       // 1-2-2-1. Insert Output Parameter.
       if (OutParamIndices.find(S) != OutParamIndices.end())
         continue;
@@ -804,7 +804,7 @@ std::set<size_t> RDAnalyzer::getOutParamIndices(CallBase &CB) const {
   }
 
   // 3. Collect parameter indices whose direction is output.
-  for (auto E = CB.getNumArgOperands(); S < E; ++S) {
+  for (auto E = CB.arg_size(); S < E; ++S) {
     if (isOutParam(CB, S))
       Result.insert(S);
   }
@@ -819,7 +819,7 @@ std::set<unsigned> RDAnalyzer::getNonOutParamIndices(const CallBase &CB) const {
   if (isNonStaticMethodInvocation(CB))
     StartIndex += 1;
 
-  unsigned EndIndex = CB.getNumArgOperands();
+  unsigned EndIndex = CB.arg_size();
 
   std::set<unsigned> NonOutParamIndices;
 
@@ -841,7 +841,7 @@ bool RDAnalyzer::isForcedDef(RDNode &Node) const {
   auto Idx = Node.getIdx();
   if (Idx < 0)
     return false;
-  assert((size_t)Idx < CB->getNumArgOperands() && "Unexpected Program State");
+  assert((size_t)Idx < CB->arg_size() && "Unexpected Program State");
 
   return Extension.isTermination(*CB, Idx);
 }
@@ -858,7 +858,7 @@ bool RDAnalyzer::terminates(RDNode &Node) const {
   auto Idx = Node.getIdx();
   if (Idx < 0)
     return false;
-  assert((size_t)Idx < CB->getNumArgOperands() && "Unexpected Program State");
+  assert((size_t)Idx < CB->arg_size() && "Unexpected Program State");
 
   return Extension.isTermination(*CB, Idx);
 }

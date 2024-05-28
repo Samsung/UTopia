@@ -127,14 +127,14 @@ void FilePathAnalyzer::handleUser(StackFrame &Frame, Value &User,
       auto Regex =
           util::regex(Name, "std::.*::basic_string.*::basic_string\\(char "
                             "const\\*, std::allocator<char> const&\\)");
-      if (Regex == Name && CB->getNumArgOperands() == 3 &&
+      if (Regex == Name && CB->arg_size() == 3 &&
           CB->getArgOperand(1) == Def) {
         DefUseChains.emplace(CB->getArgOperand(0), DefFlow);
         continue;
       }
 
       Regex = util::regex(Name, "std::.*::basic_string.*::c_str const");
-      if (Regex == Name && CB->getNumArgOperands() == 1) {
+      if (Regex == Name && CB->arg_size() == 1) {
         const auto *Arg0 = CB->getArgOperand(0);
         assert(Def && "Unexpected Program State");
         assert(Arg0 && "Unexpected LLVM API Behavior");
