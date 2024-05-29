@@ -9,16 +9,17 @@ using namespace ftg;
 
 int main(int argc, const char **argv) {
   cl::ResetCommandLineParser();
-  cl::opt<bool> OptHelp("help", cl::desc("Display available options"),
-                        cl::ValueDisallowed, cl::callback([](const bool &) {
-                          cl::PrintHelpMessage();
-                          exit(0);
-                        }));
-  cl::opt<bool> OptVersion("version", cl::desc("Display version"),
-                           cl::ValueDisallowed, cl::callback([](const bool &) {
-                             llvm::outs() << "version: " << UTOPIA_VERSION << "\n";
-                             exit(0);
-                           }));
+  // FIXME: Workaround to avoid llvm inconsistency error
+  // cl::opt<bool> OptHelp("help", cl::desc("Display available options"),
+  //                       cl::ValueDisallowed, cl::callback([](const bool &) {
+  //                         cl::PrintHelpMessage();
+  //                         exit(0);
+  //                       }));
+  // cl::opt<bool> OptVersion("version", cl::desc("Display version"),
+  //                          cl::ValueDisallowed, cl::callback([](const bool &) {
+  //                            llvm::outs() << "version: " << UTOPIA_VERSION << "\n";
+  //                            exit(0);
+  //                          }));
   cl::opt<std::string> OutFilePath("out",
                                    cl::desc("<Required> Output filepath"),
                                    cl::value_desc("filepath"), cl::Required);
