@@ -10,6 +10,8 @@ namespace ftg {
 
 RDSpace::RDSpace() {
   PassBuilder PB;
+  FAM.registerPass([&] { return MemorySSAAnalysis(); });
+  FAM.registerPass([&] { return AAManager(); });
   PB.registerFunctionAnalyses(FAM);
 }
 
@@ -206,7 +208,7 @@ void RDSpace::build(Function &F) {
     }
 
   // 2. Build Space about Memory->Memory relationship(Pointers)
-  auto &AA = FAM.getResult<CFLAndersAA>(F);
+  AAResults &AA = FAM.getResult<AAManager>(F);
   for (size_t S1 = 0, E1 = MemInsts.size(); S1 < E1; ++S1) {
     assert(MemInsts[S1] && "Unexpected Program State");
 
@@ -218,8 +220,7 @@ void RDSpace::build(Function &F) {
         continue;
 
       MemoryLocation MLoc2 = MemoryLocation::get(MemInsts[S2]);
-      AAQueryInfo Info;
-      if (AA.alias(MLoc1, MLoc2, Info) == AliasResult::MustAlias) {
+      if (AA.alias(MLoc1, MLoc2) == AliasResult::MustAlias) {
         updateMap(AliasMap, MemInsts[S1], MemInsts[S2]);
         updateMap(AliasMap, MemInsts[S2], MemInsts[S1]);
       }
