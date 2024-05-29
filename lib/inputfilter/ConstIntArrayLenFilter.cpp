@@ -31,7 +31,11 @@ bool ConstIntArrayLenFilter::check(const ASTIRNode &Node) const {
   if (!Init || !Init->EvaluateAsInt(Eval, Ctx) || VarName.empty())
     return false;
 
-  auto Value = Eval.Val.getInt().getExtValue();
+  auto IntValue = Eval.Val.getInt();
+  if (!IntValue.isRepresentableByInt64())
+    return false;
+
+  auto Value = IntValue.getExtValue();
   if (Value < 0)
     return false;
 
