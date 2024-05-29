@@ -6,7 +6,8 @@ namespace ftg {
 
 std::string CorpusGenerator::generate(const Fuzzer &F) const {
   std::string Result;
-  for (const auto &[ID, Input] : F.getFuzzInputMap()) {
+  for (const auto &Item : F.getFuzzInputMap()) {
+    const auto &Input = Item.second;
     assert(Input && "Unexpected Program State");
     if (Input->getCopyFrom())
       continue;
