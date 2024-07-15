@@ -1,20 +1,18 @@
 import copy
+import json
 import os
-import shutil
 import logging
 import subprocess
+from functools import reduce
 from pathlib import Path
-from typing import List, Set
+from typing import Dict, List, Set
 
 from helper.buildparser import BuildParser, CMD
-from helper.driverparser import DriverParser
 from helper.git import Git
 
 
 class FuzzerBuilder:
-    def __init__(
-        self, name: str, prj_path: Path, src_path: Path, build_path: Path
-    ):
+    def __init__(self, name: str, prj_path: Path, src_path: Path, build_path: Path):
 
         self.name = name
         self.prj_path = prj_path
@@ -32,9 +30,9 @@ class FuzzerBuilder:
             self.link_cmds,
             self.assem_cmds,
         ) = self.bp.parse()
+        print(f"B1: {self.bp.output_dir}/{self.name}")
         self.link_cmds = {
-            link_cmd.output(False): link_cmd
-            for link_cmd in self.link_cmds.values()
+            link_cmd.output(False): link_cmd for link_cmd in self.link_cmds.values()
         }
 
     def build(
@@ -42,18 +40,21 @@ class FuzzerBuilder:
         link_name: str,
         src_path: Path,
         extra_src_path: Set[Path],
+        lib_dir_path: str,
         libs: List[str],
         profile: bool,
+        output_path: str,
     ):
         for extra_src in extra_src_path:
             self.compile(self.get_compile_cmd_by_src(extra_src), profile)
         src_cmd = self.get_compile_cmd_by_src(src_path)
         autofuzz_cmds = self.get_compile_cmds_for_autofuzz(src_cmd)
         autofuzz_objs = [
-            self.compile(autofuzz_cmd, profile)
-            for autofuzz_cmd in autofuzz_cmds
+            self.compile(autofuzz_cmd, profile) for autofuzz_cmd in autofuzz_cmds
         ]
-        link_cmd = self.get_link_cmd(link_name, autofuzz_objs, libs, profile)
+        link_cmd = self.get_link_cmd(
+            link_name, autofuzz_objs, lib_dir_path, libs, profile, output_path
+        )
         logging.info(f"Link ({link_cmd.output()})")
         self.execute(link_cmd)
         assert os.path.exists(link_cmd.output())
@@ -132,9 +133,7 @@ class FuzzerBuilder:
             for src in avas_sources
         ]
 
-    def make_autofuzz_src_cmd(
-        self, src: Path, output_dir: Path, base_cmd: CMD
-    ) -> CMD:
+    def make_autofuzz_src_cmd(self, src: Path, output_dir: Path, base_cmd: CMD) -> CMD:
         sources = base_cmd.sources(False)
 
         cmd = base_cmd.cmd
@@ -158,7 +157,13 @@ class FuzzerBuilder:
         return CMD(cmd, base_cmd.path)
 
     def get_link_cmd(
-        self, name: str, extra_objs: List[Path], libs: List[str], profile: bool
+        self,
+        name: str,
+        extra_objs: List[Path],
+        lib_dir_path: str,
+        libs: List[str],
+        profile: bool,
+        output_path: str,
     ) -> CMD:
 
         cmd_protobuf = (
@@ -172,27 +177,17 @@ class FuzzerBuilder:
         assert name in self.link_cmds
         link_cmd = copy.copy(self.link_cmds[name])
 
-        output_dir = self.bp.output_dir
         cmd = link_cmd.cmd
         cmd += " " + " ".join(str(obj) for obj in extra_objs)
 
-        if profile:
-            pf = "profile"
-            output_dir = output_dir / "profiles"
-        else:
-            pf = "fuzzer"
-            output_dir = output_dir / "fuzzers"
-
-        output_dir.mkdir(parents=True, exist_ok=True)
-
-        cmd = cmd.replace(
-            f" {link_cmd.output(False)} ", f" {output_dir / self.name} "
-        )
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        cmd = cmd.replace(f" {link_cmd.output(False)} ", f" {output_path} ")
 
         for lib in libs:
-            cmd = self.replace_link_lib(
-                cmd, lib, f"-L{self.bp.output_dir} -l:{lib}_{pf}.a"
-            )
+            # print(f"A0: {lib}")
+            # print(f"A1: -L{self.bp.output_dir}")
+            # print(f"A2: -l:{lib}_{pf}.a")
+            cmd = self.replace_link_lib(cmd, lib, f"-L{lib_dir_path} -l:{lib}.a")
 
         cmd = self.erase_link_lib(cmd)
         cmd += f" {cmd_protobuf} {cmd_fuzzer}"
@@ -202,9 +197,7 @@ class FuzzerBuilder:
         # Heuristics 1: Do not include gtest-main object in link command.
         gtest_mains = ["gtest_main.cc.o", "gtest_main.o"]
         tokens = cmd.split(" ")
-        tokens = [
-            token for token in tokens if Path(token).name not in gtest_mains
-        ]
+        tokens = [token for token in tokens if Path(token).name not in gtest_mains]
 
         return CMD(" ".join(tokens), link_cmd.path)
 
@@ -244,27 +237,6 @@ class FuzzerBuilder:
         return " ".join(tokens)
 
 
-def prepare_git(git: Git, name: str, dst: Path, src: Path):
-    # Remove all srcs and copy generated srcs from fuzz_generator
-    logging.info(f"Prepare git [{name}]")
-
-    git.checkout(git.branch)
-    try:
-        git.delete_branch(name)
-    except RuntimeError:
-        pass
-    git.checkout(name, True)
-
-    dst = dst.resolve()
-    shutil.rmtree(dst, ignore_errors=True)
-    shutil.copytree(src, dst)
-
-    git.add(dst)
-    git.commit("Fuzzer")
-
-    git.checkout(git.branch)
-
-
 def get_changeables(git: Git, name: str):
     logging.info(f"Get Changeables [{name}]")
 
@@ -281,11 +253,13 @@ def build_fuzzer(
     git: Git,
     base: Path,
     name: str,
+    lib_dir_path: str,
     libs: List[str],
     ut_link_name: str,
     ut_src: Path,
     changeables: Set[Path],
     build_dir: Path,
+    output_dir: str,
 ):
     builder = FuzzerBuilder(
         name, git.root_dir, git.root_dir / base, git.root_dir / build_dir
@@ -296,51 +270,61 @@ def build_fuzzer(
         ut_link_name,
         git.root_dir / base / ut_src,
         changeables,
+        os.path.join(lib_dir_path, "fuzzer"),
         libs,
         False,
+        os.path.join(output_dir, "fuzzer"),
     )
     builder.build(
         ut_link_name,
         git.root_dir / base / ut_src,
         changeables,
+        os.path.join(lib_dir_path, "profile"),
         libs,
         True,
+        os.path.join(output_dir, "profile"),
     )
     git.checkout(git.branch)
 
 
 def build_driver(
-    generated_dir: Path,
     git_dir: Path,
     base_dir: Path,
     ut_link_name: str,
     build_dir: Path,
+    lib_dir_path: str,
     libs: List[str],
+    fuzz_generator_report_path: str,
+    output_dir: str,
 ):
+    def get_driver_info(
+        fuzz_generator_report_path: str, branches: Set[str]
+    ) -> Dict[str, str]:
+        with open(fuzz_generator_report_path) as f:
+            res: Dict[str, str] = {
+                ut["Name"]: Path(ut["FuzzTestSrc"]) for ut in json.load(f)["UT"]
+            }
+            return dict(filter(lambda x: x[0] in branches, res.items()))
+
     logging.info(f"UT: {ut_link_name}")
-
-    dp = DriverParser(generated_dir)
-    drivers = dp.parse()
-
     git = Git(git_dir)
-
-    # changeables: fuzzer changed files
-    changeables = set()
-    for driver in drivers:
-        logging.info(f"Build {driver}")
-        prepare_git(git, driver.name, git_dir / base_dir, driver.path)
-        changeables = changeables | get_changeables(git, driver.name)
-
-    logging.info(f"changed filed: {changeables}")
-    for driver in drivers:
+    branches = git.branches("_Test")
+    driver_info: dict[str, str] = get_driver_info(fuzz_generator_report_path, branches)
+    changeables = reduce(
+        lambda y, x: y | get_changeables(git, x), driver_info.keys(), set()
+    )
+    for key, value in driver_info.items():
+        logging.info(f"Building Fuzzer [{key}]")
         build_fuzzer(
             git,
             base_dir,
-            driver.name,
+            key,
+            lib_dir_path,
             libs,
             ut_link_name,
-            driver.source,
+            value,
             changeables,
             build_dir,
+            os.path.join(output_dir, key),
         )
-    logging.info(f"Built Fuzzers: {len(drivers)}")
+        break

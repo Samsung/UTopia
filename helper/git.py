@@ -1,6 +1,6 @@
 import logging
 import subprocess
-from typing import Tuple, List
+from typing import List, Set, Tuple
 from pathlib import Path
 
 
@@ -16,6 +16,19 @@ class Git:
         adds, mods = self.diff()
         if adds or mods:
             raise RuntimeError("Modified files found [" + self.branch + "]")
+
+    def branches(self, suffix: str) -> Set[str]:
+        cmd = ["git", "branch", "-a"]
+        stdout: str = self.execute(cmd)
+        branches: set[str] = set()
+        for line in stdout.split("\n"):
+            line: str = line.strip()
+            if line.startswith("remotes/"):
+                continue
+            if not line.endswith(suffix):
+                continue
+            branches.add(line)
+        return branches
 
     def checkout(self, branch: str, create: bool = False):
         cmd = ["git", "checkout", branch]

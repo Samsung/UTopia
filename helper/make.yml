@@ -647,6 +647,8 @@ targets:
         - sed -i 's/${GFLAGS_LIBRARIES}/${GFLAGS_LIBRARIES} gtest pthread/g' snappy/src/CMakeLists.txt
         - mv snappy/src/.git snappy
         - cd snappy && git rm `git status | grep deleted | awk '{print $2}'` && git add src && git commit -m "Base"
+    libs:
+      - build/libsnappy.a
     compile:
       org:
         - rm -rf build && mkdir -p build

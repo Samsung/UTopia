@@ -3,11 +3,15 @@ import subprocess
 import argparse
 from pathlib import Path
 from typing import List, Set
+from helper.common.setting import Setting
 import collections.abc
 
 from helper import EXP_PATH
+from helper.common import util
 
 import yaml
+import os
+import shutil
 
 
 def check_key(key, src):
@@ -17,20 +21,25 @@ def check_key(key, src):
 
 class Target:
     def __init__(
-        self, name: str, download_cmds: List[str], compile_cmds: dict
+        self, name: str, download_cmds: List[str], compile_cmds: dict, libs: List[str]
     ):
         self.name = name
         self.download_cmds = download_cmds
         self.compile_cmds = compile_cmds
+        self.libs = libs
 
     @staticmethod
     def from_dict(name: str, d: dict) -> "Target":
         if "compile" not in d or d.get("repo", {}).get("cmd") is None:
             raise Exception("Invalid target dict")
+
+        libs = d["libs"] if "libs" in d else []
+        libs = list(map(lambda x: os.path.join(EXP_PATH, name, x), libs))
         return Target(
             name=name,
             download_cmds=d["repo"]["cmd"],
             compile_cmds=d["compile"],
+            libs=libs,
         )
 
 
@@ -46,8 +55,7 @@ class Make:
                 raise Exception("Invalid config file")
             self.__keywords()
         self.targets = {
-            k: Target.from_dict(k, v)
-            for k, v in self.config["targets"].items()
+            k: Target.from_dict(k, v) for k, v in self.config["targets"].items()
         }
         self.__exp_dir.mkdir(exist_ok=True)
 
@@ -93,7 +101,9 @@ class Make:
         dirname = target.name
 
         if (self.__exp_dir / dirname).exists():
-            logging.warning(f"Skip download : Directory exist ({self.__exp_dir / dirname})")
+            logging.warning(
+                f"Skip download : Directory exist ({self.__exp_dir / dirname})"
+            )
             return
 
         for cmd in target.download_cmds:
@@ -105,21 +115,31 @@ class Make:
                 check=True,
             )
 
-    def build(self, name: str):
+    def build(self, name: str, output_dir: str):
         check_key(name, self.targets)
         target = self.targets[name]
 
         target_dir = self.__exp_dir / target.name
         (target_dir / "output").mkdir(exist_ok=True)
         build_order = ["org", "profile", "fuzzer"]
+
+        output_dir: str = os.path.join(output_dir, "libs")
+
         for build_type in build_order:
             logging.info(f"Build ({build_type})")
             for cmd in target.compile_cmds[build_type]:
                 resolved_cmd = self.resolve_keyword(cmd)
                 logging.debug(f"Exec: {resolved_cmd}")
-                subprocess.run(
-                    resolved_cmd, shell=True, cwd=target_dir, check=True
-                )
+                subprocess.run(resolved_cmd, shell=True, cwd=target_dir, check=True)
+
+            # NOTE: So far, we `copy` built libraries into output directory instead of `moving`
+            # not to cause unknown side effect. However, it must be `move` since to minimize
+            # the total output volume.
+            for lib in target.libs:
+                dst: str = os.path.join(output_dir, build_type, os.path.basename(lib))
+                os.makedirs(os.path.dirname(dst))
+                shutil.copy(lib, dst)
+                logging.info(f"Library {lib} is copied into {dst}")
 
     def __keywords(self):
         self.keywords = self.config.get("keywords")
@@ -139,9 +159,7 @@ class Make:
             if src[i:].startswith(self.__keyword_end_indicator):
                 if len(stack) == 0:
                     return set()
-                keywords.add(
-                    src[stack[-1] : i + len(self.__keyword_end_indicator)]
-                )
+                keywords.add(src[stack[-1] : i + len(self.__keyword_end_indicator)])
                 del stack[-1]
 
         return keywords
@@ -151,27 +169,54 @@ class Make:
         return chunk.replace(self.__keyword_end_indicator, "")
 
 
+def clean_previous_result(output_dir: str) -> None:
+    if os.path.exists(output_dir):
+        if not os.path.isdir(output_dir):
+            raise RuntimeError(
+                f"There is a file whose name is same as the output directory [{output_dir}]"
+            )
+        logging.info(f"Delete existing directory [{output_dir}]")
+        shutil.rmtree(output_dir)
+    logging.info(f"Create output directory [{output_dir}]")
+    os.makedirs(output_dir)
+
+
 def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--config",
-        default=Path(__file__).absolute().parent / "make.yml",
-        type=Path,
-    )
-    parser.add_argument("target", type=str)
-    parser.add_argument("--debug", action="store_true")
-    args = parser.parse_args()
+    try:
+        parser = argparse.ArgumentParser()
+        parser.add_argument(
+            "--config",
+            default=Path(__file__).absolute().parent / "make.yml",
+            type=Path,
+        )
+        parser.add_argument("target", type=str)
+        parser.add_argument("--debug", action="store_true")
+        parser.add_argument(
+            "--output_dir", type=str, default="output", help="Output Directory"
+        )
+        args = parser.parse_args()
 
-    logging.basicConfig(
-        format="%(asctime)s | %(levelname)s | %(module)s | %(message)s"
-        if args.debug
-        else "%(message)s",
-        level=logging.DEBUG if args.debug else logging.INFO,
-    )
+        logging.basicConfig(
+            format=(
+                "%(asctime)s | %(levelname)s | %(module)s | %(message)s"
+                if args.debug
+                else "%(message)s"
+            ),
+            level=logging.DEBUG if args.debug else logging.INFO,
+        )
 
-    make = Make(args.config)
-    make.download(args.target)
-    make.build(args.target)
+        Setting().set_output_dir(os.path.join(args.output_dir, args.target))
+        if util.clean_directory(Setting().output_lib_dir) == False:
+            raise RuntimeError(
+                f"Failed to clean directory [{Setting().output_lib_dir}]"
+            )
+        logging.info(str(Setting()))
+
+        make = Make(args.config)
+        make.download(args.target)
+        make.build(args.target, Setting().output_dir)
+    except RuntimeError as e:
+        logging.error(str(e))
 
 
 if __name__ == "__main__":

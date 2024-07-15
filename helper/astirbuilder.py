@@ -2,13 +2,15 @@ import logging
 import os
 import re
 import subprocess
+import tempfile
 from pathlib import Path
 from typing import List
 
 from helper.buildparser import BuildParser, CMD
+from helper.common import util
 
 
-def emit(command: CMD, opts: str, out_prefix: str, emit_type: str) -> Path:
+def emit(command: CMD, opts: str, emit_type: str, output_dir: str) -> Path:
     emit_opt = "-emit-"
     if emit_type == "ast":
         emit_opt = emit_opt + "ast"
@@ -24,11 +26,7 @@ def emit(command: CMD, opts: str, out_prefix: str, emit_type: str) -> Path:
     if toutput.is_absolute():
         toutput = toutput.relative_to(command.path)
 
-    eoutput = (
-        Path(command.path)
-        / f"{out_prefix}_{emit_type}"
-        / f"{toutput}.{emit_type}"
-    ).absolute()
+    eoutput: Path = (Path(output_dir) / f"{toutput}.{emit_type}").absolute()
     eoutput.parent.mkdir(exist_ok=True, parents=True)
 
     cmd = (
@@ -37,31 +35,24 @@ def emit(command: CMD, opts: str, out_prefix: str, emit_type: str) -> Path:
         else cmd.replace(f" {output}", f" {eoutput}")
     )
 
-    logging.info(f"Emit {emit_type}(path: {command.path}, cmd: {cmd}")
     subprocess.run(cmd, cwd=command.path, check=True, shell=True)
 
     assert eoutput.exists()
     return eoutput
 
 
-def emit_ast(cmd: CMD, opts: str, out_prefix: str) -> Path:
-    return emit(cmd, opts, out_prefix, "ast")
+def emit_ast(cmd: CMD, opts: str, output_dir: str) -> Path:
+    return emit(cmd, opts, "ast", output_dir)
 
 
-def emit_bc(cmd: CMD, opts: str, out_prefix: str) -> Path:
-    return emit(cmd, opts, out_prefix, "bc")
+def emit_bc(cmd: CMD, opts: str, output_dir: str) -> Path:
+    return emit(cmd, opts, "bc", output_dir)
 
 
-def emit_linked_bc(
-    build_path: Path, output_dir: Path, name: str, bcs: List[Path]
-):
-    assert output_dir.is_absolute()
-
-    output_path = output_dir / "bc" / f"{name}.bc"
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-
+def emit_linked_bc(build_path: Path, output_dir: str, name: str, bcs: List[Path]):
+    output_path: str = os.path.join(output_dir, f"{name}.bc")
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
     cmd = "llvm-link " + " ".join(str(bc) for bc in bcs) + f" -o {output_path}"
-    logging.info(f"Link LLVM [{cmd}]")
     subprocess.run(cmd, shell=True, cwd=build_path, check=True)
     return output_path
 
@@ -72,7 +63,13 @@ def build_ast_ir(
     build_path: Path,
     lib_name: str,
     target_name: str,
+    ast_dir: str,
+    bc_dir: str,
+    output_path: str,
 ):
+    key = os.path.basename(lib_name)
+    logging.info(f"Create Build DB [{key}]")
+
     bp = BuildParser(path, build_path)
 
     opts = "-O0 -g"
@@ -97,15 +94,20 @@ def build_ast_ir(
         raise RuntimeError(f"Not Found Binary (Binary: {target_name})")
 
     ast_files, bcs = [], []
-    key = os.path.basename(lib_name)
-    for obj in link_cmd.objects():
-        if obj in assems:
-            continue
-        if obj not in compiles:
-            logging.warning(f"Not Found Compile Command For [{obj}]")
-            continue
-        compile_cmd = compiles[obj]
-        ast_files.append(emit_ast(compile_cmd, opts, key))
-        bcs.append(emit_bc(compile_cmd, opts, key))
-    bc = emit_linked_bc(build_path, bp.output_dir, key, bcs)
-    bp.make_build_db(key, src_path, bc, ast_files)
+    ast_dir: str = os.path.join(ast_dir, key)
+
+    if util.clean_directory(ast_dir) == False:
+        raise RuntimeError(f"Failed to delete directory [{ast_dir}]")
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        for obj in link_cmd.objects():
+            if obj in assems:
+                continue
+            if obj not in compiles:
+                logging.warning(f"Not Found Compile Command For [{obj}]")
+                continue
+            compile_cmd = compiles[obj]
+            ast_files.append(emit_ast(compile_cmd, opts, ast_dir))
+            bcs.append(emit_bc(compile_cmd, opts, temp_dir))
+        bc = emit_linked_bc(build_path, bc_dir, key, bcs)
+        bp.make_build_db(key, src_path, bc, ast_files, output_path)

@@ -1,5 +1,7 @@
 import json
+import os
 import re
+
 
 from pathlib import Path
 from typing import Tuple, Dict, List
@@ -24,9 +26,7 @@ class CMD:
             return True
 
         output = re.search(r"(-o )(.+?)( |$)", self.cmd)
-        if output is not None and re.search(
-            r"[\w._/-]+?\.l?(s)", output.group(3)
-        ):
+        if output is not None and re.search(r"[\w._/-]+?\.l?(s)", output.group(3)):
             return True
 
         tokens = [
@@ -74,9 +74,7 @@ class CMD:
     def sources(self, real: bool = True) -> List[Path]:
         tokens = self.cmd.split()
         sources = [
-            Path(token)
-            for token in tokens
-            if re.search(r"\.(c|cpp|cc)$", token)
+            Path(token) for token in tokens if re.search(r"\.(c|cpp|cc)$", token)
         ]
         if real:
             sources = [self.abspath(source) for source in sources]
@@ -127,9 +125,7 @@ class BuildParser:
             for src in cmd.sources(True):
                 srcs[src] = cmd
 
-        compiles = {
-            compile_cmd.output(real): compile_cmd for compile_cmd in compiles
-        }
+        compiles = {compile_cmd.output(real): compile_cmd for compile_cmd in compiles}
         links = {link_cmd.output(real): link_cmd for link_cmd in links}
         assems = {assem_cmd.output(real): assem_cmd for assem_cmd in assems}
 
@@ -155,6 +151,7 @@ class BuildParser:
         src_path: Path,
         bc_file_path: Path,
         ast_paths: List[Path],
+        output_path: str,
     ):
         data = {
             "bc": str(bc_file_path),
@@ -163,9 +160,10 @@ class BuildParser:
         }
 
         self.build_db_dir.mkdir(parents=True, exist_ok=True)
-        build_db_path = self.build_db_dir / f"{name}.json"
+        build_db_path: str = os.path.join(output_path, f"{name}.json")
+        os.makedirs(os.path.dirname(build_db_path), exist_ok=True)
         with open(build_db_path, "w") as f:
-            json.dump(data, f)
+            json.dump(data, f, indent=4)
 
     def normalize_command(self, cmd: str) -> str:
         cmd_pattern = re.compile(r"(ar|llvm-ar|llvm-ar-10|clang|clang\+\+) ")
