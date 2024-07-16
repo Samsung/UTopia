@@ -123,6 +123,8 @@ void DirectionAnalyzer::handleUser(StackFrame &Frame, llvm::Value &User,
       return;
 
     for (auto &Param : CF->args()) {
+      if (CB->arg_size() <= Param.getArgNo())
+        continue;
       auto *CallArg = CB->getArgOperand(Param.getArgNo());
       if (CallArg != Def)
         continue;

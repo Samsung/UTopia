@@ -277,6 +277,8 @@ void ArgFlow::mergeArray(const ArgFlow &CalleeArgFlowResult, CallBase &C) {
     // Find arguments of caller function (==current function) that
     // a size argument in the callee function depends on.
     for (auto *SizeArg : CalleeArgFlowResult.SizeArgs) {
+      if (C.arg_size() <= SizeArg->getArgNo())
+        continue;
       auto *V = C.getArgOperand(SizeArg->getArgNo());
       if (this->FDInfo) {
         collectRelatedLengthField(*V);

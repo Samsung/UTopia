@@ -108,6 +108,8 @@ void FilePathAnalyzer::handleUser(StackFrame &Frame, Value &User,
         continue;
 
       for (const auto &Param : CF->args()) {
+        if (CB->arg_size() <= Param.getArgNo())
+          continue;
         auto *CallArg = CB->getArgOperand(Param.getArgNo());
         if (CallArg != Def)
           continue;

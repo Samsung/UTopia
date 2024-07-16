@@ -120,6 +120,8 @@ void AllocSizeAnalyzer::handleUser(StackFrame &Frame, llvm::Value &User,
       if (CF == A.getParent())
         return;
       for (auto &Param : CF->args()) {
+        if(CB->arg_size() <= Param.getArgNo())
+          continue;
         auto *CallArg = CB->getArgOperand(Param.getArgNo());
         if (CallArg != Def)
           continue;
