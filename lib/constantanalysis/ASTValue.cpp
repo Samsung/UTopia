@@ -170,7 +170,7 @@ std::string ASTValue::getValueAsReal(const Expr &E,
                                      const ASTContext &Ctx) const {
 
   Expr::EvalResult Result;
-  if (!E.EvaluateAsRValue(Result, Ctx)) {
+  if (!E.isValueDependent() && !E.EvaluateAsRValue(Result, Ctx)) {
 
     auto *RE = E.IgnoreCasts();
     if (!RE || !isa<DeclRefExpr>(RE))
