@@ -15,20 +15,19 @@ std::set<std::string> getPublicAPIList(std::string PublicAPIListPath) {
 }
 
 int main(int argc, const char **argv) {
-  llvm::cl::ResetCommandLineParser();
-  // FIXME: Workaround to avoid llvm inconsistency error
-  // llvm::cl::opt<bool> OptHelp(
-  //     "help", llvm::cl::desc("Display available options"),
-  //     llvm::cl::ValueDisallowed, llvm::cl::callback([](const bool &) {
-  //       llvm::cl::PrintHelpMessage();
-  //       exit(0);
-  //     }));
-  // llvm::cl::opt<bool> OptVersion(
-  //     "version", llvm::cl::desc("Display version"), llvm::cl::ValueDisallowed,
-  //     llvm::cl::callback([](const bool &) {
-  //       llvm::outs() << "version: " << UTOPIA_VERSION << "\n";
-  //       exit(0);
-  //     }));
+  llvm::cl::getRegisteredOptions().clear();
+  llvm::cl::opt<bool> OptHelp(
+      "help", llvm::cl::desc("Display available options"),
+      llvm::cl::ValueDisallowed, llvm::cl::callback([](const bool &) {
+        llvm::cl::PrintHelpMessage();
+        exit(0);
+      }));
+  llvm::cl::opt<bool> OptVersion(
+      "version", llvm::cl::desc("Display version"), llvm::cl::ValueDisallowed,
+      llvm::cl::callback([](const bool &) {
+        llvm::outs() << "version: " << UTOPIA_VERSION << "\n";
+        exit(0);
+      }));
   llvm::cl::opt<std::string> SrcDir(
       "src",
       llvm::cl::desc(
