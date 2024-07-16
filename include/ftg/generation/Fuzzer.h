@@ -43,7 +43,7 @@ public:
 
 private:
   std::string Name;
-  const Unittest *UT;
+  const Unittest &UT;
 
   std::map<unsigned, std::shared_ptr<FuzzInput>> DefIDFuzzInputMap;
   std::map<unsigned, std::shared_ptr<FuzzNoInput>> DefIDFuzzNoInputMap;
