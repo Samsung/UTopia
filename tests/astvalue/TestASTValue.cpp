@@ -296,7 +296,11 @@ TEST_F(TestASTValue, ArrayP) {
   ASSERT_TRUE(loadC(CODE));
 
   {
+#if LLVM_VERSION_MAJOR < 17
     auto AST = getASTFromInst("test", 0, 5);
+#else
+    auto AST = getASTFromInst("test", 0, 4);
+#endif
     ASSERT_TRUE(AST.first && AST.second);
 
     std::vector<ASTValueData> Answer;
@@ -307,7 +311,11 @@ TEST_F(TestASTValue, ArrayP) {
   }
 
   {
+#if LLVM_VERSION_MAJOR < 17
     auto AST = getASTFromInst("test", 0, 8);
+#else
+    auto AST = getASTFromInst("test", 0, 6);
+#endif
     ASSERT_TRUE(AST.first && AST.second);
 
     std::vector<ASTValueData> Answer;
@@ -318,7 +326,11 @@ TEST_F(TestASTValue, ArrayP) {
   }
 
   {
+#if LLVM_VERSION_MAJOR < 17
     auto AST = getASTFromInst("test", 0, 11);
+#else
+    auto AST = getASTFromInst("test", 0, 8);
+#endif
     ASSERT_TRUE(AST.first && AST.second);
 
     std::vector<ASTValueData> Answer;

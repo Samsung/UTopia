@@ -141,7 +141,11 @@ TEST_F(TestDebugInfoMap, getDef_ArgumentP) {
   ASSERT_TRUE(ADN);
   ASSERT_TRUE(verifyLocation(*ADN, 11, 10, 11, 3, 9, 11, 10, 1));
 
+#if LLVM_VERSION_MAJOR < 17
   ADN = getASTDefNode("test_constructor", 0, 7, 1);
+#else
+  ADN = getASTDefNode("test_constructor", 0, 6, 1);
+#endif
   ASSERT_TRUE(ADN);
   ASSERT_TRUE(verifyLocation(*ADN, 14, 23, 14, 19, 6, 14, 23, 1));
 
@@ -149,7 +153,11 @@ TEST_F(TestDebugInfoMap, getDef_ArgumentP) {
   ASSERT_TRUE(ADN);
   ASSERT_TRUE(verifyLocation(*ADN, 15, 12, 15, 7, 7, 15, 12, 1));
 
+#if LLVM_VERSION_MAJOR < 17
   ADN = getASTDefNode("test_new_delete", 0, 10, 1);
+#else
+  ADN = getASTDefNode("test_new_delete", 0, 9, 1);
+#endif
   ASSERT_TRUE(ADN);
   ASSERT_TRUE(verifyLocation(*ADN, 18, 23, 18, 19, 7, 18, 23, 2));
 
@@ -157,11 +165,19 @@ TEST_F(TestDebugInfoMap, getDef_ArgumentP) {
   ASSERT_TRUE(ADN);
   ASSERT_TRUE(verifyLocation(*ADN, 19, 23, 19, 15, 11, 19, 23, 2));
 
+#if LLVM_VERSION_MAJOR < 17
   ADN = getASTDefNode("test_new_delete", 2, 1, 0);
+#else
+  ADN = getASTDefNode("test_new_delete", 2, 0, 0);
+#endif
   ASSERT_TRUE(ADN);
   ASSERT_TRUE(verifyLocation(*ADN, 20, 10, 20, 3, 11, 20, 10, 4));
 
+#if LLVM_VERSION_MAJOR < 17
   ADN = getASTDefNode("test_new_delete", 4, 1, 0);
+#else
+  ADN = getASTDefNode("test_new_delete", 4, 0, 0);
+#endif
   ASSERT_TRUE(ADN);
   ASSERT_TRUE(verifyLocation(*ADN, 21, 12, 21, 3, 13, 21, 12, 4));
 }
@@ -194,7 +210,11 @@ TEST_F(TestDebugInfoMap, getDef_ArgumentN) {
 
   ASSERT_FALSE(getASTDefNode("test_default", 0, 2, 1));
   ASSERT_FALSE(getASTDefNode("test_implicit", 0, 3, 0));
+#if LLVM_VERSION_MAJOR < 17
   ASSERT_FALSE(getASTDefNode("test_implicit", 0, 7, 0));
+#else
+  ASSERT_FALSE(getASTDefNode("test_implicit", 0, 6, 0));
+#endif
   ASSERT_FALSE(getASTDefNode("test_operator", 0, 2, 1));
 }
 
@@ -328,6 +348,7 @@ TEST_F(TestDebugInfoMap, getDef_MacroP) {
 
   ADN = getASTDefNode("test_macro", 0, 5, 0);
   ASSERT_TRUE(ADN);
+#if LLVM_VERSION_MAJOR < 17
   ASSERT_TRUE(verifyLocation(*ADN, 9, 9, 9, 3, 20, 9, 9, 13));
 
   ADN = getASTDefNode("test_macro", 0, 6, 0);
@@ -341,6 +362,17 @@ TEST_F(TestDebugInfoMap, getDef_MacroP) {
   ADN = getASTDefNode("test_macro", 0, 8, 0);
   ASSERT_TRUE(ADN);
   ASSERT_TRUE(verifyLocation(*ADN, 11, 3, 11, 3, 11, 11, 11, 2));
+#else
+  ASSERT_TRUE(verifyLocation(*ADN, 10, 3, 10, 11, 9, 10, 17, 2));
+
+  ADN = getASTDefNode("test_macro", 0, 6, 0);
+  ASSERT_TRUE(ADN);
+  ASSERT_TRUE(verifyLocation(*ADN, 10, 3, 10, 11, 9, 10, 17, 2));
+
+  ADN = getASTDefNode("test_macro", 0, 7, 0);
+  ASSERT_TRUE(ADN);
+  ASSERT_TRUE(verifyLocation(*ADN, 11, 3, 11, 3, 11, 11, 11, 2));
+#endif
 }
 
 TEST_F(TestDebugInfoMap, getDef_MacroN) {
@@ -564,7 +596,11 @@ TEST_F(TestDebugInfoMap, getDiffNumArgsN) {
   llvm::CallBase *CB;
 
   CB = llvm::dyn_cast_or_null<llvm::CallBase>(
+#if LLVM_VERSION_MAJOR < 17
       AccessHelper->getInstruction("test_callnotfound", 0, 3));
+#else
+      AccessHelper->getInstruction("test_callnotfound", 0, 2));
+#endif
   ASSERT_TRUE(CB);
   ASSERT_THROW(Map->getDiffNumArgs(*CB), std::runtime_error);
 }
@@ -583,7 +619,11 @@ TEST_F(TestDebugInfoMap, hasDiffNumArgsN) {
   llvm::CallBase *CB;
 
   CB = llvm::dyn_cast_or_null<llvm::CallBase>(
+#if LLVM_VERSION_MAJOR < 17
       AccessHelper->getInstruction("test_callnotfound", 0, 3));
+#else
+      AccessHelper->getInstruction("test_callnotfound", 0, 2));
+#endif
   ASSERT_TRUE(CB);
   ASSERT_THROW(Map->hasDiffNumArgs(*CB), std::runtime_error);
 }

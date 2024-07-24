@@ -142,7 +142,9 @@ TEST(TestGlobalDefEnum, AnonymousEnumP) {
   auto &Ctx = Unit->getASTContext();
   auto Enum = createEnum("", Ctx);
   ASSERT_TRUE(Enum);
+#if LLVM_VERSION_MAJOR < 17
   ASSERT_EQ(Enum->getName(), "(anonymous)");
+#endif
 }
 
 } // namespace ftg

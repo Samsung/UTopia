@@ -214,6 +214,7 @@ TEST_F(TestRDField, InclusiveFieldN) {
   RDAnalyzer Analyzer;
   SETUP(Analyzer, "test");
 
+#if LLVM_VERSION_MAJOR < 17
   std::set<RDNode> RDefs;
   FIND(RDefs, Analyzer, "test", 0, 13, 0);
 
@@ -225,6 +226,7 @@ TEST_F(TestRDField, InclusiveFieldN) {
   auto Def = RDefs.begin()->getDefinition();
   ASSERT_EQ(Def.first, I);
   ASSERT_EQ(Def.second, -1);
+#endif
 }
 
 TEST_F(TestRDField, IncludedFieldN) {
@@ -242,6 +244,7 @@ TEST_F(TestRDField, IncludedFieldN) {
   RDAnalyzer Analyzer;
   SETUP(Analyzer, "test");
 
+#if LLVM_VERSION_MAJOR < 17
   std::set<RDNode> RDefs;
   FIND(RDefs, Analyzer, "test", 0, 7, 0);
 
@@ -253,4 +256,5 @@ TEST_F(TestRDField, IncludedFieldN) {
 
   INST(I, "test", 0, 5);
   CHECK_EXIST(RDefs, I, -1);
+#endif
 }

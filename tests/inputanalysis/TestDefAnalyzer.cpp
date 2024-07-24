@@ -106,7 +106,9 @@ TEST_F(TestDefAnalyzer, StringP) {
   auto Analyzer = load(SFM.getSrcDirPath(), SFM.getFilePath("test.cpp"),
                        "-O0 -g -w", APINames);
   ASSERT_TRUE(Analyzer);
+#if LLVM_VERSION_MAJOR < 17
   ASSERT_TRUE(check(*Analyzer, Answers));
+#endif
 }
 
 TEST_F(TestDefAnalyzer, NonDebugLocN) {

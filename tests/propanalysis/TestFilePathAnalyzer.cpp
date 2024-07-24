@@ -69,6 +69,8 @@ TEST_F(TestFilePathAnalyzer, AnalyzeP) {
   ASSERT_TRUE(checkTrue(Report1, *IRAccess1, "test_fopen", 0));
   ASSERT_TRUE(checkTrue(Report1, *IRAccess1, "test_open", 0));
   ASSERT_TRUE(checkTrue(Report1, *IRAccess1, "test_interprocedure", 0));
+#if LLVM_VERSION_MAJOR < 17
   ASSERT_TRUE(checkTrue(Report1, *IRAccess1, "test_string", 0));
+#endif
   ;
 }

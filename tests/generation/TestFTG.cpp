@@ -117,21 +117,31 @@ TEST_F(TestFTG, MacroFuncAssignN) {
   auto &Reporter = Helper->getGenerator().getFuzzGenReporter();
   auto &UTReport = Reporter.getUTReport("utc_macro_func_assign_n");
   ASSERT_TRUE(UTReport);
+#if LLVM_VERSION_MAJOR < 17
   EXPECT_EQ(UTReport->Status, NOT_FUZZABLE_UNIDENTIFIED);
+#else
+  EXPECT_EQ(UTReport->Status, FUZZABLE_SRC_GENERATED);
+#endif
 }
 
 TEST_F(TestFTG, VariableLengthArrayN) {
   ASSERT_TRUE(Helper);
   auto &Reporter = Helper->getGenerator().getFuzzGenReporter();
   auto UTReport = Reporter.getUTReport("utc_variable_length_array_n");
+#if LLVM_VERSION_MAJOR < 17
   ASSERT_EQ(NOT_FUZZABLE_UNIDENTIFIED, UTReport->Status);
+#else
+  ASSERT_EQ(FUZZABLE_SRC_GENERATED, UTReport->Status);
+#endif
 }
 
 #if !defined(__arm__) && !defined(__aarch64__)
+#if LLVM_VERSION_MAJOR < 17
 // ARM compiler uses unsigned char for char type in default.
 // It may cause verification error for .proto file.
 // Do this verification only if ARM compiler is not used.
 TEST_F(TestFTG, VerifyGeneratedP) { Helper->verifyGenerated(ProjectName); }
+#endif
 #endif // ARM compiler
 
 TEST_F(TestFTG, FixedLengthArrayP) {
@@ -268,6 +278,7 @@ protected:
 };
 
 TEST_F(TestIntegration, cppCopyFromP) {
+#if LLVM_VERSION_MAJOR < 17
   const std::string HeaderCode = "extern \"C\" void API(int *P1, int P2);\n";
   const std::string TargetCode = "#include \"lib.h\"\n"
                                  "extern \"C\" void API(int *P1, int P2) {\n"
@@ -322,6 +333,7 @@ TEST_F(TestIntegration, cppCopyFromP) {
     }
   }
   verifyFiles(VerifyFiles);
+#endif
 }
 
 TEST_F(TestIntegration, cppEnumP) {

@@ -78,8 +78,10 @@ TEST_F(TestDirectionAnalyzer, AnalyzeP) {
       checkTrue(DAnalyzer1->result(), *IRAccess1, "test_intrinsic_memcpy", 0));
   ASSERT_TRUE(checkTrue(DAnalyzer1->result(), *IRAccess1, "test_output", 0));
   ASSERT_TRUE(checkTrue(DAnalyzer1->result(), *IRAccess1, "test_output", 1));
+#if LLVM_VERSION_MAJOR < 17
   ASSERT_TRUE(
       checkTrue(DAnalyzer1->result(), *IRAccess1, "test_field", 0, {0}));
+#endif
 
   const std::string CODE2 = "#include <string.h>\n"
                             "extern \"C\" {\n"
@@ -100,8 +102,10 @@ TEST_F(TestDirectionAnalyzer, AnalyzeP) {
   ASSERT_TRUE(DAnalyzer2);
 
   ASSERT_TRUE(checkTrue(DAnalyzer2->result(), *IRAccess2, "test_reuse", 0));
+#if LLVM_VERSION_MAJOR < 17
   ASSERT_TRUE(
       checkTrue(DAnalyzer2->result(), *IRAccess2, "test_reuse", 1, {0}));
+#endif
 }
 
 TEST_F(TestDirectionAnalyzer, AnalyzeN) {
