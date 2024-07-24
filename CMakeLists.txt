@@ -69,6 +69,7 @@ message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
 llvm_map_components_to_libnames(REQ_LLVM_LIBRARIES ${LLVM_TARGETS_TO_BUILD}
   Core Support Irreader Passes Option FrontendOpenMP Coverage ObjCARCOpts
   Coroutines LTO Analysis ScalarOpts TransformUtils
+  ExecutionEngine WindowsDriver
 )
 
 # ADD the CMake features provided by LLVM:

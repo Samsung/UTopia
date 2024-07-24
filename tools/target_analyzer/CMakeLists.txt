@@ -26,6 +26,7 @@ target_link_libraries(target_analyzer
   clangDriver
   clangParse
   clangSema
+  clangSupport
   clangAnalysis
   clangAST
   clangASTMatchers

@@ -15,6 +15,7 @@ RUN apt-get update \
       lsb-release \
       git \
       libz-dev \
+      libzstd-dev \
       ninja-build \
       libboost-test-dev
 
@@ -37,7 +38,7 @@ RUN wget https://apt.llvm.org/llvm.sh  \
     && chmod +x ./llvm.sh \
     && ./llvm.sh ${LLVM_VERSION} \
     && rm ./llvm.sh \
-    && apt-get install -y libclang-${LLVM_VERSION}-dev \
+    && apt-get install -y libclang-${LLVM_VERSION}-dev libpolly-${LLVM_VERSION}-dev \
     && update-alternatives  \
       --install /usr/bin/clang      clang       /usr/bin/clang-${LLVM_VERSION} 99 \
       --slave   /usr/bin/clang++    clang++     /usr/bin/clang++-${LLVM_VERSION} \

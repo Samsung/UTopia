@@ -203,7 +203,12 @@ CompileHelper::ASTData::ASTData(const SourceFileData &SourceFile)
       Path, clang::RawPCHContainerReader(), clang::ASTUnit::LoadASTOnly,
       clang::CompilerInstance::createDiagnostics(
           new clang::DiagnosticOptions()),
-      clang::FileSystemOptions());
+#if LLVM_VERSION_MAJOR*1000 + LLVM_VERSION_MINOR*10 + LLVM_VERSION_PATCH >= 17006
+        clang::FileSystemOptions(),
+        std::make_shared<clang::HeaderSearchOptions>());
+#else
+        clang::FileSystemOptions());
+#endif
   if (!Ptr && fs::exists(Path))
     fs::remove(Path);
 }

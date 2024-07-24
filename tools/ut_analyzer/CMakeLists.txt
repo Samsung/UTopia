@@ -34,6 +34,7 @@ target_link_libraries(ut_analyzer
   clangDriver
   clangParse
   clangSema
+  clangSupport
   clangAnalysis
   clangAST
   clangASTMatchers
@@ -42,7 +43,6 @@ target_link_libraries(ut_analyzer
   clangRewrite
   clangToolingCore
   clangTooling
-  clang-cpp
   ${REQ_LLVM_LIBRARIES}
   -Wl,--end-group
 )

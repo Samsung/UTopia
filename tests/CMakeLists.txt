@@ -125,6 +125,7 @@ target_link_libraries(tests
   clangDriver
   clangParse
   clangSema
+  clangSupport
   clangAnalysis
   clangAST
   clangASTMatchers

@@ -29,6 +29,7 @@ target_link_libraries(fuzz_generator
   clangDriver
   clangParse
   clangSema
+  clangSupport
   clangAnalysis
   clangAST
   clangASTMatchers
