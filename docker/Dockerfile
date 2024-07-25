@@ -38,7 +38,7 @@ RUN wget https://apt.llvm.org/llvm.sh  \
     && chmod +x ./llvm.sh \
     && ./llvm.sh ${LLVM_VERSION} \
     && rm ./llvm.sh \
-    && apt-get install -y libclang-${LLVM_VERSION}-dev libpolly-${LLVM_VERSION}-dev \
+    && apt-get install -y libclang-${LLVM_VERSION}-dev \
     && update-alternatives  \
       --install /usr/bin/clang      clang       /usr/bin/clang-${LLVM_VERSION} 99 \
       --slave   /usr/bin/clang++    clang++     /usr/bin/clang++-${LLVM_VERSION} \
@@ -46,6 +46,10 @@ RUN wget https://apt.llvm.org/llvm.sh  \
       --install /usr/bin/llvm-config  llvm-config /usr/bin/llvm-config-${LLVM_VERSION} 99 \
       --slave   /usr/bin/llvm-link    llvm-link   /usr/bin/llvm-link-${LLVM_VERSION} \
       --slave   /usr/bin/llvm-ar      llvm-ar     /usr/bin/llvm-ar-${LLVM_VERSION}
+
+RUN if [ $LLVM_VERSION -ge 17 ]; then \
+  apt-get install -y libpolly-${LLVM_VERSION}-dev; \
+fi
 
 # Install Protobuf
 RUN apt-get install -y autoconf libtool \

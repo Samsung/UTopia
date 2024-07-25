@@ -1,4 +1,7 @@
 #include "RDSpace.h"
+#if LLVM_VERSION_MAJOR < 17
+#include "llvm/Analysis/CFLAndersAliasAnalysis.h"
+#endif
 #include "ftg/utils/LLVMUtil.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/Passes/PassBuilder.h"
@@ -208,7 +211,11 @@ void RDSpace::build(Function &F) {
     }
 
   // 2. Build Space about Memory->Memory relationship(Pointers)
+#if LLVM_VERSION_MAJOR < 17
+  auto &AA = FAM.getResult<CFLAndersAA>(F);
+#else
   AAResults &AA = FAM.getResult<AAManager>(F);
+#endif
   for (size_t S1 = 0, E1 = MemInsts.size(); S1 < E1; ++S1) {
     assert(MemInsts[S1] && "Unexpected Program State");
 
@@ -220,7 +227,12 @@ void RDSpace::build(Function &F) {
         continue;
 
       MemoryLocation MLoc2 = MemoryLocation::get(MemInsts[S2]);
+#if LLVM_VERSION_MAJOR < 17
+      AAQueryInfo Info;
+      if (AA.alias(MLoc1, MLoc2, Info) == AliasResult::MustAlias) {
+#else
       if (AA.alias(MLoc1, MLoc2) == AliasResult::MustAlias) {
+#endif
         updateMap(AliasMap, MemInsts[S1], MemInsts[S2]);
         updateMap(AliasMap, MemInsts[S2], MemInsts[S1]);
       }
