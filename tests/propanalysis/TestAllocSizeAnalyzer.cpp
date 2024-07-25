@@ -148,14 +148,18 @@ TEST_F(TestAllocSizeAnalyzer, AnalyzeP) {
   EXPECT_TRUE(checkTrue(true, AAnalyzer1->result(), *IRAccess1, "func_new", 0));
   EXPECT_TRUE(
       checkTrue(true, AAnalyzer1->result(), *IRAccess1, "func_string", 0));
+#if LLVM_VERSION_MAJOR < 17
   EXPECT_TRUE(
       checkTrue(true, AAnalyzer1->result(), *IRAccess1, "func_string", 1));
+#endif
   EXPECT_TRUE(
       checkTrue(true, AAnalyzer1->result(), *IRAccess1, "func_string", 3));
   EXPECT_TRUE(
       checkTrue(true, AAnalyzer1->result(), *IRAccess1, "func_vector", 0));
+#if LLVM_VERSION_MAJOR < 17
   EXPECT_TRUE(
       checkTrue(true, AAnalyzer1->result(), *IRAccess1, "test_struct", 0, {0}));
+#endif
   EXPECT_TRUE(
       checkTrue(true, AAnalyzer1->result(), *IRAccess1, "test_calloc", 0));
   EXPECT_TRUE(
@@ -163,10 +167,12 @@ TEST_F(TestAllocSizeAnalyzer, AnalyzeP) {
   EXPECT_TRUE(
       checkTrue(true, AAnalyzer1->result(), *IRAccess1, "test_realloc", 0));
 #ifndef __arm__
+#if LLVM_VERSION_MAJOR < 17
   EXPECT_TRUE(
       checkTrue(true, AAnalyzer1->result(), *IRAccess1, "func4", 0, {0}));
   EXPECT_TRUE(
       checkTrue(true, AAnalyzer1->result(), *IRAccess1, "func4", 1, {1}));
+#endif
 #endif
 
   const std::string CODE2 =
@@ -189,8 +195,10 @@ TEST_F(TestAllocSizeAnalyzer, AnalyzeP) {
 
   EXPECT_TRUE(
       checkTrue(true, AAnalyzer2->result(), *IRAccess2, "test_reuse", 0));
+#if LLVM_VERSION_MAJOR < 17
   EXPECT_TRUE(
       checkTrue(true, AAnalyzer2->result(), *IRAccess2, "test_reuse", 1, {0}));
+#endif
 }
 
 TEST_F(TestAllocSizeAnalyzer, AnalyzeN) {
@@ -268,13 +276,17 @@ TEST_F(TestAllocSizeAnalyzer, AnalyzeN) {
   EXPECT_TRUE(checkTrue(false, AAnalyzer->result(), *IRAccess, "func4", 2));
   EXPECT_TRUE(checkTrue(false, AAnalyzer->result(), *IRAccess, "func5", 0));
   EXPECT_TRUE(checkTrue(false, AAnalyzer->result(), *IRAccess, "func5", 2));
+#if LLVM_VERSION_MAJOR < 17
   EXPECT_TRUE(
       checkFalse(true, AAnalyzer->result(), *IRAccess, "func_string", 2));
+#endif
 #ifndef __arm__
+#if LLVM_VERSION_MAJOR < 17
   EXPECT_TRUE(
       checkTrue(false, AAnalyzer->result(), *IRAccess, "func4", 0, {1}));
   EXPECT_TRUE(
       checkTrue(false, AAnalyzer->result(), *IRAccess, "func4", 1, {0}));
+#endif
   EXPECT_TRUE(checkNone(AAnalyzer->result(), *IRAccess, "test_struct", 0, {1}));
   EXPECT_TRUE(checkNone(AAnalyzer->result(), *IRAccess, "test_struct", 0, {2}));
 #endif

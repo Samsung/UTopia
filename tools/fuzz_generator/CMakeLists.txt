@@ -40,3 +40,9 @@ target_link_libraries(fuzz_generator
   ${REQ_LLVM_LIBRARIES}
   -Wl,--end-group
 )
+
+if(LLVM_VERSION_MAJOR VERSION_GREATER_EQUAL 17)
+target_link_libraries(fuzz_generator
+  clangSupport
+)
+endif()

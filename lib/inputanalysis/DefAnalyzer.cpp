@@ -162,7 +162,7 @@ DefAnalyzer::FuncDef DefAnalyzer::analyzeTargetCall(llvm::CallBase &CB) {
 std::vector<DefAnalyzer::ArgDef>
 DefAnalyzer::analyzeTargetCallArgs(llvm::CallBase &CB) {
   std::vector<DefAnalyzer::ArgDef> Result;
-  for (unsigned S = ASTMap->getDiffNumArgs(CB), E = CB.getNumArgOperands();
+  for (unsigned S = ASTMap->getDiffNumArgs(CB), E = CB.arg_size();
        S < E; ++S) {
     llvm::outs() << "[I] Analyze APIArg (" << S + 1 << " / " << E << ")\n";
     Result.push_back(analyzeTargetCallArg(CB, S));

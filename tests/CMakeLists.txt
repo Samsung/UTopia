@@ -153,3 +153,9 @@ if(${CMAKE_VERSION} VERSION_GREATER_EQUAL 3.10)
 else() # Tizen 5.5
   gtest_add_tests(TARGET tests WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 endif()
+
+if(LLVM_VERSION_MAJOR VERSION_GREATER_EQUAL 17)
+target_link_libraries(tests
+  clangSupport
+)
+endif()

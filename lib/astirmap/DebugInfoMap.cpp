@@ -89,7 +89,7 @@ bool DebugInfoMap::hasDiffNumArgs(const llvm::CallBase &CB) const {
   } catch (std::invalid_argument &E) {
     throw std::runtime_error("CallNode has non CallExpr Node");
   }
-  auto IRArgNum = CB.getNumArgOperands() - getDiffNumArgs(CB);
+  auto IRArgNum = CB.arg_size() - getDiffNumArgs(CB);
   return ASTArgNum != IRArgNum;
 }
 
@@ -432,8 +432,8 @@ void DebugInfoMap::updateCallExprs(clang::ASTUnit &Unit) {
     if (!Record)
       continue;
 
-    updateCallMap(std::move(std::make_unique<ASTNode>(
-        ASTNode::CALL, DynTypedNode::create(*Record), Unit)));
+    updateCallMap(std::make_unique<ASTNode>(
+        ASTNode::CALL, DynTypedNode::create(*Record), Unit));
     updateDefMap(
         std::make_unique<ASTDefNode>(*const_cast<Expr *>(Record), Unit));
   }
@@ -458,8 +458,8 @@ void DebugInfoMap::updateCtorInitializers(clang::ASTUnit &Unit) {
         continue;
 
       try {
-        updateDefMap(std::move(std::make_unique<ASTDefNode>(
-            *const_cast<CXXCtorInitializer *>(Iter), Unit)));
+        updateDefMap(std::make_unique<ASTDefNode>(
+            *const_cast<CXXCtorInitializer *>(Iter), Unit));
       } catch (std::exception &E) {
       }
     }
@@ -477,8 +477,8 @@ void DebugInfoMap::updateReturnStmts(clang::ASTUnit &Unit) {
     if (!S)
       continue;
 
-    updateDefMap(std::move(
-        std::make_unique<ASTDefNode>(*const_cast<ReturnStmt *>(S), Unit)));
+    updateDefMap(
+        std::make_unique<ASTDefNode>(*const_cast<ReturnStmt *>(S), Unit));
   }
 }
 

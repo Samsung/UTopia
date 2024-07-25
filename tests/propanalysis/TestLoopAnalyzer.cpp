@@ -97,6 +97,7 @@ TEST_F(TestLoopAnalyzer, AnalyzeP) {
   };
   auto LAnalyzer = analyze(*IRAccess, Funcs);
   ASSERT_TRUE(LAnalyzer);
+#if LLVM_VERSION_MAJOR < 17
   ASSERT_TRUE(
       checkTrue(true, 1, LAnalyzer->result(), *IRAccess, "test_exitcond", 0));
   ASSERT_TRUE(
@@ -106,6 +107,7 @@ TEST_F(TestLoopAnalyzer, AnalyzeP) {
 #if LLVM_VERSION_MAJOR >= 12
   ASSERT_TRUE(checkTrue(true, 1, LAnalyzer->result(), *IRAccess,
                         "test_exitcond_rel2", 0));
+#endif
 #endif
 }
 

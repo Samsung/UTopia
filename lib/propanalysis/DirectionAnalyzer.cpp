@@ -46,7 +46,8 @@ const DirectionAnalysisReport &DirectionAnalyzer::result() const {
 
 bool DirectionAnalyzer::isPtrToVal(const llvm::Value &V) const {
   auto *T = V.getType();
-  return T && T->isPointerTy() && !(T->getContainedType(0)->isPointerTy());
+  return T && T->isPointerTy() && T->getNumContainedTypes() > 0 &&
+         !(T->getContainedType(0)->isPointerTy());
 }
 
 void DirectionAnalyzer::analyzeProperty(llvm::Argument &A) {
@@ -122,6 +123,8 @@ void DirectionAnalyzer::handleUser(StackFrame &Frame, llvm::Value &User,
       return;
 
     for (auto &Param : CF->args()) {
+      if (CB->arg_size() <= Param.getArgNo())
+        continue;
       auto *CallArg = CB->getArgOperand(Param.getArgNo());
       if (CallArg != Def)
         continue;
@@ -258,8 +261,9 @@ bool DirectionAnalyzer::updateArgFlow(Argument &A) {
 void DirectionAnalyzer::updateFieldFlow(ArgFlow &AF, std::vector<int> Indices) {
   auto &A = AF.getLLVMArg();
   auto *T = A.getType();
-  while (isa<llvm::PointerType>(T))
-    T = T->getPointerElementType();
+  while (isa<llvm::PointerType>(T) && T->getNumContainedTypes() > 0) {
+    T = T->getContainedType(0);
+  }
 
   auto *ST = dyn_cast_or_null<llvm::StructType>(T);
   if (!ST)

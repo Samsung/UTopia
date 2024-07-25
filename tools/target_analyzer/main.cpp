@@ -8,7 +8,7 @@ using namespace llvm;
 using namespace ftg;
 
 int main(int argc, const char **argv) {
-  cl::ResetCommandLineParser();
+  llvm::cl::getRegisteredOptions().clear();
   cl::opt<bool> OptHelp("help", cl::desc("Display available options"),
                         cl::ValueDisallowed, cl::callback([](const bool &) {
                           cl::PrintHelpMessage();

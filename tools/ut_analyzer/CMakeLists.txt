@@ -45,3 +45,9 @@ target_link_libraries(ut_analyzer
   ${REQ_LLVM_LIBRARIES}
   -Wl,--end-group
 )
+
+if(LLVM_VERSION_MAJOR VERSION_GREATER_EQUAL 17)
+target_link_libraries(ut_analyzer
+  clangSupport
+)
+endif()

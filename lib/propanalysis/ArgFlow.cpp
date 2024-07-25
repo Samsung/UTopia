@@ -61,10 +61,9 @@ llvm::StringRef getTypeStr(llvm::Type *Ty) {
   {
     return "vector";
   }
-  case llvm::Type::PointerTyID: {
-    llvm::PointerType *PTy = llvm::cast<llvm::PointerType>(Ty);
-    return getTypeStr(PTy->getElementType());
-  }
+  case llvm::Type::PointerTyID:
+    if (Ty->getNumContainedTypes() > 0)
+      return getTypeStr(Ty->getContainedType(0));
   default:
     return "";
   }
@@ -278,6 +277,8 @@ void ArgFlow::mergeArray(const ArgFlow &CalleeArgFlowResult, CallBase &C) {
     // Find arguments of caller function (==current function) that
     // a size argument in the callee function depends on.
     for (auto *SizeArg : CalleeArgFlowResult.SizeArgs) {
+      if (C.arg_size() <= SizeArg->getArgNo())
+        continue;
       auto *V = C.getArgOperand(SizeArg->getArgNo());
       if (this->FDInfo) {
         collectRelatedLengthField(*V);

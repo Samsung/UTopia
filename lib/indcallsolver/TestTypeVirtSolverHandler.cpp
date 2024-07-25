@@ -1,5 +1,6 @@
 #include "ftg/indcallsolver/TestTypeVirtSolverHandler.h"
 #include <llvm/Analysis/TypeMetadataUtils.h>
+#include <llvm/IR/Constants.h>
 #include <llvm/IR/Function.h>
 #include <llvm/IR/InstrTypes.h>
 #include <llvm/IR/Instructions.h>

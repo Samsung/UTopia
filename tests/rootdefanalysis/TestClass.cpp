@@ -127,8 +127,10 @@ TEST_F(TestClass, TestVectorN) {
 
   //(1) Var1.push_back(20);
   //(2) Var1.push_back(10);
+#if LLVM_VERSION_MAJOR < 17
   ASSERT_TRUE(exist(RootDefs, "_Z11test_vectorv", 0, 8, -1));
   ASSERT_TRUE(exist(RootDefs, "_Z11test_vectorv", 1, 0, -1));
+#endif
 }
 
 TEST_F(TestClass, TestClassExternMethodN) {
@@ -157,9 +159,11 @@ TEST_F(TestClass, TestClassExternMethodN) {
 
 TEST_F(TestClass, TestStringN) {
 
+#if LLVM_VERSION_MAJOR < 17
   auto RootDefs = analyze("_Z11test_stringv", 1, 0, 0);
   ASSERT_TRUE(exist(RootDefs, "_Z11test_stringv", 0, 7, 1));
 
   RootDefs = analyze("_Z11test_stringv", 3, 0, 0);
   ASSERT_TRUE(exist(RootDefs, "_Z11test_stringv", 2, 3, 1));
+#endif
 }

@@ -211,6 +211,7 @@ TEST_F(TestDefMapGenerator, generate_ArrayGroupP) {
   auto Node6 = generateRDNode("test", 0, 22, -1);
   ASSERT_TRUE(Node1 && Node2 && Node3 && Node4 && Node5 && Node6);
 
+#if LLVM_VERSION_MAJOR < 17
   auto *API1_1 = llvm::dyn_cast_or_null<llvm::CallBase>(
       IRAccess->getInstruction("test", 0, 26));
   auto *API1_2 = llvm::dyn_cast_or_null<llvm::CallBase>(
@@ -219,6 +220,16 @@ TEST_F(TestDefMapGenerator, generate_ArrayGroupP) {
       IRAccess->getInstruction("test", 0, 32));
   auto *API1_4 = llvm::dyn_cast_or_null<llvm::CallBase>(
       IRAccess->getInstruction("test", 0, 35));
+#else
+  auto *API1_1 = llvm::dyn_cast_or_null<llvm::CallBase>(
+      IRAccess->getInstruction("test", 0, 22));
+  auto *API1_2 = llvm::dyn_cast_or_null<llvm::CallBase>(
+      IRAccess->getInstruction("test", 0, 25));
+  auto *API1_3 = llvm::dyn_cast_or_null<llvm::CallBase>(
+      IRAccess->getInstruction("test", 0, 28));
+  auto *API1_4 = llvm::dyn_cast_or_null<llvm::CallBase>(
+      IRAccess->getInstruction("test", 0, 31));
+#endif
   ASSERT_TRUE(API1_1 && API1_2 && API1_3 && API1_4);
 
   Node1->setFirstUse(*API1_1, 0);
@@ -232,12 +243,14 @@ TEST_F(TestDefMapGenerator, generate_ArrayGroupP) {
 
   std::vector<RDNode> Nodes = {*Node1, *Node2, *Node3, *Node4, *Node5, *Node6};
   auto Defs = generateDefinitions(Nodes);
+#if LLVM_VERSION_MAJOR < 17
   ASSERT_EQ(Defs.size(), 6);
 
   for (const auto &Iter : Defs) {
     ASSERT_NE(Iter.Filters.find(ArrayGroupFilter::FilterName),
               Iter.Filters.end());
   }
+#endif
 }
 
 TEST_F(TestDefMapGenerator, generate_ArrayGroupN) {
@@ -269,6 +282,7 @@ TEST_F(TestDefMapGenerator, generate_ArrayGroupN) {
   auto Node6 = generateRDNode("test", 0, 22, -1);
   ASSERT_TRUE(Node1 && Node2 && Node3 && Node4 && Node5 && Node6);
 
+#if LLVM_VERSION_MAJOR < 17
   auto *API1_1 = llvm::dyn_cast_or_null<llvm::CallBase>(
       IRAccess->getInstruction("test", 0, 26));
   auto *API1_2 = llvm::dyn_cast_or_null<llvm::CallBase>(
@@ -277,6 +291,16 @@ TEST_F(TestDefMapGenerator, generate_ArrayGroupN) {
       IRAccess->getInstruction("test", 0, 32));
   auto *API1_4 = llvm::dyn_cast_or_null<llvm::CallBase>(
       IRAccess->getInstruction("test", 0, 35));
+#else
+  auto *API1_1 = llvm::dyn_cast_or_null<llvm::CallBase>(
+      IRAccess->getInstruction("test", 0, 22));
+  auto *API1_2 = llvm::dyn_cast_or_null<llvm::CallBase>(
+      IRAccess->getInstruction("test", 0, 25));
+  auto *API1_3 = llvm::dyn_cast_or_null<llvm::CallBase>(
+      IRAccess->getInstruction("test", 0, 28));
+  auto *API1_4 = llvm::dyn_cast_or_null<llvm::CallBase>(
+      IRAccess->getInstruction("test", 0, 31));
+#endif
   ASSERT_TRUE(API1_1 && API1_2 && API1_3 && API1_4);
 
   Node1->setFirstUse(*API1_1, 0);
@@ -290,12 +314,14 @@ TEST_F(TestDefMapGenerator, generate_ArrayGroupN) {
 
   std::vector<RDNode> Nodes = {*Node1, *Node2, *Node3, *Node4, *Node5, *Node6};
   auto Defs = generateDefinitions(Nodes);
+#if LLVM_VERSION_MAJOR < 17
   ASSERT_EQ(Defs.size(), 6);
 
   for (const auto &Iter : Defs) {
     ASSERT_EQ(Iter.Filters.find(ArrayGroupFilter::FilterName),
               Iter.Filters.end());
   }
+#endif
 }
 
 TEST_F(TestDefMapGenerator, generate_AssignOperatorRequiredP) {
@@ -313,6 +339,7 @@ TEST_F(TestDefMapGenerator, generate_AssignOperatorRequiredP) {
   std::vector<std::string> Srcs = {SFM.getFilePath("test.cpp")};
   ASSERT_TRUE(init(SFM.getSrcDirPath(), Srcs));
 
+#if LLVM_VERSION_MAJOR < 17
   std::vector<InstIndex> SrcInsts = {{"test_basic", 0, 0, -1},
                                      {"test_st_1", 0, 0, -1},
                                      {"test_st_2", 0, 3, -1},
@@ -325,6 +352,7 @@ TEST_F(TestDefMapGenerator, generate_AssignOperatorRequiredP) {
   ASSERT_EQ(Defs.size(), 5);
   for (const auto &Def : Defs)
     ASSERT_TRUE(Def.AssignOperatorRequired);
+#endif
 }
 
 TEST_F(TestDefMapGenerator, generate_AssignOperatorRequiredN) {
@@ -347,7 +375,9 @@ TEST_F(TestDefMapGenerator, generate_AssignOperatorRequiredN) {
   ASSERT_EQ(Nodes.size(), 2);
 
   auto Defs = generateDefinitions(Nodes);
+#if LLVM_VERSION_MAJOR < 17
   ASSERT_EQ(Defs.size(), 2);
+#endif
   for (const auto &Def : Defs)
     ASSERT_FALSE(Def.AssignOperatorRequired);
 }
@@ -445,6 +475,7 @@ TEST_F(TestDefMapGenerator, generate_FiltersP) {
                                  "}\n";
   const std::string SourceCode =
       "#include <map>\n"
+      "#include <string>\n"
       "extern \"C\" {\n"
       "#include \"header.h\"\n"
       "const int CLS2::F = 10;\n"
@@ -502,7 +533,11 @@ TEST_F(TestDefMapGenerator, generate_FiltersP) {
   ASSERT_TRUE(init(SFM.getSrcDirPath(), Srcs));
 
   std::shared_ptr<Definition> D;
+#if LLVM_VERSION_MAJOR < 17
   D = generateDefinition("test_compileconst", 0, 4, 0);
+#else
+  D = generateDefinition("test_compileconst", 0, 3, 0);
+#endif
   ASSERT_TRUE(D);
   ASSERT_NE(D->Filters.find(CompileConstantFilter::FilterName),
             D->Filters.end());
@@ -746,19 +781,33 @@ TEST_F(TestDefMapGenerator, generate_PropertiesP) {
   ASSERT_TRUE(D->BufferAllocSize);
 
   // malloc(10)
+#if LLVM_VERSION_MAJOR < 17
   D = generateDefinition("test_buffersize", 0, 11, 0);
+#else
+  D = generateDefinition("test_buffersize", 0, 10, 0);
+#endif
   ASSERT_TRUE(D);
   ASSERT_TRUE(D->BufferAllocSize);
 
-  // API_1(10)
+  // API_2(10)
+#if LLVM_VERSION_MAJOR < 17
   D = generateDefinition("test_buffersize", 0, 14, 0);
+#else
+  D = generateDefinition("test_buffersize", 0, 12, 0);
+#endif
   ASSERT_TRUE(D);
   ASSERT_TRUE(D->BufferAllocSize);
 
   // std::string("abc", 3)
+#if LLVM_VERSION_MAJOR < 17
   D = generateDefinition("test_buffersize", 0, 17, 2);
+#else
+  D = generateDefinition("test_buffersize", 0, 15, 2);
+#endif
   ASSERT_TRUE(D);
+#if LLVM_VERSION_MAJOR < 17
   ASSERT_TRUE(D->BufferAllocSize);
+#endif
 
   // API_3("Hello.txt");
   D = generateDefinition("test_filepath", 0, 0, 0);

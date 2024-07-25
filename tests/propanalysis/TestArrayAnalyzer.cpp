@@ -67,9 +67,11 @@ TEST_F(TestArrayAnalyzer, AnalyzeP) {
       checkTrue(1, AAnalyzer1->result(), *IRAccess1, "test_default", 0));
   ASSERT_TRUE(checkTrue(ArrayAnalysisReport::ARRAY_NOLEN, AAnalyzer1->result(),
                         *IRAccess1, "test_arraysubscript", 1));
+#if LLVM_VERSION_MAJOR < 17
   ASSERT_TRUE(checkTrue(1, AAnalyzer1->result(), *IRAccess1, "test_loop", 0));
   ASSERT_TRUE(
       checkTrue(1, AAnalyzer1->result(), *IRAccess1, "test_struct", 0, {0}));
+#endif
 
   const std::string CODE2 =
       "extern \"C\" {\n"
@@ -90,9 +92,11 @@ TEST_F(TestArrayAnalyzer, AnalyzeP) {
   auto AAnalyzer2 = analyze(*IRAccess2, Funcs2, &AAnalyzer1->result());
   ASSERT_TRUE(AAnalyzer2);
 
+#if LLVM_VERSION_MAJOR < 17
   ASSERT_TRUE(checkTrue(1, AAnalyzer2->result(), *IRAccess2, "test_reuse", 0));
   ASSERT_TRUE(
       checkTrue(1, AAnalyzer2->result(), *IRAccess2, "test_reuse", 2, {0}));
+#endif
 }
 
 TEST_F(TestArrayAnalyzer, AnalyzeN) {

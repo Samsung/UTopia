@@ -1,11 +1,12 @@
 #ifndef FTG_ROOTDEFANALYSIS_RDSPACE_H
 #define FTG_ROOTDEFANALYSIS_RDSPACE_H
 
-#include "llvm/Analysis/CFLAndersAliasAnalysis.h"
 #include "llvm/Analysis/MemorySSA.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/PassManager.h"
+#include <map>
+#include <set>
 
 namespace ftg {
 

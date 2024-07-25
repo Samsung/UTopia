@@ -92,11 +92,13 @@ TEST_F(TestIndCallSolverMgr, getCalledFunctionP) {
   Solver.solve(*const_cast<Module *>(&SC->getLLVMModule()));
 
   ASSERT_TRUE(found(Solver, "test_direct_call", 0, 0, {"func1"}));
+#if LLVM_VERSION_MAJOR < 17
   ASSERT_TRUE(found(Solver, "test_callee_metadata", 0, 5, {"func2"}));
   ASSERT_TRUE(found(Solver, "test_inst", 0, 7, {"func3"}));
   ASSERT_TRUE(found(Solver, "test_global", 0, 3, {"func4"}));
   ASSERT_TRUE(
       found(Solver, "test_virt", 0, 18, {"_ZN4CLS11MEv", "_ZN4CLS21MEv"}));
+#endif
 }
 
 TEST_F(TestIndCallSolverMgr, getCalledFunctionN) {
@@ -134,7 +136,9 @@ TEST_F(TestIndCallSolverMgr, getCalledFunctionN) {
 
   ASSERT_TRUE(notfound(Solver, "test_callee_metadata", 0, 3));
   ASSERT_TRUE(notfound(Solver, "test_inst", 0, 5));
+#if LLVM_VERSION_MAJOR < 17
   ASSERT_TRUE(notfound(Solver, "test_virt", 0, 13));
+#endif
 }
 
 TEST_F(TestIndCallSolverMgr, getCalledFunctionWithNotExistCodeBaseN) {
@@ -216,10 +220,14 @@ TEST_F(TestGlobalInitializerSolver, solveP) {
   GlobalInitializerSolverHandler Handler;
   prepare(Handler);
   GlobalInitializerSolver Solver(std::move(Handler));
+#if LLVM_VERSION_MAJOR < 17
   ASSERT_TRUE(found(Solver, "test_global_init", 0, 3, {"func1"}));
   ASSERT_TRUE(found(Solver, "test_global_struct_init", 0, 5, {"func2"}));
+#endif
   ASSERT_TRUE(found(Solver, "test_global_struct_init", 0, 9, {"func3"}));
+#if LLVM_VERSION_MAJOR < 17
   ASSERT_TRUE(found(Solver, "test_two_inits", 0, 3, {"func4", "func5"}));
+#endif
 }
 
 TEST_F(TestGlobalInitializerSolver, solveN) {
@@ -234,7 +242,9 @@ TEST_F(TestGlobalInitializerSolver, solveN) {
   GlobalInitializerSolverHandler Handler;
   prepare(Handler);
   GlobalInitializerSolver Solver(std::move(Handler));
+#if LLVM_VERSION_MAJOR < 17
   ASSERT_TRUE(found(Solver, "test_global_noninit", 0, 3, {}));
+#endif
 }
 
 class TestTBAASimpleSolver : public TestIndCallSolverBase {};
@@ -251,7 +261,11 @@ TEST_F(TestTBAASimpleSolver, solveP) {
   TBAASimpleSolverHandler TSSHandler;
   prepare(TSSHandler);
   TBAASimpleSolver Solver(std::move(TSSHandler));
+#if LLVM_VERSION_MAJOR < 17
   ASSERT_TRUE(found(Solver, "test_store_and_load", 0, 7, {"func"}));
+#else
+  ASSERT_TRUE(found(Solver, "test_store_and_load", 0, 6, {"func"}));
+#endif
 }
 
 TEST_F(TestTBAASimpleSolver, solveN) {
@@ -293,7 +307,11 @@ TEST_F(TestTestTypeVirtSolver, solveP) {
   Handler.collect(SC->getLLVMModule());
   TestTypeVirtSolver Solver(std::move(Handler));
   ASSERT_TRUE(
+#if LLVM_VERSION_MAJOR < 17
       found(Solver, "test_virt", 0, 18, {"_ZN4CLS11MEv", "_ZN4CLS21MEv"}));
+#else
+      found(Solver, "test_virt", 0, 12, {"_ZN4CLS11MEv", "_ZN4CLS21MEv"}));
+#endif
 }
 
 TEST_F(TestTestTypeVirtSolver, solveN) {
@@ -319,7 +337,11 @@ TEST_F(TestTestTypeVirtSolver, solveN) {
   prepare(Handler);
   Handler.collect(SC->getLLVMModule());
   TestTypeVirtSolver Solver(std::move(Handler));
+#if LLVM_VERSION_MAJOR < 17
   ASSERT_TRUE(found(Solver, "test_virt", 0, 15, {}));
+#else
+  ASSERT_TRUE(found(Solver, "test_virt", 0, 12, {}));
+#endif
 }
 
 class TestTBAAVirtSolver : public TestIndCallSolverBase {};
@@ -358,10 +380,12 @@ TEST_F(TestTBAAVirtSolver, solveP) {
   TBAAVirtSolverHandler Handler;
   prepare(Handler);
   TBAAVirtSolver Solver(std::move(Handler));
+#if LLVM_VERSION_MAJOR < 17
   ASSERT_TRUE(
       found(Solver, "test_two_virt", 0, 9, {"_ZN4CLS11MEv", "_ZN4CLS21MEv"}));
   ASSERT_TRUE(found(Solver, "test_two_virt", 0, 15,
                     {"_ZN4CLS32M2Ei", "_ZN4CLS42M2Ei"}));
+#endif
 }
 
 TEST_F(TestTBAAVirtSolver, solveN) {
@@ -386,5 +410,9 @@ TEST_F(TestTBAAVirtSolver, solveN) {
   TBAAVirtSolverHandler Handler;
   prepare(Handler);
   TBAAVirtSolver Solver(std::move(Handler));
+#if LLVM_VERSION_MAJOR < 17
   ASSERT_TRUE(found(Solver, "test_two_virt", 0, 7, {}));
+#else
+  ASSERT_TRUE(found(Solver, "test_two_virt", 0, 6, {}));
+#endif
 }

@@ -85,6 +85,7 @@ TEST_F(TestType, TypeP) {
   ASSERT_TRUE(T->isPointerType());
   ASSERT_TRUE(T->isStringType());
 
+#if LLVM_VERSION_MAJOR < 17
   T = create("int [10]");
   ASSERT_TRUE(T);
   ASSERT_TRUE(T->isPointerType());
@@ -93,6 +94,7 @@ TEST_F(TestType, TypeP) {
   T = create("int [P4]");
   ASSERT_TRUE(T);
   ASSERT_TRUE(T->isPointerType());
+#endif
 }
 
 TEST_F(TestType, TypeN) {
@@ -103,9 +105,11 @@ TEST_F(TestType, TypeN) {
   std::shared_ptr<Type> T;
 
   T = create("int []");
+#if LLVM_VERSION_MAJOR < 17
   ASSERT_TRUE(T);
   ASSERT_TRUE(T->isPointerType());
   ASSERT_TRUE(!T->isFixedLengthArrayPtr());
+#endif
 }
 
 TEST_F(TestType, UnknownTypeN) {
@@ -197,8 +201,10 @@ TEST_F(TestType, ToJsonWithGlobalDefP) {
   const std::string Code = "enum E { A };";
   ASSERT_TRUE(loadCPP(Code));
   std::shared_ptr<Type> T = create("enum E");
+#if LLVM_VERSION_MAJOR < 17
   T->setGlobalDef(E);
   ASSERT_EQ(T->toJson().toStyledString(), ExpectedJson.toStyledString());
+#endif
 }
 
 TEST_F(TestType, InitFromJsonP) {

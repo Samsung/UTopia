@@ -15,6 +15,7 @@ RUN apt-get update \
       lsb-release \
       git \
       libz-dev \
+      libzstd-dev \
       ninja-build \
       libboost-test-dev
 
@@ -45,6 +46,10 @@ RUN wget https://apt.llvm.org/llvm.sh  \
       --install /usr/bin/llvm-config  llvm-config /usr/bin/llvm-config-${LLVM_VERSION} 99 \
       --slave   /usr/bin/llvm-link    llvm-link   /usr/bin/llvm-link-${LLVM_VERSION} \
       --slave   /usr/bin/llvm-ar      llvm-ar     /usr/bin/llvm-ar-${LLVM_VERSION}
+
+RUN if [ $LLVM_VERSION -ge 17 ]; then \
+  apt-get install -y libpolly-${LLVM_VERSION}-dev; \
+fi
 
 # Install Protobuf
 RUN apt-get install -y autoconf libtool \
@@ -87,6 +92,7 @@ RUN apt-get install -y liblzma-dev \
       -DCMAKE_C_COMPILER=clang \
       -DCMAKE_CXX_COMPILER=clang++ \
       -DCMAKE_BUILD_TYPE=Debug \
+      -DLIB_PROTO_MUTATOR_TESTING=0 \
       -S . \
     && cmake --build build \
     && cmake --install build \
@@ -94,4 +100,27 @@ RUN apt-get install -y liblzma-dev \
     && rm -rf libprotobuf-mutator
 
 ### Setup Compiler Hooker
-COPY --chmod=755 docker/hooks/${LLVM_VERSION} /usr/local/bin/
+RUN cat <<EOF >/usr/local/bin/clang
+if [ ! -z \$COMPILE_LOG ] && [ -d \$(dirname \$COMPILE_LOG) ]
+then
+  echo "\$(realpath .) |autofuzz_splitter| clang \$@" >> \$COMPILE_LOG
+fi
+/usr/lib/llvm-${LLVM_VERSION}/bin/clang \$@
+EOF
+
+RUN cat <<EOF >/usr/local/bin/clang++
+if [ ! -z \$COMPILE_LOG ] && [ -d \$(dirname \$COMPILE_LOG) ]
+then
+  echo "\$(realpath .) |autofuzz_splitter| clang++ \$@" >> \$COMPILE_LOG
+fi
+/usr/lib/llvm-${LLVM_VERSION}/bin/clang++ \$@
+EOF
+
+RUN cat <<EOF >/usr/local/bin/llvm-ar
+if [ ! -z \$COMPILE_LOG ] && [ -d \$(dirname \$COMPILE_LOG) ]
+then
+  echo "\$(realpath .) |autofuzz_splitter| llvm-ar \$@" >> \$COMPILE_LOG
+fi
+/usr/lib/llvm-${LLVM_VERSION}/bin/llvm-ar \$@
+EOF
+RUN chmod +x /usr/local/bin/clang /usr/local/bin/clang++ /usr/local/bin/llvm-ar

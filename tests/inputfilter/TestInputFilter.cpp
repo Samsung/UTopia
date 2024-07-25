@@ -243,7 +243,11 @@ TEST_F(TestInputFilter, ExternalFilterN) {
   ExternalFilter Filter(Report);
   ASSERT_TRUE(checkNone("test_method_call", 0, 1, 1, Filter));
   ASSERT_TRUE(checkNone("test_func", 0, 0, 0, Filter));
+#if LLVM_VERSION_MAJOR < 17
   ASSERT_TRUE(checkNone("test_memset", 0, 3, -1, Filter));
+#else
+  ASSERT_TRUE(checkNone("test_memset", 0, 2, -1, Filter));
+#endif
   ASSERT_TRUE(checkNone("test_vararg", 0, 0, 1, Filter));
   ASSERT_TRUE(checkNone("test_vararg", 0, 0, 2, Filter));
 }
@@ -299,7 +303,11 @@ TEST_F(TestInputFilter, CompileConstantP) {
   ASSERT_TRUE(loadCPP(Code));
 
   CompileConstantFilter Filter;
+#if LLVM_VERSION_MAJOR < 17
   ASSERT_TRUE(check("test_macro_const", 0, 4, 0, Filter));
+#else
+  ASSERT_TRUE(check("test_macro_const", 0, 3, 0, Filter));
+#endif
   ASSERT_TRUE(check("test_offestofexpr", 0, 2, 0, Filter));
 }
 

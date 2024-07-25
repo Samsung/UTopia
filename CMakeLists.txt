@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.5)
 project(
   UTopia
   VERSION 0.2.0
-  LANGUAGES CXX
+  LANGUAGES C CXX
 )
 
 add_compile_definitions(UTOPIA_VERSION="${CMAKE_PROJECT_VERSION}")
@@ -66,10 +66,18 @@ find_package(LLVM REQUIRED CONFIG HINTS ${LLVM_DIR})
 message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
 message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
 
+if(LLVM_VERSION_MAJOR VERSION_GREATER_EQUAL 17)
+llvm_map_components_to_libnames(REQ_LLVM_LIBRARIES ${LLVM_TARGETS_TO_BUILD}
+  Core Support Irreader Passes Option FrontendOpenMP Coverage ObjCARCOpts
+  Coroutines LTO Analysis ScalarOpts TransformUtils
+  ExecutionEngine WindowsDriver
+)
+else()
 llvm_map_components_to_libnames(REQ_LLVM_LIBRARIES ${LLVM_TARGETS_TO_BUILD}
   Core Support Irreader Passes Option FrontendOpenMP Coverage ObjCARCOpts
   Coroutines LTO Analysis ScalarOpts TransformUtils
 )
+endif()
 
 # ADD the CMake features provided by LLVM:
 list(APPEND CMAKE_MODULE_PATH "${LLVM_CMAKE_DIR}")

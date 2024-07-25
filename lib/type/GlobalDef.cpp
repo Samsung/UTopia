@@ -12,8 +12,13 @@ Enum::Enum(const clang::EnumDecl &ClangDecl) {
     EnumName = TypedefDecl->getQualifiedNameAsString();
   Name = EnumName;
   for (auto *Const : ClangDecl.enumerators()) {
+    auto InitValue = Const->getInitVal();
+#if LLVM_VERSION_MAJOR >= 17
+    if (!InitValue.isRepresentableByInt64())
+      continue;
+#endif
     Enumerators.emplace_back(
-        EnumConst(Const->getNameAsString(), Const->getInitVal().getExtValue()));
+        EnumConst(Const->getNameAsString(), InitValue.getExtValue()));
   }
 }
 

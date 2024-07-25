@@ -12,13 +12,10 @@ std::shared_ptr<Fuzzer> Fuzzer::create(const Unittest &UT,
   return Result;
 }
 
-Fuzzer::Fuzzer(const Unittest &UT) : Name(UT.getID()), UT(&UT) {}
+Fuzzer::Fuzzer(const Unittest &UT) : Name(UT.getID()), UT(UT) {}
 
 void Fuzzer::prepareFuzzInputs(const InputAnalysisReport &InputReport) {
-
-  assert(UT && "Unexpected Program State");
-
-  auto &APICalls = UT->getAPICalls();
+  auto &APICalls = UT.getAPICalls();
   if (APICalls.size() == 0) {
     ProjectStatus = NOT_FUZZABLE_NO_INPUT;
     return;
@@ -48,9 +45,7 @@ void Fuzzer::prepareFuzzInputs(const InputAnalysisReport &InputReport) {
 }
 
 const Unittest &Fuzzer::getUT() const {
-
-  assert(UT && "Unexpected Program State");
-  return *UT;
+  return UT;
 }
 
 const std::map<unsigned, std::shared_ptr<FuzzInput>> &

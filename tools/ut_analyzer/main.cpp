@@ -33,7 +33,7 @@ void increaseStackSize() {
 }
 
 int main(int argc, const char **argv) {
-  llvm::cl::ResetCommandLineParser();
+  llvm::cl::getRegisteredOptions().clear();
   llvm::cl::opt<bool> OptHelp(
       "help", llvm::cl::desc("Display available options"),
       llvm::cl::ValueDisallowed, llvm::cl::callback([](const bool &) {

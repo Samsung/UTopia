@@ -3,8 +3,34 @@
 #include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/IR/GetElementPtrTypeIterator.h"
+#include <stack>
 
 using namespace llvm;
+
+static bool isGEPWithNoNotionalOverIndexing(const ConstantExpr* CE) {
+  if (CE->getOpcode() != Instruction::GetElementPtr) return false;
+
+  gep_type_iterator GEPI = gep_type_begin(CE), E = gep_type_end(CE);
+  User::const_op_iterator OI = std::next(CE->op_begin());
+
+  // Skip the first index, as it has no static limit.
+  ++GEPI;
+  ++OI;
+
+  // The remaining indices must be compile-time known integers within the
+  // bounds of the corresponding notional static array types.
+  for (; GEPI != E; ++GEPI, ++OI) {
+    ConstantInt *CI = dyn_cast<ConstantInt>(*OI);
+    if (!CI) return false;
+    if (ArrayType *ATy = dyn_cast<ArrayType>(GEPI.getIndexedType()))
+      if (CI->getValue().getActiveBits() > 64 ||
+          CI->getZExtValue() >= ATy->getNumElements())
+        return false;
+  }
+  // All the indices checked out.
+  return true;
+}
 
 namespace ftg {
 
@@ -58,7 +84,7 @@ public:
         if (CE->isCast()) {
           push(*CE->getOperand(0), CurNode->Indices);
           continue;
-        } else if (CE->isGEPWithNoNotionalOverIndexing()) {
+        } else if (isGEPWithNoNotionalOverIndexing(CE)) {
           auto Indices = memoryIndices(*CE);
           CurNode->Indices.insert(CurNode->Indices.begin(), Indices.begin(),
                                   Indices.end());

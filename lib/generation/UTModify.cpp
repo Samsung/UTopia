@@ -458,7 +458,7 @@ void UTModify::applyReplacements(
   clang::Rewriter Rewrite(*SManager, clang::LangOptions());
   clang::tooling::applyAllReplacements(Replacements, Rewrite);
   std::error_code EC;
-  llvm::raw_fd_ostream OutFile(OutFilePath, EC, llvm::sys::fs::F_None);
+  llvm::raw_fd_ostream OutFile(OutFilePath, EC, llvm::sys::fs::OF_None);
   Rewrite.InsertTextBefore(SManager->getLocForStartOfFile(ID), Signature);
   Rewrite.getEditBuffer(ID).write(OutFile);
 }

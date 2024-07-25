@@ -24,7 +24,12 @@ std::unique_ptr<SourceCollection> BuildDBLoader::load() {
         ASTPath, clang::RawPCHContainerReader(), clang::ASTUnit::LoadASTOnly,
         clang::CompilerInstance::createDiagnostics(
             new clang::DiagnosticOptions()),
+#if LLVM_VERSION_MAJOR*1000 + LLVM_VERSION_MINOR*10 + LLVM_VERSION_PATCH >= 17006
+        clang::FileSystemOptions(),
+        std::make_shared<clang::HeaderSearchOptions>());
+#else
         clang::FileSystemOptions());
+#endif
     assert(ASTUnit && "AST load failed");
     ASTUnits.push_back(std::move(ASTUnit));
   }

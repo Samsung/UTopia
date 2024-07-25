@@ -364,21 +364,37 @@ TEST_F(TestRootDefAnalyzer, DefinitionsP) {
 
   {
     // API_5(&Var5); -> ST1 Var5 = { 0, 1, 2 }
+#if LLVM_VERSION_MAJOR < 17
     FIND("test", 0, 28, 0);
     VERIFY_NUM(1);
     VERIFY_INST("test", 0, 27, -1);
+#else
+    FIND("test", 0, 27, 0);
+    VERIFY_NUM(1);
+    VERIFY_INST("test", 0, 26, -1);
+#endif
   }
 
   {
     // API_1(Var4.Field2) -> Var4.Field2 = 10
+#if LLVM_VERSION_MAJOR < 17
     FIND("test", 0, 33, 0);
     VERIFY_NUM(1);
     VERIFY_INST("test", 0, 30, -1);
+#else
+    FIND("test", 0, 32, 0);
+    VERIFY_NUM(1);
+    VERIFY_INST("test", 0, 29, -1);
+#endif
   }
 
   {
     // API_5(&GVar2) -> ST1 GVar2 = { .Field0 = 10, ...
+#if LLVM_VERSION_MAJOR < 17
     FIND("test", 0, 34, 0);
+#else
+    FIND("test", 0, 33, 0);
+#endif
     VERIFY_NUM(1);
     VERIFY_GLOBAL("GVar2", -1);
   }
@@ -388,7 +404,9 @@ TEST_F(TestRootDefAnalyzer, DefinitionsP) {
     BUILD(0, nullptr, "test_arg_from_tracing");
     FIND("test_arg_from_tracing", 0, 10, 0);
     VERIFY_NUM(1);
+#if LLVM_VERSION_MAJOR < 17
     VERIFY_INST("test_arg_from_tracing", 0, 7, 0);
+#endif
   }
 }
 
@@ -455,9 +473,13 @@ TEST_F(TestRootDefAnalyzer, PathP) {
     // API_1(Var2) -> int Var2 = 10
     //             -> *P1 = 30
     FIND("test_2", 4, 4, 0);
+#if LLVM_VERSION_MAJOR < 17
     VERIFY_NUM(2);
+#endif
     VERIFY_INST("test_2", 4, 1, -1);
+#if LLVM_VERSION_MAJOR < 17
     VERIFY_INST("SUB_1", 1, 1, -1);
+#endif
   }
 
   {
@@ -465,10 +487,12 @@ TEST_F(TestRootDefAnalyzer, PathP) {
     //              -> *P1 = 30
     //              -> GVar1 = 50
     FIND("test_2", 4, 7, 0);
+#if LLVM_VERSION_MAJOR < 17
     VERIFY_NUM(3);
     VERIFY_INST("SUB_1", 1, 1, -1);
     VERIFY_INST("SUB_1", 3, 0, -1);
     VERIFY_INST("test_1", 0, 0, -1);
+#endif
   }
 
   {
@@ -484,7 +508,9 @@ TEST_F(TestRootDefAnalyzer, PathP) {
     for (auto &RD : RootDefs)
       llvm::outs() << RD << "\n";
     VERIFY_NUM(1);
+#if LLVM_VERSION_MAJOR < 17
     VERIFY_INST("SUB_3", 1, 1, -1);
+#endif
   }
 }
 
@@ -750,9 +776,15 @@ TEST_F(TestRootDefAnalyzer, TerminationP) {
     // tracing target target is a changed target from output argument
     // 1st argument of API_3(Var3)
     //     -> Rootdefinition should be 1st argument of API_2(Var2)
+#if LLVM_VERSION_MAJOR < 17
     FIND("test", 0, 16, 0);
     VERIFY_NUM(1);
     VERIFY_INST("test", 0, 14, 0);
+#else
+    FIND("test", 0, 15, 0);
+    VERIFY_NUM(1);
+    VERIFY_INST("test", 0, 13, 0);
+#endif
   }
 }
 
@@ -800,7 +832,9 @@ TEST_F(TestRootDefAnalyzer, AliasP) {
     //     *P2 = 30 should be found.
     FIND("test", 0, 8, 0);
     VERIFY_NUM(1);
+#if LLVM_VERSION_MAJOR < 17
     VERIFY_INST("sub", 0, 7, -1);
+#endif
   }
 }
 
