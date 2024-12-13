@@ -159,14 +159,14 @@ private:
 
       if (!isa<ConstantInt>(Index)) {
         llvm::outs() << "Unexpected Memory Access Instruction: " << V << "\n";
-        assert(false && "Unexpected Program State");
+        return MemoryIndices;
       }
 
       auto &CI = *dyn_cast<ConstantInt>(Index);
       auto RealValue = CI.getZExtValue();
       if (RealValue != 0) {
         llvm::outs() << "Unexpected Memory Access Instruction: " << V << "\n";
-        assert(false && "Unexpected Program State");
+        return MemoryIndices;
       }
 
       GEPIndices.erase(GEPIndices.begin());

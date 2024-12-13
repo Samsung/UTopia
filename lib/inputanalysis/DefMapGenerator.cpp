@@ -206,7 +206,8 @@ DefMapGenerator::generateType(ASTDefNode &Node,
     return nullptr;
 
   const auto &T = AN->getType();
-  assert((T.getTypePtrOrNull() != nullptr) && "Unexpected Program State");
+  if (T.getTypePtrOrNull() == nullptr)
+    llvm::outs() << "[E] Unexpected T.getTypePtrOrNull(): " << T << "\n";
 
   auto &Ctx = AN->getASTUnit().getASTContext();
   if (T->isVoidPointerType()) {

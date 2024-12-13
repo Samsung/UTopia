@@ -404,8 +404,8 @@ std::set<RDNode> RDAnalyzer::handleRegister(RDNode &Node, CallBase &CB) {
   const auto *CF = util::getCalledFunction(CB);
   bool Revisited = CF ? Node.isVisit(*CF) : false;
   auto Result = handleRegisterInternal(Node, CB);
-  if (!Revisited)
-    assert(!Result.empty() && "Unexpected Program States");
+  if (!Revisited && Result.empty())
+    llvm::outs() << "[E] Unexpected !Revisited && Result.empty()\n";
   return Result;
 }
 
