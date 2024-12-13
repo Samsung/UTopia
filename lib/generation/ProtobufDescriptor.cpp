@@ -141,7 +141,7 @@ ProtobufDescriptor::addFieldToDescriptorEnumType(
           ElemVal == 0 && EnumDesc->value(0).name() == EnumName + "_UNKNOWN"
               ? EnumDesc->mutable_value(0)
               : EnumDesc->add_value();
-      ValDesc->set_name(EnumName + "_" + EnumVal.getName());
+      ValDesc->set_name(EnumName + "_" + EnumVal.getName() + "_ENUM");
       ValDesc->set_number(ElemVal);
       auto Result = EnumValues.insert(ElemVal);
       if (!Result.second)
