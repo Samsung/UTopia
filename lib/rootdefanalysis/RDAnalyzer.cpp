@@ -115,10 +115,10 @@ std::set<RDNode> RDAnalyzer::traverseFunction(RDNode &Node, Function &F,
   }
 
   std::set<RDNode> Result, Continue;
-  if (Prevs.size() == 0) {
-    Node.setIdx(-1);
-    Continue.insert(Node);
-  }
+  // if (Prevs.size() == 0) {
+  //   Node.setIdx(-1);
+  //   Continue.insert(Node);
+  // }
 
   for (const auto &Prev : Prevs) {
     for (const auto &NextNode : trace(*const_cast<RDNode *>(&Prev))) {
