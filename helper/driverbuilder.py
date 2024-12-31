@@ -169,8 +169,9 @@ class FuzzerBuilder:
         cmd_profile = "-fprofile-instr-generate -fcoverage-mapping"
 
         name = Path(name)
-        assert name in self.link_cmds
-        link_cmd = copy.copy(self.link_cmds[name])
+        link_cmds = [x for x in self.link_cmds if str(x).endswith(str(name))]
+        assert len(link_cmds) == 1
+        link_cmd = copy.copy(self.link_cmds[link_cmds[0]])
 
         output_dir = self.bp.output_dir
         cmd = link_cmd.cmd
