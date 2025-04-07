@@ -34,6 +34,11 @@ docker buildx build --build-arg LLVM_VERSION=12 -f docker/Dockerfile -t utopia .
 *UTopia* depends on LLVM, Protobuf and GoogleTest. You can install dependencies manually, but we recommend to use given
 docker image.
 
+After cloning the repository, initialise and update all submodules:
+```shell
+git submodule update --init --recursive
+```
+
 To build *UTopia*, follow cmake process below.
 
 ```shell
